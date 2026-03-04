@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet,
   ActivityIndicator, Modal, KeyboardAvoidingView, Platform,
@@ -10,29 +10,33 @@ import { useApp } from '../context/AppContext';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 
-// ─── Config ──────────────────────────────────────────────────────────────────
+// ─── Static stock data ────────────────────────────────────────────────────────
 
-const FMP_STABLE     = 'https://financialmodelingprep.com/stable';
-const FMP_BASE       = 'https://financialmodelingprep.com/api/v3';
-const FMP_KEY        = process.env.EXPO_PUBLIC_FMP_API_KEY;
-const ANTHROPIC_KEY  = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
-const CLAUDE_MODEL   = 'claude-sonnet-4-20250514';
-const REFRESH_MS     = 60_000;
-const SEARCH_DEBOUNCE_MS = 500;
+const STOCKS = [
+  { symbol: 'NVDA', name: 'NVIDIA',      price: 881,   changePercent:  2.1, exchange: 'NASDAQ' },
+  { symbol: 'AAPL', name: 'Apple',       price: 228,   changePercent:  0.8, exchange: 'NASDAQ' },
+  { symbol: 'TSLA', name: 'Tesla',       price: 175,   changePercent: -1.2, exchange: 'NASDAQ' },
+  { symbol: 'MSFT', name: 'Microsoft',   price: 415,   changePercent:  0.5, exchange: 'NASDAQ' },
+  { symbol: 'AMZN', name: 'Amazon',      price: 198,   changePercent:  1.3, exchange: 'NASDAQ' },
+  { symbol: 'META', name: 'Meta',        price: 589,   changePercent:  3.2, exchange: 'NASDAQ' },
+  { symbol: 'GOOG', name: 'Alphabet',    price: 175,   changePercent:  0.9, exchange: 'NASDAQ' },
+  { symbol: 'IAG',  name: 'Iberia',      price: 2.41,  changePercent:  1.8, exchange: 'BME'    },
+  { symbol: 'SAN',  name: 'Santander',   price: 4.82,  changePercent:  0.4, exchange: 'BME'    },
+  { symbol: 'ITX',  name: 'Inditex',     price: 52.30, changePercent:  1.1, exchange: 'BME'    },
+  { symbol: 'GOLD', name: 'Oro',         price: 2340,  changePercent:  0.6, exchange: 'CMDTY'  },
+  { symbol: 'BTC',  name: 'Bitcoin',     price: 87500, changePercent:  2.4, exchange: 'CRYPTO' },
+];
 
-// ─── FMP API ─────────────────────────────────────────────────────────────────
+const RISK_FILTERS = {
+  Conservador: (s) => Math.abs(s.changePercent) <= 3,
+  Moderado:    (s) => Math.abs(s.changePercent) <= 8,
+  Atrevido:    () => true,
+};
 
-async function fmpGet(path, { stable = false } = {}) {
-  const base = stable ? FMP_STABLE : FMP_BASE;
-  const sep  = path.includes('?') ? '&' : '?';
-  const res  = await fetch(`${base}${path}${sep}apikey=${FMP_KEY}`);
-  if (!res.ok) throw new Error(`FMP HTTP ${res.status}`);
-  const data = await res.json();
-  if (data?.['Error Message']) throw new Error(data['Error Message']);
-  return data;
-}
+// ─── Anthropic chat ───────────────────────────────────────────────────────────
 
-// ─── Anthropic API ───────────────────────────────────────────────────────────
+const ANTHROPIC_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
+const CLAUDE_MODEL  = 'claude-sonnet-4-20250514';
 
 async function callClaude(system, messages, maxTokens = 150) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -62,33 +66,10 @@ async function generateTip(symbol, name, price, changePct) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Tip API failed');
-  return data; // { indicator, tip }
+  return data;
 }
 
-// ─── Data helpers ─────────────────────────────────────────────────────────────
-
-const toArray = (d) => {
-  if (Array.isArray(d)) return d;
-  if (d && typeof d === 'object') { const v = Object.values(d).find(Array.isArray); if (v) return v; }
-  return [];
-};
-
-const normalizeStock = (item) => ({
-  symbol:        item.symbol ?? '',
-  name:          item.name ?? item.companyName ?? '',
-  price:         Number(item.price ?? 0),
-  changePercent: Number(item.changesPercentage ?? item.changePercentage ?? item.change ?? 0),
-  exchange:      item.exchange ?? item.exchangeShortName ?? '',
-});
-
-const isValidStock = (s) => s.price > 1 && /^[A-Z]{1,5}$/.test(s.symbol) && s.name.length > 0;
-
-const buildFeed = (actives, gainers) => {
-  const seen = new Set();
-  return [...toArray(actives), ...toArray(gainers)]
-    .map(normalizeStock)
-    .filter((s) => { if (seen.has(s.symbol) || !isValidStock(s)) return false; seen.add(s.symbol); return true; });
-};
+// ─── Formatters ───────────────────────────────────────────────────────────────
 
 const fmtPrice  = (n) => `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtChange = (n) => { const v = Number(n); return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`; };
@@ -103,8 +84,8 @@ const INDICATOR_LABELS = { '🟢': 'Interesante', '🟡': 'Neutral', '🔴': 'Ev
 // ─── Chat Modal ───────────────────────────────────────────────────────────────
 
 function ChatModal({ visible, stock, onClose }) {
-  const [msgs, setMsgs]   = useState([]);
-  const [input, setInput] = useState('');
+  const [msgs, setMsgs]     = useState([]);
+  const [input, setInput]   = useState('');
   const [typing, setTyping] = useState(false);
   const scrollRef = useRef(null);
 
@@ -219,7 +200,7 @@ function InvestModal({ visible, stock, onClose, onConfirm }) {
   );
 }
 
-// ─── Stock Card (full-screen swipe card) ─────────────────────────────────────
+// ─── Stock Card ───────────────────────────────────────────────────────────────
 
 function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
   const up = stock.changePercent >= 0;
@@ -231,7 +212,6 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
         colors={up ? ['#FFFBF6', '#F0FDF4'] : ['#FFFBF6', '#FFF1F2']}
         style={card.container}
       >
-        {/* Ticker + name */}
         <View style={card.top}>
           <Text style={card.ticker}>{stock.symbol}</Text>
           <Text style={card.name} numberOfLines={2}>{stock.name}</Text>
@@ -240,7 +220,6 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
           ) : null}
         </View>
 
-        {/* Price + change */}
         <View style={card.priceRow}>
           <Text style={card.price}>{fmtPrice(stock.price)}</Text>
           <View style={[card.changePill, { backgroundColor: up ? C.greenBg : C.redBg }]}>
@@ -250,7 +229,6 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
           </View>
         </View>
 
-        {/* AI tip */}
         <View style={card.tipCard}>
           {tipLoading ? (
             <View style={card.tipRow}>
@@ -274,7 +252,6 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
 
         <Text style={card.swipeHint}>↕ desliza para ver más</Text>
 
-        {/* Buttons */}
         <View style={card.buttons}>
           <TouchableOpacity style={card.btnSecondary} onPress={onSaberMas} activeOpacity={0.8}>
             <Text style={card.btnSecondaryTxt}>💬 Saber más</Text>
@@ -288,87 +265,37 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
   );
 }
 
-// ─── Search result row ────────────────────────────────────────────────────────
-
-function SearchRow({ item }) {
-  const up = Number(item.changesPercentage ?? 0) >= 0;
-  return (
-    <View style={s.resultRow}>
-      <View style={{ flex: 1 }}>
-        <Text style={s.resultTicker}>{item.symbol}</Text>
-        <Text style={s.resultName} numberOfLines={1}>{item.name}</Text>
-        {item.stockExchange ? <Text style={s.resultExchange}>{item.stockExchange}</Text> : null}
-      </View>
-      {item.price != null && (
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={s.resultPrice}>{fmtPrice(item.price)}</Text>
-          {item.changesPercentage != null && (
-            <Text style={[s.resultChange, { color: up ? C.green : C.red }]}>{fmtChange(item.changesPercentage)}</Text>
-          )}
-        </View>
-      )}
-    </View>
-  );
-}
-
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function DiscoverScreen() {
-  const { balance, investedAmount, addToPortfolio } = useApp();
+  const { balance, investedAmount, addToPortfolio, riskProfile } = useApp();
   const { height: windowHeight } = useWindowDimensions();
   const freeBalance = balance - investedAmount;
 
-  // Feed
-  const [stocks, setStocks]           = useState([]);
-  const [feedLoading, setFeedLoading] = useState(true);
-  const [feedError, setFeedError]     = useState(null);
-  const stocksRef = useRef([]);
+  // Filter static feed by risk profile
+  const filterFn = RISK_FILTERS[riskProfile] ?? RISK_FILTERS.Moderado;
+  const feed = STOCKS.filter(filterFn);
 
-  // AI tips — use refs as guards, state for display
-  const [tips, setTips]               = useState({});
-  const [tipLoading, setTipLoading]   = useState({});
-  const generatingRef = useRef(new Set());
+  const stocksRef = useRef(feed);
+  useEffect(() => { stocksRef.current = feed; }, [riskProfile]);
 
   // Card height
   const [cardHeight, setCardHeight] = useState(windowHeight - 160);
 
-  // Search
-  const [query, setQuery]                 = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const debounceRef = useRef(null);
+  // Local search — filters STOCKS array, no API calls
+  const [query, setQuery] = useState('');
+  const searchResults = query.trim()
+    ? STOCKS.filter((s) => {
+        const q = query.trim().toLowerCase();
+        return s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q);
+      })
+    : [];
 
-  // Modals & toasts
-  const [chatStock, setChatStock]       = useState(null);
-  const [investStock, setInvestStock]   = useState(null);
-  const [toast, setToast]               = useState(null);
+  // AI tips
+  const [tips, setTips]             = useState({});
+  const [tipLoading, setTipLoading] = useState({});
+  const generatingRef = useRef(new Set());
 
-  // ── Fetch feed ──────────────────────────────────────────────────────────────
-  const fetchFeed = useCallback(async () => {
-    try {
-      const [a, g] = await Promise.all([
-        fmpGet('/most-actives',    { stable: true }),
-        fmpGet('/biggest-gainers', { stable: true }),
-      ]);
-      const combined = buildFeed(a, g);
-      setStocks(combined);
-      stocksRef.current = combined;
-      setFeedError(null);
-    } catch (err) {
-      console.error('[FMP] feed failed:', err.message);
-      setFeedError('No se pudo cargar el mercado.');
-    } finally {
-      setFeedLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchFeed();
-    const t = setInterval(fetchFeed, REFRESH_MS);
-    return () => clearInterval(t);
-  }, [fetchFeed]);
-
-  // ── Generate AI tip ─────────────────────────────────────────────────────────
   const ensureTip = useCallback(async (stock) => {
     const { symbol, name, price, changePercent } = stock;
     if (generatingRef.current.has(symbol)) return;
@@ -379,7 +306,7 @@ export default function DiscoverScreen() {
       setTips((p) => ({ ...p, [symbol]: { indicator, text } }));
     } catch (err) {
       console.error('[Claude] tip failed for', symbol, ':', err.message);
-      generatingRef.current.delete(symbol); // allow retry
+      generatingRef.current.delete(symbol);
     } finally {
       setTipLoading((p) => ({ ...p, [symbol]: false }));
     }
@@ -389,32 +316,17 @@ export default function DiscoverScreen() {
     viewableItems.forEach(({ item, index }) => {
       ensureTip(item);
       const next = stocksRef.current[index + 1];
-      if (next) ensureTip(next); // pre-fetch next card
+      if (next) ensureTip(next);
     });
   }, [ensureTip]);
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 });
 
-  // ── Debounced search ────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    const q = query.trim();
-    if (!q) { setSearchResults([]); return; }
-    debounceRef.current = setTimeout(async () => {
-      setSearchLoading(true);
-      try {
-        const res = await fmpGet(`/search?query=${encodeURIComponent(q)}`);
-        setSearchResults(Array.isArray(res) ? res.slice(0, 25) : []);
-      } catch (err) {
-        console.error('[FMP] search failed:', err.message);
-      } finally {
-        setSearchLoading(false);
-      }
-    }, SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(debounceRef.current);
-  }, [query]);
+  // Modals & toasts
+  const [chatStock, setChatStock]     = useState(null);
+  const [investStock, setInvestStock] = useState(null);
+  const [toast, setToast]             = useState(null);
 
-  // ── Invest ──────────────────────────────────────────────────────────────────
   const handleInvest = (amount) => {
     addToPortfolio({ ...investStock, recommended: amount });
     const sym = investStock.symbol;
@@ -451,49 +363,41 @@ export default function DiscoverScreen() {
         {/* Toast */}
         {toast && <View style={s.toast}><Text style={s.toastTxt}>{toast}</Text></View>}
 
-        {/* Body */}
         {isSearching ? (
-          /* ── Search results ── */
-          <View style={{ flex: 1 }}>
-            {searchLoading
-              ? <ActivityIndicator style={{ marginTop: 40 }} color={C.orange} />
-              : <FlatList
-                  data={searchResults}
-                  keyExtractor={(item, i) => `${item.symbol}-${i}`}
-                  contentContainerStyle={s.searchList}
-                  showsVerticalScrollIndicator={false}
-                  renderItem={({ item }) => <SearchRow item={item} />}
-                  ItemSeparatorComponent={() => <View style={s.separator} />}
-                  ListEmptyComponent={<Text style={s.emptyTxt}>Sin resultados para "{query}"</Text>}
-                />
-            }
-          </View>
-
-        ) : feedLoading ? (
-          /* ── Loading ── */
-          <View style={s.center}>
-            <ActivityIndicator color={C.orange} size="large" />
-            <Text style={s.loadingTxt}>Cargando mercado…</Text>
-          </View>
-
-        ) : feedError ? (
-          /* ── Error ── */
-          <View style={s.center}>
-            <Text style={s.errorTxt}>{feedError}</Text>
-            <TouchableOpacity style={s.retryBtn} onPress={fetchFeed} activeOpacity={0.8}>
-              <Text style={s.retryTxt}>Reintentar</Text>
-            </TouchableOpacity>
-          </View>
-
+          /* ── Local search results ── */
+          <FlatList
+            data={searchResults}
+            keyExtractor={(item) => item.symbol}
+            contentContainerStyle={s.searchList}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => {
+              const up = item.changePercent >= 0;
+              return (
+                <View style={s.resultRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.resultTicker}>{item.symbol}</Text>
+                    <Text style={s.resultName} numberOfLines={1}>{item.name}</Text>
+                    {item.exchange ? <Text style={s.resultExchange}>{item.exchange}</Text> : null}
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={s.resultPrice}>{fmtPrice(item.price)}</Text>
+                    <Text style={[s.resultChange, { color: up ? C.green : C.red }]}>{fmtChange(item.changePercent)}</Text>
+                  </View>
+                </View>
+              );
+            }}
+            ItemSeparatorComponent={() => <View style={s.separator} />}
+            ListEmptyComponent={<Text style={s.emptyTxt}>Sin resultados para "{query}"</Text>}
+          />
         ) : (
-          /* ── TikTok feed ── */
+          /* ── Stock card feed ── */
           <View
             style={{ flex: 1 }}
             onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}
           >
             {cardHeight > 0 && (
               <FlatList
-                data={stocks}
+                data={feed}
                 keyExtractor={(item) => item.symbol}
                 pagingEnabled
                 showsVerticalScrollIndicator={false}
@@ -528,7 +432,6 @@ export default function DiscoverScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-// Stock card
 const card = StyleSheet.create({
   container: {
     flex: 1, paddingHorizontal: 28, paddingTop: 32, paddingBottom: 28,
@@ -571,7 +474,6 @@ const card = StyleSheet.create({
   btnPrimaryTxt: { fontSize: 15, fontFamily: F.semibold, color: '#FFF' },
 });
 
-// Chat modal
 const cm = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   header: {
@@ -584,7 +486,7 @@ const cm = StyleSheet.create({
   closeTxt:  { fontSize: 16, color: C.muted },
   msgs:      { flex: 1, paddingHorizontal: 20 },
   bubble:    { borderRadius: 16, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 8, maxWidth: '82%' },
-  bubbleBot: { alignSelf: 'flex-start', backgroundColor: C.bgAlt, borderRadius: 16, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: C.border, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 8, maxWidth: '82%' },
+  bubbleBot: { alignSelf: 'flex-start', backgroundColor: C.bgAlt ?? C.card, borderRadius: 16, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: C.border, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 8, maxWidth: '82%' },
   bubbleUser: { alignSelf: 'flex-end', backgroundColor: C.orange, borderRadius: 16, borderBottomRightRadius: 4, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 8, maxWidth: '82%' },
   bubbleTxt: { fontSize: 14, lineHeight: 21, fontFamily: F.regular },
   bubbleTxtBot:  { color: C.text },
@@ -603,7 +505,6 @@ const cm = StyleSheet.create({
   sendTxt:  { fontSize: 18, color: '#FFF', fontFamily: F.bold },
 });
 
-// Invest modal
 const im = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: {
@@ -636,9 +537,8 @@ const im = StyleSheet.create({
   cancelTxt:  { fontSize: 14, fontFamily: F.medium, color: C.muted },
 });
 
-// Screen
 const s = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: C.bg },
+  container: { flex: 1, backgroundColor: C.bg },
   searchWrapper: {
     flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginTop: 12, marginBottom: 8,
     backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 14,
@@ -651,14 +551,9 @@ const s = StyleSheet.create({
     marginHorizontal: 20, marginBottom: 8, backgroundColor: C.text,
     borderRadius: 14, paddingVertical: 12, paddingHorizontal: 20, alignItems: 'center',
   },
-  toastTxt:    { fontSize: 13, fontFamily: F.semibold, color: '#FFF' },
-  center:      { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  loadingTxt:  { fontSize: 14, fontFamily: F.regular, color: C.muted, marginTop: 16 },
-  errorTxt:    { fontSize: 15, fontFamily: F.medium, color: C.sub, textAlign: 'center', marginBottom: 20 },
-  retryBtn:    { backgroundColor: C.orange, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 32 },
-  retryTxt:    { fontSize: 14, fontFamily: F.semibold, color: '#FFF' },
-  searchList:  { paddingHorizontal: 20, paddingTop: 4 },
-  resultRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
+  toastTxt:      { fontSize: 13, fontFamily: F.semibold, color: '#FFF' },
+  searchList:    { paddingHorizontal: 20, paddingTop: 4 },
+  resultRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
   resultTicker:  { fontSize: 15, fontFamily: F.bold, color: C.text },
   resultName:    { fontSize: 13, fontFamily: F.regular, color: C.sub, marginTop: 1 },
   resultExchange:{ fontSize: 11, fontFamily: F.regular, color: C.muted, marginTop: 2 },

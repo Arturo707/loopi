@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Skill(claude-developer-platform)",
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "WebFetch(domain:expo.dev)"
     ]
   }
 }

@@ -9,7 +9,7 @@ import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 
 export default function DashboardScreen({ navigation }) {
-  const { balance, investedAmount } = useApp();
+  const { balance, investedAmount, riskProfile, setRiskProfile } = useApp();
   const { user, signOutUser } = useAuth();
   const freeBalance = balance - investedAmount;
   const firstName = user?.displayName?.split(' ')[0] || 'Inversor';
@@ -92,19 +92,27 @@ export default function DashboardScreen({ navigation }) {
           <View style={s.section}>
             <Text style={s.sectionLabel}>TU PERFIL DE RIESGO</Text>
             <View style={s.riskCard}>
-              {['Conservador', 'Moderado', 'Atrevido'].map((label, i) => (
-                <TouchableOpacity key={label} style={s.riskRow} activeOpacity={0.7}>
-                  <View style={[s.radio, i === 1 ? s.radioActive : s.radioInactive]} />
-                  <Text style={[s.riskLabel, i === 1 ? s.riskLabelActive : s.riskLabelFaded]}>
-                    {label}
-                  </Text>
-                  {i === 1 && (
-                    <View style={s.riskBadge}>
-                      <Text style={s.riskBadgeText}>Seleccionado</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
+              {['Conservador', 'Moderado', 'Atrevido'].map((label) => {
+                const active = label === riskProfile;
+                return (
+                  <TouchableOpacity
+                    key={label}
+                    style={s.riskRow}
+                    activeOpacity={0.7}
+                    onPress={() => setRiskProfile(label)}
+                  >
+                    <View style={[s.radio, active ? s.radioActive : s.radioInactive]} />
+                    <Text style={[s.riskLabel, active ? s.riskLabelActive : s.riskLabelFaded]}>
+                      {label}
+                    </Text>
+                    {active && (
+                      <View style={s.riskBadge}>
+                        <Text style={s.riskBadgeText}>Seleccionado</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 
