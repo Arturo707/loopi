@@ -20,7 +20,7 @@ const ERROR_MESSAGES = {
 };
 
 export default function LoginScreen() {
-  const { signInWithEmail, registerWithEmail, resetPassword, signInWithGoogle, authError } = useAuth();
+  const { signInWithEmail, registerWithEmail, resetPassword } = useAuth();
 
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [email, setEmail] = useState('');
@@ -47,8 +47,6 @@ export default function LoginScreen() {
     }
   };
 
-  const displayError = error || authError;
-
   const handleSubmit = async () => {
     setError(null);
     if (!email.trim() || !password) {
@@ -62,24 +60,12 @@ export default function LoginScreen() {
       } else {
         await registerWithEmail(email.trim(), password);
       }
-      // onAuthStateChanged in AuthContext + SplashScreen handle navigation
+      // AuthContext.user updates → RootNavigator renders correct screen automatically
     } catch (err) {
       setError(ERROR_MESSAGES[err.code] ?? `Error: ${err.code}`);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogle = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      await signInWithGoogle();
-    } catch (err) {
-      setError(ERROR_MESSAGES[err.code] ?? `Error: ${err.code}`);
-      setLoading(false);
-    }
-    // on web, page navigates away — no finally needed
   };
 
   return (
@@ -105,7 +91,7 @@ export default function LoginScreen() {
             <View style={s.toggle}>
               <TouchableOpacity
                 style={[s.toggleBtn, mode === 'login' && s.toggleBtnActive]}
-                onPress={() => { setMode('login'); setError(null); }}
+                onPress={() => { setMode('login'); setError(null); setResetSent(false); }}
               >
                 <Text style={[s.toggleText, mode === 'login' && s.toggleTextActive]}>
                   Iniciar sesión
@@ -113,7 +99,7 @@ export default function LoginScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[s.toggleBtn, mode === 'register' && s.toggleBtnActive]}
-                onPress={() => { setMode('register'); setError(null); }}
+                onPress={() => { setMode('register'); setError(null); setResetSent(false); }}
               >
                 <Text style={[s.toggleText, mode === 'register' && s.toggleTextActive]}>
                   Registrarse
@@ -143,8 +129,8 @@ export default function LoginScreen() {
               editable={!loading}
             />
 
-            {displayError && (
-              <Text style={s.errorText}>{displayError}</Text>
+            {error && (
+              <Text style={s.errorText}>{error}</Text>
             )}
             {resetSent && (
               <Text style={s.successText}>
@@ -177,24 +163,6 @@ export default function LoginScreen() {
                 <Text style={s.resetLinkText}>¿Olvidaste tu contraseña?</Text>
               </TouchableOpacity>
             )}
-
-            {/* Divider */}
-            <View style={s.divider}>
-              <View style={s.dividerLine} />
-              <Text style={s.dividerText}>o</Text>
-              <View style={s.dividerLine} />
-            </View>
-
-            {/* Google (secondary) */}
-            <TouchableOpacity
-              style={[s.googleBtn, loading && { opacity: 0.7 }]}
-              onPress={handleGoogle}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              <Text style={s.googleIcon}>G</Text>
-              <Text style={s.googleBtnText}>Continuar con Google</Text>
-            </TouchableOpacity>
           </View>
 
           <Text style={s.terms}>
@@ -292,25 +260,6 @@ const s = StyleSheet.create({
     color: C.green, fontFamily: F.medium, fontSize: 13,
     textAlign: 'center', marginBottom: 10,
   },
-
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: C.border },
-  dividerText: { marginHorizontal: 12, color: C.muted, fontFamily: F.medium, fontSize: 13 },
-
-  googleBtn: {
-    backgroundColor: C.card,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  googleIcon: { fontSize: 16, fontFamily: F.xbold, color: '#4285F4' },
-  googleBtnText: { fontSize: 15, color: C.text, fontFamily: F.medium },
 
   terms: {
     fontSize: 11, color: C.muted, fontFamily: F.regular,

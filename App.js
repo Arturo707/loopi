@@ -1,6 +1,6 @@
 import "./global.css";
-import React from 'react';
-import { Text, View, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -88,22 +88,30 @@ function MainTabs() {
 }
 
 function RootNavigator() {
-  const { authLoading } = useAuth();
+  const { user, authLoading, bankConnected } = useAuth();
+  const [splashDone, setSplashDone] = useState(false);
 
-  if (authLoading) {
+  // Show splash until both the 1800ms animation AND Firebase auth check complete
+  if (!splashDone) {
     return (
-      <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={C.orange} size="large" />
-      </View>
+      <SplashScreen
+        authLoading={authLoading}
+        onDone={() => setSplashDone(true)}
+      />
     );
   }
 
+  // Conditional navigator — React Navigation automatically transitions between
+  // screens as user/bankConnected state changes. No manual navigation.replace() needed.
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-      <Stack.Screen name="Splash" component={SplashScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="ConnectBank" component={ConnectBankScreen} />
-      <Stack.Screen name="Main" component={MainTabs} />
+      {!user ? (
+        <Stack.Screen name="Login" component={LoginScreen} />
+      ) : !bankConnected ? (
+        <Stack.Screen name="ConnectBank" component={ConnectBankScreen} />
+      ) : (
+        <Stack.Screen name="Main" component={MainTabs} />
+      )}
     </Stack.Navigator>
   );
 }

@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 
 // ─────────────────────────────────────────────────────────────
 //  TODO: Replace these with your Firebase project credentials.
@@ -33,4 +33,3 @@ if (missing.length) {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();

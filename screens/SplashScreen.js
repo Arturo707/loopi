@@ -1,34 +1,27 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Animated, StyleSheet } from 'react-native';
-import { useAuth } from '../context/AuthContext';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 
-export default function SplashScreen({ navigation }) {
-  const { user, authLoading, bankConnected } = useAuth();
+export default function SplashScreen({ authLoading, onDone }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
+  const [timerDone, setTimerDone] = useState(false);
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
       Animated.spring(scaleAnim, { toValue: 1, friction: 6, useNativeDriver: true }),
     ]).start();
+
+    const timer = setTimeout(() => setTimerDone(true), 1800);
+    return () => clearTimeout(timer);
   }, []);
 
+  // Call onDone only when both the animation timer AND auth check are done
   useEffect(() => {
-    if (authLoading) return;
-    const timer = setTimeout(() => {
-      if (user && bankConnected) {
-        navigation.replace('Main');
-      } else if (user && !bankConnected) {
-        navigation.replace('ConnectBank');
-      } else {
-        navigation.replace('Login');
-      }
-    }, 1800);
-    return () => clearTimeout(timer);
-  }, [authLoading, user, bankConnected]);
+    if (timerDone && !authLoading) onDone?.();
+  }, [timerDone, authLoading]);
 
   return (
     <View style={s.container}>
