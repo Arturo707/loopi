@@ -54,9 +54,14 @@ async function callClaude(system, messages, maxTokens = 150) {
   return data.content[0].text.trim();
 }
 
-const TIP_API = typeof window !== 'undefined' && window.location
-  ? `${window.location.origin}/api/generate-tip`
-  : '/api/generate-tip';
+// EXPO_PUBLIC_API_URL must be set to the absolute Vercel URL when running on native
+// (e.g. https://your-project.vercel.app). On web it falls back to the current origin.
+const API_BASE =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : '');
+const TIP_API = `${API_BASE}/api/generate-tip`;
 
 async function generateTip(symbol, name, price, changePct) {
   const res = await fetch(TIP_API, {
@@ -311,6 +316,12 @@ export default function DiscoverScreen() {
       setTipLoading((p) => ({ ...p, [symbol]: false }));
     }
   }, []);
+
+  // Seed tips for the first two cards on mount — onViewableItemsChanged doesn't fire on initial render
+  useEffect(() => {
+    if (feed.length > 0) ensureTip(feed[0]);
+    if (feed.length > 1) ensureTip(feed[1]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onViewableItemsChanged = useCallback(({ viewableItems }) => {
     viewableItems.forEach(({ item, index }) => {
