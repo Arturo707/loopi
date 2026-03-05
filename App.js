@@ -21,6 +21,7 @@ import { F } from './constants/fonts';
 import SplashScreen from './screens/SplashScreen';
 import LoginScreen from './screens/LoginScreen';
 import ConnectBankScreen from './screens/ConnectBankScreen';
+import OnboardingScreen from './screens/OnboardingScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import DiscoverScreen from './screens/DiscoverScreen';
 import PortfolioScreen from './screens/PortfolioScreen';
@@ -88,7 +89,7 @@ function MainTabs() {
 }
 
 function RootNavigator() {
-  const { user, authLoading, bankConnected } = useAuth();
+  const { user, authLoading, bankConnected, onboardingDone } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
 
   // Show splash until both the 1800ms animation AND Firebase auth check complete
@@ -109,6 +110,8 @@ function RootNavigator() {
         <Stack.Screen name="Login" component={LoginScreen} />
       ) : !bankConnected ? (
         <Stack.Screen name="ConnectBank" component={ConnectBankScreen} />
+      ) : !onboardingDone ? (
+        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       ) : (
         <Stack.Screen name="Main" component={MainTabs} />
       )}

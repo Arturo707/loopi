@@ -10,28 +10,31 @@ import {
   signOut,
 } from 'firebase/auth';
 
-const BANK_KEY = 'loopi_bankConnected';
-const loadLocal = () => { try { return localStorage.getItem(BANK_KEY) === 'true'; } catch { return false; } };
-const saveLocal = (val) => { try { val ? localStorage.setItem(BANK_KEY, 'true') : localStorage.removeItem(BANK_KEY); } catch {} };
+// ── localStorage helpers (web only) ──────────────────────────────────────────
+const ls = {
+  get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { v ? localStorage.setItem(k, 'true') : localStorage.removeItem(k); } catch {} },
+};
+const KEYS = { bank: 'loopi_bankConnected', onboarding: 'loopi_onboardingDone' };
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser]             = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [bankConnected, setBankConnectedState] = useState(
-    Platform.OS === 'web' ? loadLocal() : false
-  );
+  const [bankConnected, setBankConnectedState]       = useState(Platform.OS === 'web' ? ls.get(KEYS.bank) === 'true' : false);
+  const [onboardingDone, setOnboardingDoneState]     = useState(Platform.OS === 'web' ? ls.get(KEYS.onboarding) === 'true' : false);
 
-  const setBankConnected = (val) => {
-    setBankConnectedState(val);
-    if (Platform.OS === 'web') saveLocal(val);
-    // Also persist to Firestore so other devices see the state
+  // Persist a boolean flag to both localStorage and Firestore
+  const persist = (field, localKey, setter) => (val) => {
+    setter(val);
+    if (Platform.OS === 'web') ls.set(localKey, val);
     const uid = auth.currentUser?.uid;
-    if (uid) {
-      setDoc(doc(db, 'users', uid), { bankConnected: val }, { merge: true }).catch(() => {});
-    }
+    if (uid) setDoc(doc(db, 'users', uid), { [field]: val }, { merge: true }).catch(() => {});
   };
+
+  const setBankConnected   = persist('bankConnected',   KEYS.bank,        setBankConnectedState);
+  const setOnboardingDone  = persist('onboardingDone',  KEYS.onboarding,  setOnboardingDoneState);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -40,48 +43,48 @@ export function AuthProvider({ children }) {
 
       if (!firebaseUser) {
         setBankConnectedState(false);
-        if (Platform.OS === 'web') saveLocal(false);
+        setOnboardingDoneState(false);
+        if (Platform.OS === 'web') { ls.set(KEYS.bank, false); ls.set(KEYS.onboarding, false); }
         return;
       }
 
-      // Load bankConnected from Firestore (authoritative, cross-device)
+      // Authoritative cross-device state from Firestore
       try {
         const snap = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (snap.exists() && snap.data().bankConnected === true) {
-          setBankConnectedState(true);
-          if (Platform.OS === 'web') saveLocal(true);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.bankConnected === true) {
+            setBankConnectedState(true);
+            if (Platform.OS === 'web') ls.set(KEYS.bank, true);
+          }
+          if (data.onboardingDone === true) {
+            setOnboardingDoneState(true);
+            if (Platform.OS === 'web') ls.set(KEYS.onboarding, true);
+          }
         }
       } catch (err) {
-        console.warn('[Auth] Failed to load bankConnected from Firestore:', err.message);
+        console.warn('[Auth] Firestore load failed:', err.message);
       }
     });
     return unsubscribe;
   }, []);
 
-  const signInWithEmail = async (email, password) => {
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    return result.user;
-  };
-
-  const registerWithEmail = async (email, password) => {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    return result.user;
-  };
-
-  const resetPassword = async (email) => {
-    await sendPasswordResetEmail(auth, email);
-  };
+  const signInWithEmail    = (email, password) => signInWithEmailAndPassword(auth, email, password).then(r => r.user);
+  const registerWithEmail  = (email, password) => createUserWithEmailAndPassword(auth, email, password).then(r => r.user);
+  const resetPassword      = (email)            => sendPasswordResetEmail(auth, email);
 
   const signOutUser = async () => {
     await signOut(auth);
     setBankConnectedState(false);
-    if (Platform.OS === 'web') saveLocal(false);
+    setOnboardingDoneState(false);
+    if (Platform.OS === 'web') { ls.set(KEYS.bank, false); ls.set(KEYS.onboarding, false); }
   };
 
   return (
     <AuthContext.Provider value={{
       user, authLoading,
-      bankConnected, setBankConnected,
+      bankConnected,  setBankConnected,
+      onboardingDone, setOnboardingDone,
       signInWithEmail, registerWithEmail, resetPassword, signOutUser,
     }}>
       {children}

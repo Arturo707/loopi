@@ -13,23 +13,35 @@ import { F } from '../constants/fonts';
 // ─── Static stock data ────────────────────────────────────────────────────────
 
 const STOCKS = [
-  { symbol: 'NVDA', name: 'NVIDIA',      price: 881,   changePercent:  2.1, exchange: 'NASDAQ' },
-  { symbol: 'AAPL', name: 'Apple',       price: 228,   changePercent:  0.8, exchange: 'NASDAQ' },
-  { symbol: 'TSLA', name: 'Tesla',       price: 175,   changePercent: -1.2, exchange: 'NASDAQ' },
-  { symbol: 'MSFT', name: 'Microsoft',   price: 415,   changePercent:  0.5, exchange: 'NASDAQ' },
-  { symbol: 'AMZN', name: 'Amazon',      price: 198,   changePercent:  1.3, exchange: 'NASDAQ' },
-  { symbol: 'META', name: 'Meta',        price: 589,   changePercent:  3.2, exchange: 'NASDAQ' },
-  { symbol: 'GOOG', name: 'Alphabet',    price: 175,   changePercent:  0.9, exchange: 'NASDAQ' },
-  { symbol: 'IAG',  name: 'Iberia',      price: 2.41,  changePercent:  1.8, exchange: 'BME'    },
-  { symbol: 'SAN',  name: 'Santander',   price: 4.82,  changePercent:  0.4, exchange: 'BME'    },
-  { symbol: 'ITX',  name: 'Inditex',     price: 52.30, changePercent:  1.1, exchange: 'BME'    },
-  { symbol: 'GOLD', name: 'Oro',         price: 2340,  changePercent:  0.6, exchange: 'CMDTY'  },
-  { symbol: 'BTC',  name: 'Bitcoin',     price: 87500, changePercent:  2.4, exchange: 'CRYPTO' },
+  // ETFs
+  { symbol: 'SPY',  name: 'S&P 500 ETF',          price: 523,   changePercent:  0.5, exchange: 'ETF',    type: 'ETF' },
+  { symbol: 'QQQ',  name: 'Nasdaq 100 ETF',        price: 448,   changePercent:  0.7, exchange: 'ETF',    type: 'ETF' },
+  { symbol: 'VTI',  name: 'Total Market ETF',      price: 247,   changePercent:  0.4, exchange: 'ETF',    type: 'ETF' },
+  { symbol: 'IWDA', name: 'iShares World ETF',     price: 98,    changePercent:  0.3, exchange: 'ETF',    type: 'ETF' },
+  { symbol: 'EIMI', name: 'iShares EM IMI ETF',    price: 34,    changePercent:  0.6, exchange: 'ETF',    type: 'ETF' },
+  { symbol: 'VWCE', name: 'Vanguard All-World ETF',price: 118,   changePercent:  0.4, exchange: 'ETF',    type: 'ETF' },
+  { symbol: 'CSPX', name: 'iShares S&P 500 ETF',  price: 534,   changePercent:  0.5, exchange: 'ETF',    type: 'ETF' },
+  { symbol: 'EXS1', name: 'DAX ETF',              price: 158,   changePercent:  0.8, exchange: 'ETF',    type: 'ETF' },
+  { symbol: 'GLD',  name: 'Gold ETF',              price: 225,   changePercent:  0.6, exchange: 'ETF',    type: 'ETF' },
+  { symbol: 'AGGH', name: 'Global Bonds ETF',      price: 52,    changePercent:  0.1, exchange: 'ETF',    type: 'ETF' },
+  // Stocks
+  { symbol: 'NVDA', name: 'NVIDIA',               price: 881,   changePercent:  2.1, exchange: 'NASDAQ', type: 'STOCK' },
+  { symbol: 'AAPL', name: 'Apple',                price: 228,   changePercent:  0.8, exchange: 'NASDAQ', type: 'STOCK' },
+  { symbol: 'TSLA', name: 'Tesla',                price: 175,   changePercent: -1.2, exchange: 'NASDAQ', type: 'STOCK' },
+  { symbol: 'MSFT', name: 'Microsoft',            price: 415,   changePercent:  0.5, exchange: 'NASDAQ', type: 'STOCK' },
+  { symbol: 'AMZN', name: 'Amazon',               price: 198,   changePercent:  1.3, exchange: 'NASDAQ', type: 'STOCK' },
+  { symbol: 'META', name: 'Meta',                 price: 589,   changePercent:  3.2, exchange: 'NASDAQ', type: 'STOCK' },
+  { symbol: 'GOOG', name: 'Alphabet',             price: 175,   changePercent:  0.9, exchange: 'NASDAQ', type: 'STOCK' },
+  { symbol: 'IAG',  name: 'Iberia',               price: 2.41,  changePercent:  1.8, exchange: 'BME',    type: 'STOCK' },
+  { symbol: 'SAN',  name: 'Santander',            price: 4.82,  changePercent:  0.4, exchange: 'BME',    type: 'STOCK' },
+  { symbol: 'ITX',  name: 'Inditex',              price: 52.30, changePercent:  1.1, exchange: 'BME',    type: 'STOCK' },
+  { symbol: 'GOLD', name: 'Oro',                  price: 2340,  changePercent:  0.6, exchange: 'CMDTY',  type: 'COMMODITY' },
+  { symbol: 'BTC',  name: 'Bitcoin',              price: 87500, changePercent:  2.4, exchange: 'CRYPTO', type: 'CRYPTO' },
 ];
 
 const RISK_FILTERS = {
-  Conservador: (s) => Math.abs(s.changePercent) <= 3,
-  Moderado:    (s) => Math.abs(s.changePercent) <= 8,
+  Conservador: (s) => s.type === 'ETF',
+  Moderado:    (s) => s.type === 'ETF' || (s.type !== 'CRYPTO' && Math.abs(s.changePercent) <= 3),
   Atrevido:    () => true,
 };
 
@@ -63,11 +75,14 @@ const API_BASE =
     : '');
 const TIP_API = `${API_BASE}/api/generate-tip`;
 
-async function generateTip(symbol, name, price, changePct) {
+async function generateTip(symbol, name, price, changePct, userProfile) {
   const res = await fetch(TIP_API, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ symbol, name, price: Number(price), changePct: Number(changePct) }),
+    body: JSON.stringify({
+      symbol, name, price: Number(price), changePct: Number(changePct),
+      ...(userProfile || {}),
+    }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Tip API failed');
@@ -273,7 +288,7 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function DiscoverScreen() {
-  const { balance, investedAmount, addToPortfolio, riskProfile } = useApp();
+  const { balance, investedAmount, addToPortfolio, riskProfile, age, incomeRange, experience } = useApp();
   const { height: windowHeight } = useWindowDimensions();
   const freeBalance = balance - investedAmount;
 
@@ -301,13 +316,18 @@ export default function DiscoverScreen() {
   const [tipLoading, setTipLoading] = useState({});
   const generatingRef = useRef(new Set());
 
+  const userProfileRef = useRef({});
+  useEffect(() => {
+    userProfileRef.current = { age, incomeRange, experience };
+  }, [age, incomeRange, experience]);
+
   const ensureTip = useCallback(async (stock) => {
     const { symbol, name, price, changePercent } = stock;
     if (generatingRef.current.has(symbol)) return;
     generatingRef.current.add(symbol);
     setTipLoading((p) => ({ ...p, [symbol]: true }));
     try {
-      const { indicator, tip: text } = await generateTip(symbol, name, price, changePercent);
+      const { indicator, tip: text } = await generateTip(symbol, name, price, changePercent, userProfileRef.current);
       setTips((p) => ({ ...p, [symbol]: { indicator, text } }));
     } catch (err) {
       console.error('[Claude] tip failed for', symbol, ':', err.message);

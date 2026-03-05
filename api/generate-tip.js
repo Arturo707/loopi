@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured" });
 
-  const { symbol, name, price, changePct } = req.body;
+  const { symbol, name, price, changePct, age, incomeRange, experience } = req.body;
   if (!symbol || !name || price == null || changePct == null) {
     return res.status(400).json({ error: "Missing required fields" });
   }
@@ -22,7 +22,15 @@ export default async function handler(req, res) {
   else if (pct < -5)  toneHint = "Baja con fuerza. ¿Oportunidad o caída con más por venir? Sé honesto sobre el riesgo.";
   else                 toneHint = "Movimiento moderado. Describe qué está pasando sin exagerar ni inflar expectativas.";
 
-  const system = `Eres un gestor de patrimonio honesto y directo. No exageres ni vendas humo. ${toneHint} Responde ÚNICAMENTE con JSON válido: {"indicator":"🟢","tip":"..."} — indicator es 🟢 (Interesante), 🟡 (Neutral) o 🔴 (Evitar) según tu valoración real. El campo tip en español casual, máximo 60 palabras, sin jerga. Nada fuera del JSON.`;
+  const profileParts = [];
+  if (age)         profileParts.push(`${age} años`);
+  if (incomeRange) profileParts.push(`ingresos ${incomeRange}€/mes`);
+  if (experience)  profileParts.push(`experiencia inversora: ${experience}`);
+  const profileHint = profileParts.length > 0
+    ? ` El usuario tiene: ${profileParts.join(", ")}. Adapta el consejo a su perfil (horizonte temporal, nivel de riesgo adecuado, simplicidad si es novato).`
+    : "";
+
+  const system = `Eres un gestor de patrimonio honesto y directo. No exageres ni vendas humo. ${toneHint}${profileHint} Responde ÚNICAMENTE con JSON válido: {"indicator":"🟢","tip":"..."} — indicator es 🟢 (Interesante), 🟡 (Neutral) o 🔴 (Evitar) según tu valoración real. El campo tip en español casual, máximo 60 palabras, sin jerga. Nada fuera del JSON.`;
   const userMsg = `${name} (${symbol}): precio $${Number(price).toFixed(2)}, cambio ${pct >= 0 ? "+" : ""}${pct.toFixed(1)}% hoy.`;
 
   try {
