@@ -108,10 +108,10 @@ function RootNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
       {!user ? (
         <Stack.Screen name="Login" component={LoginScreen} />
-      ) : !bankConnected ? (
-        <Stack.Screen name="ConnectBank" component={ConnectBankScreen} />
       ) : !onboardingDone ? (
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+      ) : !bankConnected ? (
+        <Stack.Screen name="ConnectBank" component={ConnectBankScreen} />
       ) : (
         <Stack.Screen name="Main" component={MainTabs} />
       )}
