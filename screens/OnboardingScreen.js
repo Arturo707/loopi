@@ -4,12 +4,14 @@ import {
   ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
+import { auth, db } from '../config/firebase';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 const INCOME_OPTIONS = [
   { value: '<1000',     label: 'Menos de 1.000€' },
@@ -44,6 +46,7 @@ const STEP_META = [
   { emoji: '💰', title: '¿Cuáles son tus ingresos mensuales?', subtitle: 'Invertiremos solo lo que sobra, nunca lo que necesitas para vivir.' },
   { emoji: '📊', title: '¿Cuánta experiencia tienes invirtiendo?', subtitle: 'Sé honesto — nos ayuda a personalizar tus recomendaciones.' },
   { emoji: '🎯', title: '¿Cuál es tu perfil de riesgo?',        subtitle: 'Sin presiones — puedes cambiarlo cuando quieras desde tu perfil.' },
+  { emoji: '🪪', title: 'Tu identidad',                         subtitle: 'Necesitamos estos datos para crear tu cuenta de bróker y operar en mercados regulados.' },
 ];
 
 function ChoiceCard({ label, sub, emoji, selected, onPress }) {
@@ -75,6 +78,17 @@ export default function OnboardingScreen() {
   const [riskProfile, setRisk]      = useState(null);
   const [saving, setSaving]         = useState(false);
 
+  // Step 5: identity
+  const [firstName,     setFirstName]     = useState('');
+  const [lastName,      setLastName]      = useState('');
+  const [dateOfBirth,   setDateOfBirth]   = useState('');
+  const [streetAddress, setStreetAddress] = useState('');
+  const [city,          setCity]          = useState('');
+  const [postalCode,    setPostalCode]    = useState('');
+  const [country,       setCountry]       = useState('España');
+  const [taxId,         setTaxId]         = useState('');
+  const [idErrors,      setIdErrors]      = useState({});
+
   const validateAge = (v) => {
     const n = parseInt(v, 10);
     if (!v.trim()) return 'Introduce tu edad.';
@@ -87,6 +101,10 @@ export default function OnboardingScreen() {
     if (step === 2) return !!incomeRange;
     if (step === 3) return !!experience;
     if (step === 4) return !!riskProfile;
+    if (step === 5) return (
+      firstName.trim() && lastName.trim() && dateOfBirth.trim() &&
+      streetAddress.trim() && city.trim() && country.trim() && taxId.trim()
+    );
     return false;
   };
 
@@ -95,6 +113,18 @@ export default function OnboardingScreen() {
       const err = validateAge(age);
       if (err) { setAgeError(err); return; }
       setAgeError(null);
+    }
+    if (step === 5) {
+      const errs = {};
+      if (!firstName.trim())     errs.firstName     = 'Introduce tu nombre.';
+      if (!lastName.trim())      errs.lastName      = 'Introduce tu apellido.';
+      if (!dateOfBirth.trim())   errs.dateOfBirth   = 'Introduce tu fecha de nacimiento.';
+      if (!streetAddress.trim()) errs.streetAddress = 'Introduce tu dirección.';
+      if (!city.trim())          errs.city          = 'Introduce tu ciudad.';
+      if (!country.trim())       errs.country       = 'Introduce tu país.';
+      if (!taxId.trim())         errs.taxId         = 'Introduce tu DNI / NIE / Pasaporte.';
+      if (Object.keys(errs).length > 0) { setIdErrors(errs); return; }
+      setIdErrors({});
     }
     if (step < TOTAL_STEPS) {
       setStep((s) => s + 1);
@@ -112,6 +142,14 @@ export default function OnboardingScreen() {
         experience,
         riskProfile,
       });
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        await setDoc(
+          doc(db, 'users', uid),
+          { firstName, lastName, dateOfBirth, streetAddress, city, postalCode, country, taxId },
+          { merge: true }
+        );
+      }
       setOnboardingDone(true);
     } catch (err) {
       console.warn('[Onboarding] Save failed, proceeding anyway:', err.message);
@@ -209,6 +247,122 @@ export default function OnboardingScreen() {
               />
             ))}
 
+            {/* ── Step 5: Identity ── */}
+            {step === 5 && (
+              <View style={s.idForm}>
+
+                {/* First + Last name row */}
+                <View style={s.nameRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.fieldLabel}>Nombre</Text>
+                    <TextInput
+                      style={[s.fieldInput, idErrors.firstName && s.fieldInputError]}
+                      value={firstName}
+                      onChangeText={(v) => { setFirstName(v); setIdErrors((e) => ({ ...e, firstName: null })); }}
+                      placeholder="Ana"
+                      placeholderTextColor={C.muted}
+                      autoCapitalize="words"
+                    />
+                    {idErrors.firstName ? <Text style={s.fieldError}>{idErrors.firstName}</Text> : null}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.fieldLabel}>Apellido</Text>
+                    <TextInput
+                      style={[s.fieldInput, idErrors.lastName && s.fieldInputError]}
+                      value={lastName}
+                      onChangeText={(v) => { setLastName(v); setIdErrors((e) => ({ ...e, lastName: null })); }}
+                      placeholder="García"
+                      placeholderTextColor={C.muted}
+                      autoCapitalize="words"
+                    />
+                    {idErrors.lastName ? <Text style={s.fieldError}>{idErrors.lastName}</Text> : null}
+                  </View>
+                </View>
+
+                {/* Date of birth */}
+                <Text style={s.fieldLabel}>Fecha de nacimiento</Text>
+                <TextInput
+                  style={[s.fieldInput, idErrors.dateOfBirth && s.fieldInputError]}
+                  value={dateOfBirth}
+                  onChangeText={(v) => { setDateOfBirth(v); setIdErrors((e) => ({ ...e, dateOfBirth: null })); }}
+                  placeholder="DD/MM/AAAA"
+                  placeholderTextColor={C.muted}
+                  keyboardType="numbers-and-punctuation"
+                  maxLength={10}
+                />
+                {idErrors.dateOfBirth ? <Text style={s.fieldError}>{idErrors.dateOfBirth}</Text> : null}
+
+                {/* Street address */}
+                <Text style={s.fieldLabel}>Dirección</Text>
+                <TextInput
+                  style={[s.fieldInput, idErrors.streetAddress && s.fieldInputError]}
+                  value={streetAddress}
+                  onChangeText={(v) => { setStreetAddress(v); setIdErrors((e) => ({ ...e, streetAddress: null })); }}
+                  placeholder="Calle Mayor 12, 3º A"
+                  placeholderTextColor={C.muted}
+                  autoCapitalize="words"
+                />
+                {idErrors.streetAddress ? <Text style={s.fieldError}>{idErrors.streetAddress}</Text> : null}
+
+                {/* City + Postal code row */}
+                <View style={s.nameRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.fieldLabel}>Ciudad</Text>
+                    <TextInput
+                      style={[s.fieldInput, idErrors.city && s.fieldInputError]}
+                      value={city}
+                      onChangeText={(v) => { setCity(v); setIdErrors((e) => ({ ...e, city: null })); }}
+                      placeholder="Madrid"
+                      placeholderTextColor={C.muted}
+                      autoCapitalize="words"
+                    />
+                    {idErrors.city ? <Text style={s.fieldError}>{idErrors.city}</Text> : null}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.fieldLabel}>Código postal (opcional)</Text>
+                    <TextInput
+                      style={s.fieldInput}
+                      value={postalCode}
+                      onChangeText={setPostalCode}
+                      placeholder="28001"
+                      placeholderTextColor={C.muted}
+                      keyboardType="number-pad"
+                      maxLength={10}
+                    />
+                  </View>
+                </View>
+
+                {/* Country */}
+                <Text style={s.fieldLabel}>País</Text>
+                <TextInput
+                  style={[s.fieldInput, idErrors.country && s.fieldInputError]}
+                  value={country}
+                  onChangeText={(v) => { setCountry(v); setIdErrors((e) => ({ ...e, country: null })); }}
+                  placeholder="España"
+                  placeholderTextColor={C.muted}
+                  autoCapitalize="words"
+                />
+                {idErrors.country ? <Text style={s.fieldError}>{idErrors.country}</Text> : null}
+
+                {/* Tax ID */}
+                <Text style={s.fieldLabel}>DNI / NIE / Pasaporte</Text>
+                <TextInput
+                  style={[s.fieldInput, idErrors.taxId && s.fieldInputError]}
+                  value={taxId}
+                  onChangeText={(v) => { setTaxId(v); setIdErrors((e) => ({ ...e, taxId: null })); }}
+                  placeholder="12345678A"
+                  placeholderTextColor={C.muted}
+                  autoCapitalize="characters"
+                />
+                {idErrors.taxId ? <Text style={s.fieldError}>{idErrors.taxId}</Text> : null}
+
+                <Text style={s.legalNote}>
+                  Requerido para cumplir con la normativa financiera europea (MiFID II) y operar en mercados internacionales.
+                </Text>
+
+              </View>
+            )}
+
           </ScrollView>
         </KeyboardAvoidingView>
 
@@ -279,6 +433,25 @@ const s = StyleSheet.create({
   cardLabelActive: { color: C.orange },
   cardSub:         { fontSize: 13, fontFamily: F.regular, color: C.muted, lineHeight: 18 },
   check:           { fontSize: 16, color: C.orange, fontFamily: F.bold },
+
+  // Identity step (step 5)
+  idForm: { gap: 4 },
+  nameRow: { flexDirection: 'row', gap: 12 },
+  fieldLabel: {
+    fontSize: 12, fontFamily: F.semibold, color: C.muted,
+    letterSpacing: 0.3, marginTop: 14, marginBottom: 6,
+  },
+  fieldInput: {
+    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border,
+    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13,
+    fontSize: 15, fontFamily: F.regular, color: C.text,
+  },
+  fieldInputError: { borderColor: C.red },
+  fieldError: { fontSize: 12, color: C.red, fontFamily: F.medium, marginTop: 4 },
+  legalNote: {
+    fontSize: 12, fontFamily: F.regular, color: C.muted,
+    lineHeight: 18, marginTop: 20, textAlign: 'center',
+  },
 
   // Footer
   footer: { paddingHorizontal: 24, paddingBottom: 16, paddingTop: 8 },
