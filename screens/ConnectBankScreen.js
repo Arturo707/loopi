@@ -1,32 +1,29 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
   ScrollView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { auth, db } from '../config/firebase';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 
-// Supported Spanish banks — display only. Tink shows its own bank selector.
 const BANKS = [
-  { id: 'bbva',       name: 'BBVA',       color: '#004481' },
-  { id: 'santander',  name: 'Santander',  color: '#EC0000' },
-  { id: 'caixabank',  name: 'CaixaBank',  color: '#007BC4' },
-  { id: 'sabadell',   name: 'Sabadell',   color: '#0065A4' },
-  { id: 'ing',        name: 'ING',        color: '#FF6600' },
-  { id: 'openbank',   name: 'Openbank',   color: '#00897B' },
+  { id: 'bbva',      name: 'BBVA',      color: '#004481' },
+  { id: 'santander', name: 'Santander', color: '#EC0000' },
+  { id: 'caixabank', name: 'CaixaBank', color: '#007BC4' },
+  { id: 'sabadell',  name: 'Sabadell',  color: '#0065A4' },
+  { id: 'ing',       name: 'ING',       color: '#FF6600' },
+  { id: 'openbank',  name: 'Openbank',  color: '#00897B' },
 ];
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || '';
-const REDIRECT_URI =
-  process.env.EXPO_PUBLIC_TINK_REDIRECT_URI ||
-  (Platform.OS === 'web' && typeof window !== 'undefined'
-    ? window.location.origin
-    : 'https://loopi-teal.vercel.app');
+// Native redirect — must be registered in Tink console as well
+const NATIVE_REDIRECT = Linking.createURL('/bank-callback');
 
 async function apiFetch(path, options) {
   const res = await fetch(`${API_BASE}${path}`, options);
@@ -40,21 +37,51 @@ export default function ConnectBankScreen() {
 
   const [phase, setPhase] = useState('idle'); // idle | connecting | success | error
   const [errorMsg, setErrorMsg] = useState(null);
-  const [account, setAccount] = useState(null); // { balance, currency, accountId, iban }
-  const handledRef = useRef(false);
+  const [account, setAccount] = useState(null);
 
-  const formatBalance = (amount, currency = 'EUR') =>
-    new Intl.NumberFormat('es-ES', { style: 'currency', currency }).format(amount);
+  // ── Web: detect ?code= on mount (return from Tink redirect) ───────
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (!code) return;
 
-  const formatIban = (iban) => {
-    if (!iban) return null;
-    return `${iban.slice(0, 4)} •••• •••• •••• ${iban.slice(-4)}`;
+    console.log('[ConnectBank] Detected Tink code in URL, exchanging...');
+    // Remove code from URL so a page refresh doesn't re-process it
+    window.history.replaceState({}, '', window.location.pathname);
+    exchangeCode(code);
+  }, []);
+
+  // ── Exchange code → real balance ──────────────────────────────────
+  const exchangeCode = async (code) => {
+    setPhase('connecting');
+    setErrorMsg(null);
+    console.log('[ConnectBank] Calling /api/tink-token with code:', code.slice(0, 24) + '…');
+    try {
+      const bankData = await apiFetch('/api/tink-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      console.log('[ConnectBank] tink-token response:', {
+        accountId: bankData.accountId,
+        balance: bankData.balance,
+        currency: bankData.currency,
+        iban: bankData.iban ? bankData.iban.slice(0, 6) + '…' : null,
+        hasAccessToken: !!bankData.accessToken,
+      });
+      setAccount(bankData);
+      setPhase('success');
+    } catch (err) {
+      console.error('[ConnectBank] Token exchange failed:', err.message);
+      setPhase('error');
+      setErrorMsg(err.message || 'Error al verificar el banco. Inténtalo de nuevo.');
+    }
   };
 
-  // ── Main connect flow ─────────────────────────────────────────────
+  // ── Button press: get Tink URL then launch flow ───────────────────
   const handleConnect = async () => {
     if (phase === 'connecting') return;
-    handledRef.current = false;
     setPhase('connecting');
     setErrorMsg(null);
 
@@ -62,42 +89,43 @@ export default function ConnectBankScreen() {
       const uid = auth.currentUser?.uid;
       if (!uid) throw new Error('Debes iniciar sesión primero.');
 
-      // 1. Get Tink Link URL from server (creates/reuses permanent Tink user)
+      console.log('[ConnectBank] Requesting Tink auth URL for uid:', uid);
       const { url: tinkUrl } = await apiFetch('/api/tink-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uid }),
       });
+      console.log('[ConnectBank] Tink Link URL:', tinkUrl);
 
-      // 2. Open Tink Link — user logs into their bank inside Tink's UI
-      const result = await WebBrowser.openAuthSessionAsync(tinkUrl, REDIRECT_URI);
+      if (Platform.OS === 'web') {
+        // ── Web: navigate current tab directly ──────────────────────
+        // Using window.open/popup would be blocked by browsers because
+        // window.open runs after an async fetch (outside user-gesture stack).
+        // Full-tab navigation is the correct OAuth pattern for web.
+        console.log('[ConnectBank] Navigating to Tink (web full-tab redirect)…');
+        window.location.href = tinkUrl;
+        // ↑ page navigates away; when Tink redirects back to
+        //   loopi-teal.vercel.app?code=xxx the useEffect above picks up the code.
+      } else {
+        // ── Native: in-app browser session (iOS ASWebAuthenticationSession) ─
+        console.log('[ConnectBank] Opening Tink in-app browser (native)…');
+        const result = await WebBrowser.openAuthSessionAsync(tinkUrl, NATIVE_REDIRECT);
+        console.log('[ConnectBank] WebBrowser result type:', result.type);
+        console.log('[ConnectBank] WebBrowser result url:', result.url?.slice(0, 80));
 
-      if (handledRef.current) return; // already handled (shouldn't happen, but guard)
+        if (result.type !== 'success') {
+          setPhase('idle');
+          setErrorMsg('Proceso cancelado. Pulsa el botón para intentarlo de nuevo.');
+          return;
+        }
 
-      if (result.type !== 'success') {
-        setPhase('idle');
-        setErrorMsg('Proceso cancelado. Pulsa el botón para intentarlo de nuevo.');
-        return;
+        const urlObj = new URL(result.url);
+        const code = urlObj.searchParams.get('code');
+        if (!code) throw new Error('No se recibió el código de autorización de Tink.');
+        await exchangeCode(code);
       }
-
-      // 3. Extract the authorization code from the redirect URL
-      const urlObj = new URL(result.url);
-      const code = urlObj.searchParams.get('code');
-      if (!code) throw new Error('No se recibió el código de autorización de Tink.');
-
-      handledRef.current = true;
-
-      // 4. Exchange code for token + fetch real balance (server-side)
-      const bankData = await apiFetch('/api/tink-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      });
-
-      setAccount(bankData);
-      setPhase('success');
     } catch (err) {
-      console.error('[ConnectBank]', err.message);
+      console.error('[ConnectBank] handleConnect error:', err.message);
       setPhase('error');
       setErrorMsg(err.message || 'Algo salió mal. Inténtalo de nuevo.');
     }
@@ -124,10 +152,11 @@ export default function ConnectBankScreen() {
           },
           { merge: true }
         );
+        console.log('[ConnectBank] Bank account saved to Firestore.');
       }
       setBankConnected(true);
     } catch (err) {
-      console.warn('[ConnectBank] Save failed, proceeding anyway:', err.message);
+      console.warn('[ConnectBank] Firestore save failed, proceeding anyway:', err.message);
       setBankConnected(true);
     }
   };
@@ -135,12 +164,17 @@ export default function ConnectBankScreen() {
   const isConnecting = phase === 'connecting';
   const isSaving = phase === 'saving';
 
-  return (
-    <View style={s.container}>
-      <SafeAreaView style={s.safe}>
+  const formatBalance = (amount, currency = 'EUR') =>
+    new Intl.NumberFormat('es-ES', { style: 'currency', currency }).format(amount);
 
-        {phase === 'success' ? (
-          // ── Success screen ────────────────────────────────────────
+  const formatIban = (iban) =>
+    iban ? `${iban.slice(0, 4)} •••• •••• •••• ${iban.slice(-4)}` : null;
+
+  // ── Render ────────────────────────────────────────────────────────
+  if (phase === 'success' && account) {
+    return (
+      <View style={s.container}>
+        <SafeAreaView style={s.safe}>
           <View style={s.successContainer}>
             <View style={s.checkCircle}>
               <Text style={s.checkEmoji}>✅</Text>
@@ -166,83 +200,79 @@ export default function ConnectBankScreen() {
               activeOpacity={0.85}
               disabled={isSaving}
             >
-              {isSaving ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Text style={s.ctaBtnText}>Empezar a invertir →</Text>
-              )}
+              {isSaving
+                ? <ActivityIndicator color="#FFF" />
+                : <Text style={s.ctaBtnText}>Empezar a invertir →</Text>
+              }
             </TouchableOpacity>
           </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
-        ) : (
-          // ── Connect screen ────────────────────────────────────────
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
+  return (
+    <View style={s.container}>
+      <SafeAreaView style={s.safe}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
 
-            <Text style={s.title}>Conecta tu banco</Text>
-            <Text style={s.subtitle}>
-              Acceso de solo lectura. Loopi nunca ve tus credenciales.{'\n'}
-              Tecnología Open Banking certificada por la UE (PSD2).
-            </Text>
+          <Text style={s.title}>Conecta tu banco</Text>
+          <Text style={s.subtitle}>
+            Acceso de solo lectura. Loopi nunca ve tus credenciales.{'\n'}
+            Open Banking certificado por la UE (PSD2) · Tecnología Tink (Visa).
+          </Text>
 
-            {/* Trust badges */}
-            <View style={s.badges}>
-              {['🔒 Cifrado 256-bit', '✅ PSD2', '🇪🇺 Regulado', '👁️ Solo lectura'].map((b) => (
-                <View key={b} style={s.badge}>
-                  <Text style={s.badgeText}>{b}</Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Spanish bank logos (display only — Tink shows its own selector) */}
-            <Text style={s.supportedLabel}>BANCOS COMPATIBLES</Text>
-            <View style={s.bankGrid}>
-              {BANKS.map((bank) => (
-                <View key={bank.id} style={s.bankPill}>
-                  <View style={[s.bankDot, { backgroundColor: bank.color }]} />
-                  <Text style={s.bankPillName}>{bank.name}</Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Error message */}
-            {errorMsg && (
-              <View style={s.errorBanner}>
-                <Text style={s.errorText}>{errorMsg}</Text>
+          <View style={s.badges}>
+            {['🔒 Cifrado 256-bit', '✅ PSD2', '🇪🇺 Regulado', '👁️ Solo lectura'].map((b) => (
+              <View key={b} style={s.badge}>
+                <Text style={s.badgeText}>{b}</Text>
               </View>
+            ))}
+          </View>
+
+          <Text style={s.supportedLabel}>BANCOS COMPATIBLES</Text>
+          <View style={s.bankGrid}>
+            {BANKS.map((bank) => (
+              <View key={bank.id} style={s.bankPill}>
+                <View style={[s.bankDot, { backgroundColor: bank.color }]} />
+                <Text style={s.bankPillName}>{bank.name}</Text>
+              </View>
+            ))}
+          </View>
+
+          {errorMsg && (
+            <View style={s.errorBanner}>
+              <Text style={s.errorText}>{errorMsg}</Text>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[s.ctaBtn, isConnecting && s.ctaBtnLoading]}
+            onPress={handleConnect}
+            activeOpacity={0.85}
+            disabled={isConnecting}
+          >
+            {isConnecting ? (
+              <View style={s.ctaRow}>
+                <ActivityIndicator color="#FFF" size="small" />
+                <Text style={s.ctaBtnText}>Conectando con Tink…</Text>
+              </View>
+            ) : (
+              <Text style={s.ctaBtnText}>Conectar mi banco →</Text>
             )}
+          </TouchableOpacity>
 
-            {/* Main CTA */}
-            <TouchableOpacity
-              style={[s.ctaBtn, isConnecting && s.ctaBtnLoading]}
-              onPress={handleConnect}
-              activeOpacity={0.85}
-              disabled={isConnecting}
-            >
-              {isConnecting ? (
-                <View style={s.ctaRow}>
-                  <ActivityIndicator color="#FFF" size="small" />
-                  <Text style={s.ctaBtnText}>Abriendo Tink...</Text>
-                </View>
-              ) : (
-                <Text style={s.ctaBtnText}>Conectar mi banco →</Text>
-              )}
-            </TouchableOpacity>
+          <Text style={s.poweredBy}>Conexión segura vía Tink (Visa) · Open Banking PSD2</Text>
 
-            {/* Powered by Tink */}
-            <Text style={s.poweredBy}>Conexión segura vía Tink (Visa) · Open Banking</Text>
+          <TouchableOpacity
+            style={s.skipBtn}
+            onPress={() => setBankConnected(true)}
+            disabled={isConnecting}
+          >
+            <Text style={s.skipText}>Lo haré después</Text>
+          </TouchableOpacity>
 
-            {/* Skip */}
-            <TouchableOpacity
-              style={s.skipBtn}
-              onPress={() => setBankConnected(true)}
-              disabled={isConnecting}
-            >
-              <Text style={s.skipText}>Lo haré después</Text>
-            </TouchableOpacity>
-
-          </ScrollView>
-        )}
-
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -268,10 +298,7 @@ const s = StyleSheet.create({
   },
   badgeText: { fontSize: 11, color: C.green, fontFamily: F.semibold },
 
-  supportedLabel: {
-    fontSize: 11, color: C.muted, fontFamily: F.semibold,
-    letterSpacing: 2, marginBottom: 12,
-  },
+  supportedLabel: { fontSize: 11, color: C.muted, fontFamily: F.semibold, letterSpacing: 2, marginBottom: 12 },
   bankGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 32 },
   bankPill: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
@@ -299,7 +326,6 @@ const s = StyleSheet.create({
   ctaRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
   poweredBy: { fontSize: 11, color: C.muted, fontFamily: F.regular, textAlign: 'center', marginBottom: 24 },
-
   skipBtn: { alignItems: 'center', paddingVertical: 8 },
   skipText: { fontSize: 14, color: C.muted, fontFamily: F.medium },
 
@@ -313,11 +339,9 @@ const s = StyleSheet.create({
   checkEmoji: { fontSize: 40 },
   successTitle: { fontSize: 28, color: C.text, fontFamily: F.xbold, letterSpacing: -0.5, marginBottom: 10, textAlign: 'center' },
   successSub: { fontSize: 14, color: C.sub, fontFamily: F.regular, textAlign: 'center', lineHeight: 22, marginBottom: 32 },
-
   balanceCard: {
     backgroundColor: C.card, borderRadius: 24, padding: 28,
-    borderWidth: 1, borderColor: C.border, width: '100%', marginBottom: 32,
-    ...cardShadow,
+    borderWidth: 1, borderColor: C.border, width: '100%', marginBottom: 32, ...cardShadow,
   },
   balanceLabel: { fontSize: 10, color: C.muted, fontFamily: F.semibold, letterSpacing: 2, marginBottom: 10 },
   balanceAmount: { fontSize: 40, color: C.text, fontFamily: F.xbold, letterSpacing: -1.5, marginBottom: 6 },
