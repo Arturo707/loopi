@@ -1,6 +1,8 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, getReactNativePersistence, browserLocalPersistence, initializeAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─────────────────────────────────────────────────────────────
 //  TODO: Replace these with your Firebase project credentials.
@@ -32,6 +34,18 @@ if (missing.length) {
   console.error('[Firebase]    Make sure .env is at the project root and the dev server was restarted with --clear');
 }
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-export const auth = getAuth(app);
+let app, auth;
+if (getApps().length === 0) {
+  app = initializeApp(firebaseConfig);
+  auth = initializeAuth(app, {
+    persistence: Platform.OS === 'web'
+      ? browserLocalPersistence
+      : getReactNativePersistence(AsyncStorage),
+  });
+} else {
+  app = getApps()[0];
+  auth = getAuth(app);
+}
+
+export { auth };
 export const db = getFirestore(app);

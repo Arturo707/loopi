@@ -1,7 +1,8 @@
 {
   "expo": {
     "name": "Loopi",
-    "slug": "Loopi",
+    "slug": "loopi",
+    "scheme": "loopi",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,6 +16,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.loopi.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -26,7 +28,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font"
-    ]
+      "expo-font",
+      "expo-web-browser"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "eca16ee0-25c4-4be5-94af-43dfaa9125f1"
+      }
+    },
+    "owner": "arturo07"
   }
 }

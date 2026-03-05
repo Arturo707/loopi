@@ -3,7 +3,9 @@
     "allow": [
       "Skill(claude-developer-platform)",
       "Bash(gh auth:*)",
-      "WebFetch(domain:expo.dev)"
+      "WebFetch(domain:expo.dev)",
+      "Bash(tree -L 3 -I node_modules \"C:/Users/User/Loopi\" 2>/dev/null || find \"C:/Users/User/Loopi\" -type d ! -path \"*/node_modules*\" ! -path \"*/.vercel*\" ! -path \"*/.expo*\" ! -path \"*/dist*\" | head -30)",
+      "Bash(cd /c/Users/User/Loopi && npx expo install expo-web-browser 2>&1 | tail -5)"
     ]
   }
 }

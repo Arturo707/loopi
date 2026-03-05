@@ -6,25 +6,28 @@ import { auth, db } from '../config/firebase';
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const [balance] = useState(3240);
+  const [bankAccount, setBankAccount] = useState(null); // { accountId, balance, currency, iban }
   const [investedAmount, setInvestedAmount] = useState(0);
   const [portfolio, setPortfolio] = useState([]);
   const [riskProfile, setRiskProfileState] = useState('Moderado');
 
-  // Load persisted risk profile when user signs in, reset on sign-out
+  // Load persisted data when user signs in, reset on sign-out
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         setRiskProfileState('Moderado');
+        setBankAccount(null);
         return;
       }
       try {
         const snap = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (snap.exists() && snap.data().riskProfile) {
-          setRiskProfileState(snap.data().riskProfile);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.riskProfile) setRiskProfileState(data.riskProfile);
+          if (data.bankAccount) setBankAccount(data.bankAccount);
         }
       } catch (err) {
-        console.warn('[App] Failed to load risk profile:', err.message);
+        console.warn('[App] Failed to load user data:', err.message);
       }
     });
     return unsubscribe;
@@ -46,9 +49,11 @@ export function AppProvider({ children }) {
     setInvestedAmount((prev) => prev + stock.recommended);
   };
 
+  const balance = bankAccount?.balance ?? 0;
+
   return (
     <AppContext.Provider value={{
-      balance, investedAmount, portfolio, addToPortfolio,
+      balance, bankAccount, investedAmount, portfolio, addToPortfolio,
       riskProfile, setRiskProfile,
     }}>
       {children}
