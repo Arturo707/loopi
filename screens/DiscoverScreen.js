@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet,
   ActivityIndicator, Modal, KeyboardAvoidingView, Platform,
-  useWindowDimensions, ScrollView,
+  useWindowDimensions, ScrollView, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,42 +10,25 @@ import { useApp } from '../context/AppContext';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 
-// ─── Static stock data ────────────────────────────────────────────────────────
-
-const STOCKS = [
-  // ETFs
-  { symbol: 'SPY',  name: 'S&P 500 ETF',          price: 523,   changePercent:  0.5, exchange: 'ETF',    type: 'ETF' },
-  { symbol: 'QQQ',  name: 'Nasdaq 100 ETF',        price: 448,   changePercent:  0.7, exchange: 'ETF',    type: 'ETF' },
-  { symbol: 'VTI',  name: 'Total Market ETF',      price: 247,   changePercent:  0.4, exchange: 'ETF',    type: 'ETF' },
-  { symbol: 'IWDA', name: 'iShares World ETF',     price: 98,    changePercent:  0.3, exchange: 'ETF',    type: 'ETF' },
-  { symbol: 'EIMI', name: 'iShares EM IMI ETF',    price: 34,    changePercent:  0.6, exchange: 'ETF',    type: 'ETF' },
-  { symbol: 'VWCE', name: 'Vanguard All-World ETF',price: 118,   changePercent:  0.4, exchange: 'ETF',    type: 'ETF' },
-  { symbol: 'CSPX', name: 'iShares S&P 500 ETF',  price: 534,   changePercent:  0.5, exchange: 'ETF',    type: 'ETF' },
-  { symbol: 'EXS1', name: 'DAX ETF',              price: 158,   changePercent:  0.8, exchange: 'ETF',    type: 'ETF' },
-  { symbol: 'GLD',  name: 'Gold ETF',              price: 225,   changePercent:  0.6, exchange: 'ETF',    type: 'ETF' },
-  { symbol: 'AGGH', name: 'Global Bonds ETF',      price: 52,    changePercent:  0.1, exchange: 'ETF',    type: 'ETF' },
-  // Stocks
-  { symbol: 'NVDA', name: 'NVIDIA',               price: 881,   changePercent:  2.1, exchange: 'NASDAQ', type: 'STOCK' },
-  { symbol: 'AAPL', name: 'Apple',                price: 228,   changePercent:  0.8, exchange: 'NASDAQ', type: 'STOCK' },
-  { symbol: 'TSLA', name: 'Tesla',                price: 175,   changePercent: -1.2, exchange: 'NASDAQ', type: 'STOCK' },
-  { symbol: 'MSFT', name: 'Microsoft',            price: 415,   changePercent:  0.5, exchange: 'NASDAQ', type: 'STOCK' },
-  { symbol: 'AMZN', name: 'Amazon',               price: 198,   changePercent:  1.3, exchange: 'NASDAQ', type: 'STOCK' },
-  { symbol: 'META', name: 'Meta',                 price: 589,   changePercent:  3.2, exchange: 'NASDAQ', type: 'STOCK' },
-  { symbol: 'GOOG', name: 'Alphabet',             price: 175,   changePercent:  0.9, exchange: 'NASDAQ', type: 'STOCK' },
-  { symbol: 'IAG',  name: 'Iberia',               price: 2.41,  changePercent:  1.8, exchange: 'BME',    type: 'STOCK' },
-  { symbol: 'SAN',  name: 'Santander',            price: 4.82,  changePercent:  0.4, exchange: 'BME',    type: 'STOCK' },
-  { symbol: 'ITX',  name: 'Inditex',              price: 52.30, changePercent:  1.1, exchange: 'BME',    type: 'STOCK' },
-  { symbol: 'GOLD', name: 'Oro',                  price: 2340,  changePercent:  0.6, exchange: 'CMDTY',  type: 'COMMODITY' },
-  { symbol: 'BTC',  name: 'Bitcoin',              price: 87500, changePercent:  2.4, exchange: 'CRYPTO', type: 'CRYPTO' },
-];
+// ─── Risk filters (operate on live data, type is lowercase 'etf' | 'stock') ──
 
 const RISK_FILTERS = {
-  Conservador: (s) => s.type === 'ETF',
-  Moderado:    (s) => s.type === 'ETF' || (s.type !== 'CRYPTO' && Math.abs(s.changePercent) <= 3),
+  Conservador: (s) => s.type === 'etf',
+  Moderado:    (s) => s.type === 'etf' || Math.abs(s.changesPercentage) <= 3,
   Atrevido:    () => true,
 };
 
-// ─── Anthropic chat ───────────────────────────────────────────────────────────
+// ─── API endpoints ────────────────────────────────────────────────────────────
+
+const API_BASE =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : '');
+const FEED_API = `${API_BASE}/api/market-feed`;
+const TIP_API  = `${API_BASE}/api/generate-tip`;
+
+// ─── Anthropic chat (in-app) ──────────────────────────────────────────────────
 
 const ANTHROPIC_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
 const CLAUDE_MODEL  = 'claude-sonnet-4-20250514';
@@ -66,15 +49,6 @@ async function callClaude(system, messages, maxTokens = 150) {
   return data.content[0].text.trim();
 }
 
-// EXPO_PUBLIC_API_URL must be set to the absolute Vercel URL when running on native
-// (e.g. https://your-project.vercel.app). On web it falls back to the current origin.
-const API_BASE =
-  process.env.EXPO_PUBLIC_API_URL ??
-  (typeof window !== 'undefined' && window.location?.origin
-    ? window.location.origin
-    : '');
-const TIP_API = `${API_BASE}/api/generate-tip`;
-
 async function generateTip(symbol, name, price, changePct, userProfile) {
   const res = await fetch(TIP_API, {
     method: 'POST',
@@ -94,12 +68,47 @@ async function generateTip(symbol, name, price, changePct, userProfile) {
 const fmtPrice  = (n) => `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtChange = (n) => { const v = Number(n); return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`; };
 
+const fmtElapsed = (secs) => {
+  if (secs < 60)  return `Actualizado hace ${secs}s`;
+  if (secs < 3600) return `Actualizado hace ${Math.floor(secs / 60)}min`;
+  return `Actualizado hace ${Math.floor(secs / 3600)}h`;
+};
+
 const INDICATOR_STYLES = {
   '🟢': { bg: '#F0FDF4', border: '#86EFAC', text: '#16A34A' },
   '🟡': { bg: '#FEFCE8', border: '#FDE047', text: '#CA8A04' },
   '🔴': { bg: '#FFF1F2', border: '#FECDD3', text: '#DC2626' },
 };
 const INDICATOR_LABELS = { '🟢': 'Interesante', '🟡': 'Neutral', '🔴': 'Evitar' };
+
+// ─── Skeleton card ────────────────────────────────────────────────────────────
+
+function SkeletonCard({ height }) {
+  const anim = useRef(new Animated.Value(0.35)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 0.9, duration: 850, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0.35, duration: 850, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return (
+    <Animated.View style={[sk.card, { height, opacity: anim }]}>
+      <View style={sk.tickerBar} />
+      <View style={sk.nameBar} />
+      <View style={sk.priceRow}>
+        <View style={sk.priceBar} />
+        <View style={sk.pillBar} />
+      </View>
+      <View style={sk.tipBox} />
+      <View style={sk.btnRow}>
+        <View style={sk.btn} />
+        <View style={sk.btn} />
+      </View>
+    </Animated.View>
+  );
+}
 
 // ─── Chat Modal ───────────────────────────────────────────────────────────────
 
@@ -113,7 +122,7 @@ function ChatModal({ visible, stock, onClose }) {
     if (visible && stock) {
       setMsgs([{
         id: 0, role: 'assistant',
-        text: `Hola 👋 Estoy viendo ${stock.symbol} contigo. ${stock.changePercent >= 0 ? 'Sube' : 'Baja'} un ${Math.abs(stock.changePercent).toFixed(1)}% hoy. ¿Qué quieres saber?`,
+        text: `Hola 👋 Estoy viendo ${stock.symbol} contigo. ${stock.changesPercentage >= 0 ? 'Sube' : 'Baja'} un ${Math.abs(stock.changesPercentage).toFixed(1)}% hoy. ¿Qué quieres saber?`,
       }]);
       setInput('');
     }
@@ -129,7 +138,7 @@ function ChatModal({ visible, stock, onClose }) {
     setTyping(true);
     try {
       const history = nextMsgs.map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.text }));
-      const system = `Eres loopi IA, asesor financiero cercano. El usuario ve ${stock.name} (${stock.symbol}), precio ${fmtPrice(stock.price)}, cambio ${fmtChange(stock.changePercent)} hoy. Responde en español casual, máximo 80 palabras, sin jerga.`;
+      const system = `Eres loopi IA, asesor financiero cercano. El usuario ve ${stock.name} (${stock.symbol}), precio ${fmtPrice(stock.price)}, cambio ${fmtChange(stock.changesPercentage)} hoy. Responde en español casual, máximo 80 palabras, sin jerga.`;
       const reply = await callClaude(system, history, 200);
       setMsgs((p) => [...p, { id: Date.now(), role: 'assistant', text: reply }]);
     } catch {
@@ -186,7 +195,7 @@ const AMOUNTS = [25, 50, 100, 200, 500];
 function InvestModal({ visible, stock, onClose, onConfirm }) {
   const [amount, setAmount] = useState(100);
   if (!stock) return null;
-  const up = stock.changePercent >= 0;
+  const up = stock.changesPercentage >= 0;
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={im.overlay}>
@@ -197,7 +206,7 @@ function InvestModal({ visible, stock, onClose, onConfirm }) {
           <View style={im.priceRow}>
             <Text style={im.price}>{fmtPrice(stock.price)}</Text>
             <View style={[im.pill, { backgroundColor: up ? C.greenBg : C.redBg }]}>
-              <Text style={[im.pillTxt, { color: up ? C.green : C.red }]}>{up ? '▲' : '▼'} {fmtChange(stock.changePercent)}</Text>
+              <Text style={[im.pillTxt, { color: up ? C.green : C.red }]}>{up ? '▲' : '▼'} {fmtChange(stock.changesPercentage)}</Text>
             </View>
           </View>
           <Text style={im.label}>¿Cuánto quieres invertir?</Text>
@@ -223,7 +232,7 @@ function InvestModal({ visible, stock, onClose, onConfirm }) {
 // ─── Stock Card ───────────────────────────────────────────────────────────────
 
 function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
-  const up = stock.changePercent >= 0;
+  const up = stock.changesPercentage >= 0;
   const indStyle = tip ? (INDICATOR_STYLES[tip.indicator] ?? INDICATOR_STYLES['🟡']) : null;
   const indLabel = tip ? (INDICATOR_LABELS[tip.indicator] ?? 'Neutral') : null;
   return (
@@ -235,16 +244,16 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
         <View style={card.top}>
           <Text style={card.ticker}>{stock.symbol}</Text>
           <Text style={card.name} numberOfLines={2}>{stock.name}</Text>
-          {stock.exchange ? (
-            <View style={card.badge}><Text style={card.badgeTxt}>{stock.exchange}</Text></View>
-          ) : null}
+          <View style={card.badge}>
+            <Text style={card.badgeTxt}>{stock.type === 'etf' ? 'ETF' : 'STOCK'}</Text>
+          </View>
         </View>
 
         <View style={card.priceRow}>
           <Text style={card.price}>{fmtPrice(stock.price)}</Text>
           <View style={[card.changePill, { backgroundColor: up ? C.greenBg : C.redBg }]}>
             <Text style={[card.changeTxt, { color: up ? C.green : C.red }]}>
-              {up ? '▲' : '▼'} {fmtChange(stock.changePercent)}
+              {up ? '▲' : '▼'} {fmtChange(stock.changesPercentage)}
             </Text>
           </View>
         </View>
@@ -290,28 +299,65 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
 export default function DiscoverScreen() {
   const { balance, investedAmount, addToPortfolio, riskProfile, age, incomeRange, experience } = useApp();
   const { height: windowHeight } = useWindowDimensions();
-  const freeBalance = balance - investedAmount;
 
-  // Filter static feed by risk profile
+  // ── Live feed state ──
+  const [allStocks,   setAllStocks]   = useState([]);
+  const [feedStatus,  setFeedStatus]  = useState('loading'); // 'loading' | 'ready' | 'error'
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [elapsed,     setElapsed]     = useState(0);
+
+  const fetchFeed = useCallback(async () => {
+    try {
+      const res  = await fetch(FEED_API);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setAllStocks(data);
+      setLastUpdated(new Date());
+      setFeedStatus('ready');
+    } catch (err) {
+      console.error('[Feed] Error:', err.message);
+      // Don't flip back to 'error' if we already have data — keep showing stale
+      setFeedStatus((prev) => (prev === 'loading' ? 'error' : prev));
+    }
+  }, []);
+
+  // Initial fetch + 60s refresh interval
+  useEffect(() => {
+    fetchFeed();
+    const interval = setInterval(fetchFeed, 60_000);
+    return () => clearInterval(interval);
+  }, [fetchFeed]);
+
+  // Elapsed-seconds ticker
+  useEffect(() => {
+    if (!lastUpdated) return;
+    setElapsed(0);
+    const timer = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - lastUpdated.getTime()) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lastUpdated]);
+
+  // ── Filtered feed ──
   const filterFn = RISK_FILTERS[riskProfile] ?? RISK_FILTERS.Moderado;
-  const feed = STOCKS.filter(filterFn);
+  const feed = allStocks.filter(filterFn);
 
-  const stocksRef = useRef(feed);
-  useEffect(() => { stocksRef.current = feed; }, [riskProfile]);
+  const feedRef = useRef(feed);
+  useEffect(() => { feedRef.current = feed; }, [feed]);
 
-  // Card height
+  // ── Card height ──
   const [cardHeight, setCardHeight] = useState(windowHeight - 160);
 
-  // Local search — filters STOCKS array, no API calls
+  // ── Search ──
   const [query, setQuery] = useState('');
   const searchResults = query.trim()
-    ? STOCKS.filter((s) => {
+    ? allStocks.filter((s) => {
         const q = query.trim().toLowerCase();
         return s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q);
       })
     : [];
 
-  // AI tips
+  // ── AI tips ──
   const [tips, setTips]             = useState({});
   const [tipLoading, setTipLoading] = useState({});
   const generatingRef = useRef(new Set());
@@ -322,39 +368,39 @@ export default function DiscoverScreen() {
   }, [age, incomeRange, experience]);
 
   const ensureTip = useCallback(async (stock) => {
-    const { symbol, name, price, changePercent } = stock;
+    const { symbol, name, price, changesPercentage } = stock;
     if (generatingRef.current.has(symbol)) return;
     generatingRef.current.add(symbol);
     setTipLoading((p) => ({ ...p, [symbol]: true }));
     try {
-      const { indicator, tip: text } = await generateTip(symbol, name, price, changePercent, userProfileRef.current);
+      const { indicator, tip: text } = await generateTip(symbol, name, price, changesPercentage, userProfileRef.current);
       setTips((p) => ({ ...p, [symbol]: { indicator, text } }));
     } catch (err) {
       console.error('[Claude] tip failed for', symbol, ':', err.message);
-      generatingRef.current.delete(symbol);
+      generatingRef.current.delete(symbol); // allow retry
     } finally {
       setTipLoading((p) => ({ ...p, [symbol]: false }));
     }
   }, []);
 
-  // Seed tips for the first two cards on mount — onViewableItemsChanged doesn't fire on initial render
+  // Seed tips when feed first loads
   useEffect(() => {
     if (feed.length > 0) ensureTip(feed[0]);
     if (feed.length > 1) ensureTip(feed[1]);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [feedStatus]); // re-seed when feed transitions to ready
 
   const onViewableItemsChanged = useCallback(({ viewableItems }) => {
     viewableItems.forEach(({ item, index }) => {
       ensureTip(item);
-      const next = stocksRef.current[index + 1];
+      const next = feedRef.current[index + 1];
       if (next) ensureTip(next);
     });
   }, [ensureTip]);
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 });
 
-  // Modals & toasts
-  const [chatStock, setChatStock]     = useState(null);
+  // ── Modals & toasts ──
+  const [chatStock,   setChatStock]   = useState(null);
   const [investStock, setInvestStock] = useState(null);
   const [toast, setToast]             = useState(null);
 
@@ -368,26 +414,32 @@ export default function DiscoverScreen() {
 
   const isSearching = query.trim().length > 0;
 
+  // ── Render ──
   return (
     <View style={s.container}>
       <SafeAreaView style={{ flex: 1 }}>
 
-        {/* Search bar */}
-        <View style={s.searchWrapper}>
-          <Text style={s.searchIcon}>🔍</Text>
-          <TextInput
-            style={s.searchInput}
-            placeholder="Buscar ticker o empresa…"
-            placeholderTextColor={C.muted}
-            value={query}
-            onChangeText={setQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={s.clearBtn}>✕</Text>
-            </TouchableOpacity>
+        {/* ── Search bar + timestamp ── */}
+        <View style={s.topRow}>
+          <View style={s.searchWrapper}>
+            <Text style={s.searchIcon}>🔍</Text>
+            <TextInput
+              style={s.searchInput}
+              placeholder="Buscar ticker o empresa…"
+              placeholderTextColor={C.muted}
+              value={query}
+              onChangeText={setQuery}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {query.length > 0 && (
+              <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={s.clearBtn}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {feedStatus === 'ready' && !isSearching && (
+            <Text style={s.timestamp}>{fmtElapsed(elapsed)}</Text>
           )}
         </View>
 
@@ -395,24 +447,24 @@ export default function DiscoverScreen() {
         {toast && <View style={s.toast}><Text style={s.toastTxt}>{toast}</Text></View>}
 
         {isSearching ? (
-          /* ── Local search results ── */
+          /* ── Search results ── */
           <FlatList
             data={searchResults}
             keyExtractor={(item) => item.symbol}
             contentContainerStyle={s.searchList}
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => {
-              const up = item.changePercent >= 0;
+              const up = item.changesPercentage >= 0;
               return (
                 <View style={s.resultRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={s.resultTicker}>{item.symbol}</Text>
                     <Text style={s.resultName} numberOfLines={1}>{item.name}</Text>
-                    {item.exchange ? <Text style={s.resultExchange}>{item.exchange}</Text> : null}
+                    <Text style={s.resultExchange}>{item.type === 'etf' ? 'ETF' : 'STOCK'}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={s.resultPrice}>{fmtPrice(item.price)}</Text>
-                    <Text style={[s.resultChange, { color: up ? C.green : C.red }]}>{fmtChange(item.changePercent)}</Text>
+                    <Text style={[s.resultChange, { color: up ? C.green : C.red }]}>{fmtChange(item.changesPercentage)}</Text>
                   </View>
                 </View>
               );
@@ -420,13 +472,30 @@ export default function DiscoverScreen() {
             ItemSeparatorComponent={() => <View style={s.separator} />}
             ListEmptyComponent={<Text style={s.emptyTxt}>Sin resultados para "{query}"</Text>}
           />
+        ) : feedStatus === 'loading' ? (
+          /* ── Skeleton ── */
+          <View style={{ flex: 1 }} onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}>
+            {[0, 1, 2].map((i) => (
+              <SkeletonCard key={i} height={cardHeight} />
+            ))}
+          </View>
+        ) : feedStatus === 'error' ? (
+          /* ── Error state ── */
+          <View style={s.errorContainer}>
+            <Text style={s.errorEmoji}>⚠️</Text>
+            <Text style={s.errorTitle}>No se pudo cargar el mercado</Text>
+            <Text style={s.errorSub}>Comprueba tu conexión e inténtalo de nuevo.</Text>
+            <TouchableOpacity style={s.retryBtn} onPress={() => { setFeedStatus('loading'); fetchFeed(); }} activeOpacity={0.8}>
+              <Text style={s.retryTxt}>Reintentar</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
-          /* ── Stock card feed ── */
+          /* ── Live card feed ── */
           <View
             style={{ flex: 1 }}
             onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}
           >
-            {cardHeight > 0 && (
+            {cardHeight > 0 && feed.length > 0 && (
               <FlatList
                 data={feed}
                 keyExtractor={(item) => item.symbol}
@@ -450,6 +519,13 @@ export default function DiscoverScreen() {
                 )}
               />
             )}
+            {cardHeight > 0 && feed.length === 0 && feedStatus === 'ready' && (
+              <View style={s.errorContainer}>
+                <Text style={s.errorEmoji}>📭</Text>
+                <Text style={s.errorTitle}>Sin resultados para este perfil</Text>
+                <Text style={s.errorSub}>Cambia tu perfil de riesgo para ver más activos.</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -463,18 +539,35 @@ export default function DiscoverScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
+const sk = StyleSheet.create({
+  card: {
+    marginHorizontal: 16, marginTop: 12, borderRadius: 24,
+    backgroundColor: C.card, padding: 28,
+    justifyContent: 'space-between',
+    borderWidth: 1, borderColor: C.border,
+  },
+  tickerBar: { height: 52, width: 160, backgroundColor: C.border, borderRadius: 10, marginBottom: 10 },
+  nameBar:   { height: 16, width: 120, backgroundColor: C.border, borderRadius: 6,  marginBottom: 24 },
+  priceRow:  { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  priceBar:  { height: 28, width: 100, backgroundColor: C.border, borderRadius: 8 },
+  pillBar:   { height: 28, width: 72,  backgroundColor: C.border, borderRadius: 20 },
+  tipBox:    { height: 80, backgroundColor: C.border, borderRadius: 16, marginBottom: 24 },
+  btnRow:    { flexDirection: 'row', gap: 12 },
+  btn:       { flex: 1, height: 50, backgroundColor: C.border, borderRadius: 16 },
+});
+
 const card = StyleSheet.create({
   container: {
     flex: 1, paddingHorizontal: 28, paddingTop: 32, paddingBottom: 28,
     justifyContent: 'space-between',
   },
   top: { gap: 6 },
-  ticker: { fontSize: 60, fontFamily: F.xbold, color: C.text, letterSpacing: -3, lineHeight: 64 },
-  name:   { fontSize: 17, fontFamily: F.medium, color: C.sub },
-  badge:  { alignSelf: 'flex-start', backgroundColor: C.border, borderRadius: 6, paddingVertical: 3, paddingHorizontal: 8 },
+  ticker:   { fontSize: 60, fontFamily: F.xbold, color: C.text, letterSpacing: -3, lineHeight: 64 },
+  name:     { fontSize: 17, fontFamily: F.medium, color: C.sub },
+  badge:    { alignSelf: 'flex-start', backgroundColor: C.border, borderRadius: 6, paddingVertical: 3, paddingHorizontal: 8 },
   badgeTxt: { fontSize: 11, fontFamily: F.semibold, color: C.muted, letterSpacing: 0.5 },
-  priceRow:  { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
-  price:     { fontSize: 34, fontFamily: F.bold, color: C.text, letterSpacing: -1 },
+  priceRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
+  price:      { fontSize: 34, fontFamily: F.bold, color: C.text, letterSpacing: -1 },
   changePill: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20 },
   changeTxt:  { fontSize: 15, fontFamily: F.bold },
   tipCard: {
@@ -483,16 +576,16 @@ const card = StyleSheet.create({
     shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
     minHeight: 80, justifyContent: 'center',
   },
-  tipRow:     { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  tipLoading: { fontSize: 13, fontFamily: F.regular, color: C.muted },
-  tipHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  tipLabel:   { fontSize: 11, fontFamily: F.semibold, color: C.orange, letterSpacing: 0.5 },
+  tipRow:        { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  tipLoading:    { fontSize: 13, fontFamily: F.regular, color: C.muted },
+  tipHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  tipLabel:      { fontSize: 11, fontFamily: F.semibold, color: C.orange, letterSpacing: 0.5 },
   indicatorPill: { borderRadius: 20, paddingVertical: 4, paddingHorizontal: 10, borderWidth: 1 },
   indicatorTxt:  { fontSize: 12, fontFamily: F.semibold },
-  tipText:    { fontSize: 15, fontFamily: F.regular, color: C.text, lineHeight: 23 },
-  tipEmpty:   { fontSize: 14, fontFamily: F.regular, color: C.muted, textAlign: 'center', lineHeight: 22 },
-  swipeHint:  { fontSize: 12, fontFamily: F.regular, color: C.muted, textAlign: 'center' },
-  buttons:    { flexDirection: 'row', gap: 12 },
+  tipText:       { fontSize: 15, fontFamily: F.regular, color: C.text, lineHeight: 23 },
+  tipEmpty:      { fontSize: 14, fontFamily: F.regular, color: C.muted, textAlign: 'center', lineHeight: 22 },
+  swipeHint:     { fontSize: 12, fontFamily: F.regular, color: C.muted, textAlign: 'center' },
+  buttons:       { flexDirection: 'row', gap: 12 },
   btnSecondary: {
     flex: 1, paddingVertical: 16, borderRadius: 16, borderWidth: 1.5,
     borderColor: C.orange, alignItems: 'center', backgroundColor: 'rgba(249,115,22,0.05)',
@@ -519,11 +612,11 @@ const cm = StyleSheet.create({
   bubble:    { borderRadius: 16, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 8, maxWidth: '82%' },
   bubbleBot: { alignSelf: 'flex-start', backgroundColor: C.bgAlt ?? C.card, borderRadius: 16, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: C.border, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 8, maxWidth: '82%' },
   bubbleUser: { alignSelf: 'flex-end', backgroundColor: C.orange, borderRadius: 16, borderBottomRightRadius: 4, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 8, maxWidth: '82%' },
-  bubbleTxt: { fontSize: 14, lineHeight: 21, fontFamily: F.regular },
+  bubbleTxt:     { fontSize: 14, lineHeight: 21, fontFamily: F.regular },
   bubbleTxtBot:  { color: C.text },
   bubbleTxtUser: { color: '#FFF' },
-  typing:    { fontSize: 10, color: C.muted, fontFamily: F.medium, letterSpacing: 4 },
-  inputRow:  {
+  typing:  { fontSize: 10, color: C.muted, fontFamily: F.medium, letterSpacing: 4 },
+  inputRow: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12,
     borderTopWidth: 1, borderTopColor: C.border, gap: 10,
   },
@@ -532,8 +625,8 @@ const cm = StyleSheet.create({
     borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11,
     fontSize: 15, fontFamily: F.regular, color: C.text,
   },
-  sendBtn:  { backgroundColor: C.orange, width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  sendTxt:  { fontSize: 18, color: '#FFF', fontFamily: F.bold },
+  sendBtn: { backgroundColor: C.orange, width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  sendTxt: { fontSize: 18, color: '#FFF', fontFamily: F.bold },
 });
 
 const im = StyleSheet.create({
@@ -570,26 +663,46 @@ const im = StyleSheet.create({
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
+
+  topRow: {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 20, marginTop: 12, marginBottom: 8, gap: 10,
+  },
   searchWrapper: {
-    flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginTop: 12, marginBottom: 8,
+    flex: 1, flexDirection: 'row', alignItems: 'center',
     backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 14,
     paddingHorizontal: 14, paddingVertical: 10,
   },
   searchIcon:  { fontSize: 14, marginRight: 8 },
   searchInput: { flex: 1, fontSize: 15, fontFamily: F.regular, color: C.text },
   clearBtn:    { fontSize: 13, color: C.muted, paddingLeft: 8 },
+  timestamp:   { fontSize: 11, fontFamily: F.regular, color: C.muted, flexShrink: 0 },
+
   toast: {
     marginHorizontal: 20, marginBottom: 8, backgroundColor: C.text,
     borderRadius: 14, paddingVertical: 12, paddingHorizontal: 20, alignItems: 'center',
   },
-  toastTxt:      { fontSize: 13, fontFamily: F.semibold, color: '#FFF' },
-  searchList:    { paddingHorizontal: 20, paddingTop: 4 },
-  resultRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
-  resultTicker:  { fontSize: 15, fontFamily: F.bold, color: C.text },
-  resultName:    { fontSize: 13, fontFamily: F.regular, color: C.sub, marginTop: 1 },
-  resultExchange:{ fontSize: 11, fontFamily: F.regular, color: C.muted, marginTop: 2 },
-  resultPrice:   { fontSize: 14, fontFamily: F.semibold, color: C.text },
-  resultChange:  { fontSize: 12, fontFamily: F.medium, marginTop: 2 },
-  separator:     { height: 1, backgroundColor: C.border },
-  emptyTxt:      { textAlign: 'center', marginTop: 48, fontSize: 14, fontFamily: F.regular, color: C.muted, paddingHorizontal: 32 },
+  toastTxt: { fontSize: 13, fontFamily: F.semibold, color: '#FFF' },
+
+  // Search results
+  searchList:     { paddingHorizontal: 20, paddingTop: 4 },
+  resultRow:      { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
+  resultTicker:   { fontSize: 15, fontFamily: F.bold, color: C.text },
+  resultName:     { fontSize: 13, fontFamily: F.regular, color: C.sub, marginTop: 1 },
+  resultExchange: { fontSize: 11, fontFamily: F.regular, color: C.muted, marginTop: 2 },
+  resultPrice:    { fontSize: 14, fontFamily: F.semibold, color: C.text },
+  resultChange:   { fontSize: 12, fontFamily: F.medium, marginTop: 2 },
+  separator:      { height: 1, backgroundColor: C.border },
+  emptyTxt:       { textAlign: 'center', marginTop: 48, fontSize: 14, fontFamily: F.regular, color: C.muted, paddingHorizontal: 32 },
+
+  // Error / empty state
+  errorContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  errorEmoji:     { fontSize: 48, marginBottom: 16 },
+  errorTitle:     { fontSize: 18, fontFamily: F.xbold, color: C.text, textAlign: 'center', marginBottom: 8 },
+  errorSub:       { fontSize: 14, fontFamily: F.regular, color: C.muted, textAlign: 'center', lineHeight: 22, marginBottom: 28 },
+  retryBtn: {
+    backgroundColor: C.orange, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32,
+    shadowColor: C.orange, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
+  },
+  retryTxt: { fontSize: 15, fontFamily: F.bold, color: '#FFF' },
 });
