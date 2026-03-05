@@ -82,14 +82,14 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${clientToken}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify({
+      body: new URLSearchParams({
         external_user_id: uid,
         scope: 'accounts:read,balances:read,transactions:read',
         actor_client_id: clientId,
         id_hint: uid,
-      }),
+      }).toString(),
     });
     const grantText = await grantRes.text();
     console.log('[tink-auth] Step 3 raw response:', grantRes.status, grantText);
