@@ -16,7 +16,7 @@ async function getClientToken() {
     grant_type: 'client_credentials',
     client_id: process.env.EXPO_PUBLIC_TINK_CLIENT_ID,
     client_secret: process.env.TINK_CLIENT_SECRET,
-    scope: 'authorization:grant,user:create',
+    scope: 'accounts:read,balances:read,transactions:read,user:read',
   });
   const res = await fetch(`${TINK_BASE}/api/v1/oauth/token`, {
     method: 'POST',
