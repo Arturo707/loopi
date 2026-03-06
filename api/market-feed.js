@@ -1,3 +1,4 @@
+// v2 - Yahoo Finance
 // GET → { items: [...], marketOpen: boolean }
 // Fetches stock and ETF quotes from Yahoo Finance in parallel.
 // No API key required. Works regardless of market hours.
