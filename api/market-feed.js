@@ -1,3 +1,4 @@
+// v3 - Twelve Data
 // GET → { items: [...], marketOpen: boolean }
 // Fetches stock and ETF quotes from Twelve Data in parallel.
 
