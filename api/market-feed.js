@@ -1,12 +1,16 @@
-// GET → { items: [...] }
-// Fetches gainers, losers, and top ETFs from FMP in parallel,
-// deduplicates by symbol, and returns a normalized array.
+// GET → [ ...items ], with a `marketOpen` boolean field in the response header / body
+// Fetches gainers, losers, and top ETFs from FMP in parallel.
+// Falls back to actives (stocks) and a curated ETF list when the market is closed.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
+
+const FALLBACK_ETF_SYMBOLS = ['SPY', 'QQQ', 'VTI', 'IWDA', 'VWCE', 'CSPX', 'GLD', 'EIMI', 'AGGH', 'EXS1'];
+
+const toArray = (x) => (Array.isArray(x) ? x : []);
 
 function normalizeStock(item) {
   return {
@@ -29,6 +33,11 @@ function normalizeEtf(item) {
   };
 }
 
+async function fetchJson(url) {
+  const res = await fetch(url);
+  return res.json();
+}
+
 export default async function handler(req, res) {
   Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -38,51 +47,68 @@ export default async function handler(req, res) {
   if (!key) return res.status(500).json({ error: 'FMP_API_KEY not configured' });
 
   try {
-    const [gainersRes, losersRes, etfsRes] = await Promise.all([
-      fetch(`https://financialmodelingprep.com/api/v3/stock_market/gainers?apikey=${key}`),
-      fetch(`https://financialmodelingprep.com/api/v3/stock_market/losers?apikey=${key}`),
-      fetch(`https://financialmodelingprep.com/api/v3/quotes/etf?apikey=${key}`),
-    ]);
-
+    // ── Fetch gainers, losers, and ETF quotes in parallel ──────────────────
     const [gainersRaw, losersRaw, etfsRaw] = await Promise.all([
-      gainersRes.json(),
-      losersRes.json(),
-      etfsRes.json(),
+      fetchJson(`https://financialmodelingprep.com/api/v3/stock_market/gainers?apikey=${key}`),
+      fetchJson(`https://financialmodelingprep.com/api/v3/stock_market/losers?apikey=${key}`),
+      fetchJson(`https://financialmodelingprep.com/api/v3/quotes/etf?apikey=${key}`),
     ]);
 
-    const toArray = (x) => (Array.isArray(x) ? x : []);
+    const gainersArr = toArray(gainersRaw).filter((x) => x.symbol && x.price != null);
+    const losersArr  = toArray(losersRaw).filter((x) => x.symbol && x.price != null);
+    const etfsArr    = toArray(etfsRaw).filter((x) => x.symbol && x.price != null);
 
-    // Top 8 gainers + top 8 losers (already sorted by FMP)
-    const gainers = toArray(gainersRaw)
-      .filter((x) => x.symbol && x.price != null)
-      .slice(0, 8)
-      .map(normalizeStock);
+    // Market is open when gainers/losers are non-empty (FMP only populates them during trading hours)
+    const marketOpen = gainersArr.length > 0 || losersArr.length > 0;
 
-    const losers = toArray(losersRaw)
-      .filter((x) => x.symbol && x.price != null)
-      .slice(0, 8)
-      .map(normalizeStock);
+    // ── Stocks: live gainers+losers, or fall back to most-active ───────────
+    let stockItems;
+    if (marketOpen) {
+      const gainers = gainersArr.slice(0, 8).map(normalizeStock);
+      const losers  = losersArr.slice(0, 8).map(normalizeStock);
+      stockItems = [...gainers, ...losers];
+    } else {
+      console.log('[market-feed] Market closed — falling back to actives for stocks');
+      const activesRaw = await fetchJson(
+        `https://financialmodelingprep.com/api/v3/stock_market/actives?apikey=${key}`
+      );
+      stockItems = toArray(activesRaw)
+        .filter((x) => x.symbol && x.price != null)
+        .slice(0, 16)
+        .map(normalizeStock);
+    }
 
-    // Top 8 ETFs by volume
-    const etfs = toArray(etfsRaw)
-      .filter((x) => x.symbol && x.price != null)
-      .sort((a, b) => (Number(b.volume) || 0) - (Number(a.volume) || 0))
-      .slice(0, 8)
-      .map(normalizeEtf)
-      .map(({ volume: _v, ...rest }) => rest); // drop volume from output
+    // ── ETFs: top by volume from full quote list, or fall back to curated ──
+    let etfItems;
+    if (etfsArr.length > 0) {
+      etfItems = etfsArr
+        .sort((a, b) => (Number(b.volume) || 0) - (Number(a.volume) || 0))
+        .slice(0, 8)
+        .map(normalizeEtf)
+        .map(({ volume: _v, ...rest }) => rest);
+    } else {
+      console.log('[market-feed] ETF quotes empty — falling back to curated list');
+      const symbols   = FALLBACK_ETF_SYMBOLS.join(',');
+      const quotesRaw = await fetchJson(
+        `https://financialmodelingprep.com/api/v3/quote/${symbols}?apikey=${key}`
+      );
+      etfItems = toArray(quotesRaw)
+        .filter((x) => x.symbol && x.price != null)
+        .map(normalizeEtf)
+        .map(({ volume: _v, ...rest }) => rest);
+    }
 
-    // Merge: ETFs first so Conservador filter sees them at the top,
-    // then gainers, then losers. Deduplicate by symbol.
-    const seen = new Set();
+    // ── Merge: ETFs first, then stocks. Deduplicate by symbol. ─────────────
+    const seen  = new Set();
     const items = [];
-    for (const item of [...etfs, ...gainers, ...losers]) {
+    for (const item of [...etfItems, ...stockItems]) {
       if (!seen.has(item.symbol)) {
         seen.add(item.symbol);
         items.push(item);
       }
     }
 
-    return res.status(200).json(items);
+    return res.status(200).json({ items, marketOpen });
   } catch (err) {
     console.error('[market-feed] Error:', err.message);
     return res.status(500).json({ error: err.message });

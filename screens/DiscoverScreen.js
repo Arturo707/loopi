@@ -302,6 +302,7 @@ export default function DiscoverScreen() {
 
   // ── Live feed state ──
   const [allStocks,   setAllStocks]   = useState([]);
+  const [marketOpen,  setMarketOpen]  = useState(true);
   const [feedStatus,  setFeedStatus]  = useState('loading'); // 'loading' | 'ready' | 'error'
   const [lastUpdated, setLastUpdated] = useState(null);
   const [elapsed,     setElapsed]     = useState(0);
@@ -311,7 +312,8 @@ export default function DiscoverScreen() {
       const res  = await fetch(FEED_API);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      setAllStocks(data);
+      setAllStocks(data.items ?? data); // backwards-compat if shape ever changes
+      setMarketOpen(data.marketOpen ?? true);
       setLastUpdated(new Date());
       setFeedStatus('ready');
     } catch (err) {
@@ -442,6 +444,13 @@ export default function DiscoverScreen() {
             <Text style={s.timestamp}>{fmtElapsed(elapsed)}</Text>
           )}
         </View>
+
+        {/* Closed-market banner */}
+        {feedStatus === 'ready' && !marketOpen && (
+          <View style={s.closedBanner}>
+            <Text style={s.closedBannerTxt}>🔒 Mercado cerrado — precios de cierre</Text>
+          </View>
+        )}
 
         {/* Toast */}
         {toast && <View style={s.toast}><Text style={s.toastTxt}>{toast}</Text></View>}
@@ -677,6 +686,14 @@ const s = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15, fontFamily: F.regular, color: C.text },
   clearBtn:    { fontSize: 13, color: C.muted, paddingLeft: 8 },
   timestamp:   { fontSize: 11, fontFamily: F.regular, color: C.muted, flexShrink: 0 },
+
+  closedBanner: {
+    marginHorizontal: 20, marginBottom: 8,
+    backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
+    borderRadius: 12, paddingVertical: 8, paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  closedBannerTxt: { fontSize: 12, fontFamily: F.medium, color: C.muted },
 
   toast: {
     marginHorizontal: 20, marginBottom: 8, backgroundColor: C.text,
