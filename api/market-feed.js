@@ -1,4 +1,4 @@
-// v5 - FMP Starter (stable endpoints only)
+// v6 - FMP Starter (stable endpoints only, ETFs fetched individually)
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -7,8 +7,7 @@ const CORS = {
 
 const toArray = (x) => (Array.isArray(x) ? x : []);
 
-const ETF_SYMBOLS = ['SPY', 'QQQ', 'VTI', 'GLD', 'CSPX'];
-const FALLBACK_SYMBOLS = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA', 'JPM'];
+const ETF_SYMBOLS = ['SPY', 'QQQ', 'VTI', 'GLD'];
 
 export default async function handler(req, res) {
   Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
@@ -19,59 +18,50 @@ export default async function handler(req, res) {
   if (!key) return res.status(500).json({ error: 'FMP_API_KEY not configured' });
 
   try {
-    // All stable endpoints
-    const [gainersRes, losersRes, etfsRes] = await Promise.all([
+    const [gainersRes, losersRes, ...etfResponses] = await Promise.all([
       fetch(`https://financialmodelingprep.com/stable/biggest-gainers?apikey=${key}`),
       fetch(`https://financialmodelingprep.com/stable/biggest-losers?apikey=${key}`),
-      fetch(`https://financialmodelingprep.com/stable/quote?symbol=${ETF_SYMBOLS.join(',')}&apikey=${key}`),
+      ...ETF_SYMBOLS.map((s) =>
+        fetch(`https://financialmodelingprep.com/stable/quote?symbol=${s}&apikey=${key}`)
+      ),
     ]);
 
-    const [gainersRaw, losersRaw, etfsRaw] = await Promise.all([
+    const [gainersRaw, losersRaw, ...etfRaws] = await Promise.all([
       gainersRes.json(),
       losersRes.json(),
-      etfsRes.json(),
+      ...etfResponses.map((r) => r.json()),
     ]);
 
     const gainersArr = toArray(gainersRaw).filter((x) => x.symbol && x.price != null);
     const losersArr  = toArray(losersRaw).filter((x) => x.symbol && x.price != null);
     const marketOpen = gainersArr.length > 0 || losersArr.length > 0;
 
-    // ── Stocks ──
-    let stockItems;
-    if (marketOpen) {
-      stockItems = [...gainersArr.slice(0, 8), ...losersArr.slice(0, 8)].map((item) => ({
-        symbol:            item.symbol,
-        name:              item.name || item.symbol,
-        price:             Number(item.price) || 0,
-        changesPercentage: Number(item.changesPercentage ?? item.changePercentage ?? 0),
-        type:              'stock',
-      }));
-    } else {
-      // Fallback: use biggest-gainers as static snapshot (market closed)
-      const fallbackRes = await fetch(`https://financialmodelingprep.com/stable/company-outlook?symbol=AAPL&apikey=${key}`);
-      // Use gainersRaw as fallback if it has data regardless of market state
-      const fallback = toArray(gainersRaw).length > 0 ? toArray(gainersRaw) : toArray(losersRaw);
-      stockItems = fallback.slice(0, 10).map((item) => ({
-        symbol:            item.symbol,
-        name:              item.name || item.symbol,
-        price:             Number(item.price) || 0,
-        changesPercentage: Number(item.changesPercentage ?? item.changePercentage ?? 0),
-        type:              'stock',
-      }));
-    }
-
-    // ── ETFs ──
-    const etfItems = toArray(etfsRaw)
-      .filter((x) => x.symbol && x.price != null)
+    // ── ETFs ──────────────────────────────────────────────────────────────────
+    const etfItems = etfRaws
+      .flat()
+      .filter((x) => x && x.symbol && x.price != null)
       .map((item) => ({
         symbol:            item.symbol,
         name:              item.name || item.symbol,
         price:             Number(item.price) || 0,
-        changesPercentage: Number(item.changesPercentage ?? item.changePercentage ?? 0),
+        changesPercentage: Number(item.changePercentage ?? item.changesPercentage ?? 0),
         type:              'etf',
       }));
 
-    // Deduplicate, ETFs first
+    // ── Stocks ────────────────────────────────────────────────────────────────
+    const source = marketOpen
+      ? [...gainersArr.slice(0, 8), ...losersArr.slice(0, 8)]
+      : [...toArray(gainersRaw).slice(0, 10)];
+
+    const stockItems = source.map((item) => ({
+      symbol:            item.symbol,
+      name:              item.name || item.symbol,
+      price:             Number(item.price) || 0,
+      changesPercentage: Number(item.changesPercentage ?? item.changePercentage ?? 0),
+      type:              'stock',
+    }));
+
+    // ── Deduplicate (ETFs first) ───────────────────────────────────────────────
     const seen  = new Set();
     const items = [];
     for (const item of [...etfItems, ...stockItems]) {
