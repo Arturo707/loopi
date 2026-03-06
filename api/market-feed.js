@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     const [gainersRes, losersRes, etfsRes] = await Promise.all([
       fetch(`https://financialmodelingprep.com/stable/biggest-gainers?apikey=${key}`),
       fetch(`https://financialmodelingprep.com/stable/biggest-losers?apikey=${key}`),
-      fetch(`https://financialmodelingprep.com/stable/batch-pre-post-market-trade?symbols=${ETF_SYMBOLS.join(',')}&apikey=${key}`),
+      fetch(`https://financialmodelingprep.com/stable/quote?symbol=${ETF_SYMBOLS.join(',')}&apikey=${key}`),
     ]);
 
     const [gainersRaw, losersRaw, etfsRaw] = await Promise.all([
