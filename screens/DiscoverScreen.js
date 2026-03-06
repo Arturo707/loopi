@@ -310,14 +310,16 @@ export default function DiscoverScreen() {
 
       // Rank items via Claude for the user's profile
       try {
-        const { riskProfile: rp, age: a, incomeRange: ir, experience: ex } = userProfileRef.current;
+        console.log('[RankFeed] sending profile:', { riskProfile, age, incomeRange, experience });
         const rankRes = await fetch(RANK_API, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ items, riskProfile: rp, age: a, incomeRange: ir, experience: ex }),
+          body: JSON.stringify({ items, riskProfile, age, incomeRange, experience }),
         });
         if (rankRes.ok) {
-          const { ranked } = await rankRes.json();
+          const rankData = await rankRes.json();
+          console.log('[RankFeed] Claude returned:', rankData.ranked);
+          const { ranked } = rankData;
           const symbolMap = Object.fromEntries(items.map((s) => [s.symbol, s]));
           const reordered = ranked.map((sym) => symbolMap[sym]).filter(Boolean);
           const rankedSet = new Set(ranked);
@@ -337,9 +339,9 @@ export default function DiscoverScreen() {
       // Don't flip back to 'error' if we already have data — keep showing stale
       setFeedStatus((prev) => (prev === 'loading' ? 'error' : prev));
     }
-  }, []);
+  }, [riskProfile, age, incomeRange, experience]);
 
-  // Initial fetch + 60s refresh interval
+  // Initial fetch + 60s refresh interval; re-run when risk profile changes
   useEffect(() => {
     fetchFeed();
     const interval = setInterval(fetchFeed, 60_000);
@@ -378,11 +380,6 @@ export default function DiscoverScreen() {
   const [tips, setTips]             = useState({});
   const [tipLoading, setTipLoading] = useState({});
   const generatingRef = useRef(new Set());
-
-  const userProfileRef = useRef({});
-  useEffect(() => {
-    userProfileRef.current = { riskProfile, age, incomeRange, experience };
-  }, [riskProfile, age, incomeRange, experience]);
 
   const ensureTip = useCallback(async (stock) => {
     const { symbol, name, price, changesPercentage } = stock;
