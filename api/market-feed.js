@@ -1,6 +1,6 @@
-// GET → [ ...items ], with a `marketOpen` boolean field in the response header / body
+// GET → { items: [...], marketOpen: boolean }
 // Fetches gainers, losers, and top ETFs from FMP in parallel.
-// Falls back to actives (stocks) and a curated ETF list when the market is closed.
+// Falls back to curated quote lists when the market is closed or endpoints return empty.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -8,7 +8,8 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-const FALLBACK_ETF_SYMBOLS = ['SPY', 'QQQ', 'VTI', 'IWDA', 'VWCE', 'CSPX', 'GLD', 'EIMI', 'AGGH', 'EXS1'];
+const FALLBACK_STOCK_SYMBOLS = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA', 'JPM', 'IAG', 'BBVA'];
+const FALLBACK_ETF_SYMBOLS   = ['SPY', 'QQQ', 'VTI', 'IWDA', 'VWCE', 'CSPX', 'GLD', 'EIMI', 'AGGH', 'EXS1'];
 
 const toArray = (x) => (Array.isArray(x) ? x : []);
 
@@ -58,24 +59,28 @@ export default async function handler(req, res) {
     const losersArr  = toArray(losersRaw).filter((x) => x.symbol && x.price != null);
     const etfsArr    = toArray(etfsRaw).filter((x) => x.symbol && x.price != null);
 
+    console.log(`[market-feed] gainers=${gainersArr.length} losers=${losersArr.length} etfs=${etfsArr.length}`);
+
     // Market is open when gainers/losers are non-empty (FMP only populates them during trading hours)
     const marketOpen = gainersArr.length > 0 || losersArr.length > 0;
 
-    // ── Stocks: live gainers+losers, or fall back to most-active ───────────
+    // ── Stocks: live gainers+losers, or fall back to curated quote list ─────
     let stockItems;
     if (marketOpen) {
       const gainers = gainersArr.slice(0, 8).map(normalizeStock);
       const losers  = losersArr.slice(0, 8).map(normalizeStock);
       stockItems = [...gainers, ...losers];
+      console.log(`[market-feed] stocks (live): gainers=${gainers.length} losers=${losers.length}`);
     } else {
-      console.log('[market-feed] Market closed — falling back to actives for stocks');
-      const activesRaw = await fetchJson(
-        `https://financialmodelingprep.com/api/v3/stock_market/actives?apikey=${key}`
+      console.log('[market-feed] Market closed — fetching curated stock quotes');
+      const symbols    = FALLBACK_STOCK_SYMBOLS.join(',');
+      const quotesRaw  = await fetchJson(
+        `https://financialmodelingprep.com/api/v3/quote/${symbols}?apikey=${key}`
       );
-      stockItems = toArray(activesRaw)
+      stockItems = toArray(quotesRaw)
         .filter((x) => x.symbol && x.price != null)
-        .slice(0, 16)
         .map(normalizeStock);
+      console.log(`[market-feed] stocks (curated fallback): ${stockItems.length}`);
     }
 
     // ── ETFs: top by volume from full quote list, or fall back to curated ──
@@ -86,8 +91,9 @@ export default async function handler(req, res) {
         .slice(0, 8)
         .map(normalizeEtf)
         .map(({ volume: _v, ...rest }) => rest);
+      console.log(`[market-feed] ETFs (live top-volume): ${etfItems.length}`);
     } else {
-      console.log('[market-feed] ETF quotes empty — falling back to curated list');
+      console.log('[market-feed] ETF quotes empty — fetching curated ETF quotes');
       const symbols   = FALLBACK_ETF_SYMBOLS.join(',');
       const quotesRaw = await fetchJson(
         `https://financialmodelingprep.com/api/v3/quote/${symbols}?apikey=${key}`
@@ -96,6 +102,7 @@ export default async function handler(req, res) {
         .filter((x) => x.symbol && x.price != null)
         .map(normalizeEtf)
         .map(({ volume: _v, ...rest }) => rest);
+      console.log(`[market-feed] ETFs (curated fallback): ${etfItems.length}`);
     }
 
     // ── Merge: ETFs first, then stocks. Deduplicate by symbol. ─────────────
