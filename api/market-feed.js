@@ -32,8 +32,17 @@ export default async function handler(req, res) {
       ...etfResponses.map((r) => r.json()),
     ]);
 
-    const gainersArr = toArray(gainersRaw).filter((x) => x.symbol && x.price != null);
-    const losersArr  = toArray(losersRaw).filter((x) => x.symbol && x.price != null);
+    const isClean = (x) => {
+      const price = Number(x.price);
+      const absPct = Math.abs(Number(x.changesPercentage ?? x.changePercentage ?? 0));
+      if (absPct > 25) return false;
+      if (price < 1) return false;
+      if (price < 5 && absPct > 15) return false;
+      return true;
+    };
+
+    const gainersArr = toArray(gainersRaw).filter((x) => x.symbol && x.price != null && isClean(x));
+    const losersArr  = toArray(losersRaw).filter((x) => x.symbol && x.price != null && isClean(x));
     const marketOpen = gainersArr.length > 0 || losersArr.length > 0;
 
     // ── ETFs ──────────────────────────────────────────────────────────────────

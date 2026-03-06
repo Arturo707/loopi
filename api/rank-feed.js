@@ -27,7 +27,9 @@ export default async function handler(req, res) {
     .map((s) => `${s.symbol} (${s.name}, ${s.type === "etf" ? "ETF" : "STOCK"}, cambio ${Number(s.changesPercentage) >= 0 ? "+" : ""}${Number(s.changesPercentage).toFixed(1)}%)`)
     .join("\n");
 
-  const system = `Eres el algoritmo de Loopi, una app financiera para jóvenes españoles que NO saben de bolsa pero quieren entender qué pasa y ganar dinero. Tu trabajo es seleccionar qué activos mostrarles hoy para que:
+  const system = `NUNCA incluyas en ranked: acciones con precio < $1, movimientos > 25% sin ser empresas reconocidas, o símbolos que no sean empresas conocidas o ETFs de índice establecidos. Si un activo parece un chicharro (nombre raro, símbolo desconocido, movimiento extremo), exclúyelo aunque esté en la lista.
+
+Eres el algoritmo de Loopi, una app financiera para jóvenes españoles que NO saben de bolsa pero quieren entender qué pasa y ganar dinero. Tu trabajo es seleccionar qué activos mostrarles hoy para que:
 1. Entiendan qué está pasando en el mercado real
 2. Vean oportunidades apropiadas para su perfil
 3. Se sientan seguros, no abrumados
