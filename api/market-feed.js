@@ -1,7 +1,5 @@
-// v2 - Yahoo Finance
 // GET → { items: [...], marketOpen: boolean }
-// Fetches stock and ETF quotes from Yahoo Finance in parallel.
-// No API key required. Works regardless of market hours.
+// Fetches stock and ETF quotes from Twelve Data in parallel.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -14,10 +12,13 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
+  const key = process.env.TWELVE_DATA_API_KEY;
+  if (!key) return res.status(500).json({ error: 'TWELVE_DATA_API_KEY not configured' });
+
   try {
     const [stocksRes, etfsRes] = await Promise.all([
-      fetch('https://query1.finance.yahoo.com/v7/finance/quote?symbols=AAPL,MSFT,NVDA,AMZN,GOOGL,META,TSLA,JPM,IAG,BBVA'),
-      fetch('https://query1.finance.yahoo.com/v7/finance/quote?symbols=SPY,QQQ,VTI,IWDA,VWCE,CSPX,GLD,EIMI,AGGH,EXS1'),
+      fetch(`https://api.twelvedata.com/quote?symbol=AAPL,MSFT,NVDA,AMZN,GOOGL,META,TSLA,JPM,IAG,BBVA&apikey=${key}`),
+      fetch(`https://api.twelvedata.com/quote?symbol=SPY,QQQ,VTI,IWDA,VWCE,CSPX,GLD,EIMI,EXS1,AGGH&apikey=${key}`),
     ]);
 
     const [stocksData, etfsData] = await Promise.all([
@@ -25,34 +26,35 @@ export default async function handler(req, res) {
       etfsRes.json(),
     ]);
 
-    const stockResults = stocksData.quoteResponse?.result ?? [];
-    const etfResults   = etfsData.quoteResponse?.result   ?? [];
+    // Twelve Data returns an object keyed by symbol for multi-symbol requests
+    const stockResults = Object.values(stocksData).filter((x) => x.symbol);
+    const etfResults   = Object.values(etfsData).filter((x) => x.symbol);
 
-    console.log(`[market-feed] Yahoo stocks=${stockResults.length} etfs=${etfResults.length}`);
+    console.log(`[market-feed] Twelve Data stocks=${stockResults.length} etfs=${etfResults.length}`);
 
     const stocks = stockResults.map((item) => ({
       symbol:            item.symbol,
-      name:              item.longName || item.shortName || item.symbol,
-      price:             item.regularMarketPrice        ?? 0,
-      changesPercentage: item.regularMarketChangePercent ?? 0,
+      name:              item.name || item.symbol,
+      price:             parseFloat(item.close)          || 0,
+      changesPercentage: parseFloat(item.percent_change) || 0,
       type:              'stock',
     }));
 
     const etfs = etfResults.map((item) => ({
       symbol:            item.symbol,
-      name:              item.longName || item.shortName || item.symbol,
-      price:             item.regularMarketPrice        ?? 0,
-      changesPercentage: item.regularMarketChangePercent ?? 0,
+      name:              item.name || item.symbol,
+      price:             parseFloat(item.close)          || 0,
+      changesPercentage: parseFloat(item.percent_change) || 0,
       type:              'etf',
     }));
 
     const marketOpen = [...stockResults, ...etfResults].some(
-      (item) => (item.regularMarketPrice ?? 0) > 0
+      (item) => item.is_market_open === true
     );
 
-    console.log(`[market-feed] marketOpen=${marketOpen} total items=${etfs.length + stocks.length}`);
+    console.log(`[market-feed] marketOpen=${marketOpen} total=${etfs.length + stocks.length}`);
 
-    // ETFs first so Conservador filter sees them at the top
+    // ETFs first so the Conservador risk filter sees them at the top
     const items = [...etfs, ...stocks];
 
     return res.status(200).json({ items, marketOpen });
