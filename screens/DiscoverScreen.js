@@ -10,14 +10,6 @@ import { useApp } from '../context/AppContext';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 
-// ─── Risk filters (operate on live data, type is lowercase 'etf' | 'stock') ──
-
-const RISK_FILTERS = {
-  Conservador: (s) => s.type === 'etf',
-  Moderado:    (s) => s.type === 'etf' || Math.abs(s.changesPercentage) <= 3,
-  Atrevido:    () => true,
-};
-
 // ─── API endpoints ────────────────────────────────────────────────────────────
 
 const API_BASE =
@@ -27,6 +19,7 @@ const API_BASE =
     : '');
 const FEED_API = `${API_BASE}/api/market-feed`;
 const TIP_API  = `${API_BASE}/api/generate-tip`;
+const RANK_API = `${API_BASE}/api/rank-feed`;
 
 // ─── Anthropic chat (in-app) ──────────────────────────────────────────────────
 
@@ -312,8 +305,31 @@ export default function DiscoverScreen() {
       const res  = await fetch(FEED_API);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      setAllStocks(data.items ?? data); // backwards-compat if shape ever changes
+      const items = data.items ?? data;
       setMarketOpen(data.marketOpen ?? true);
+
+      // Rank items via Claude for the user's profile
+      try {
+        const { riskProfile: rp, age: a, incomeRange: ir, experience: ex } = userProfileRef.current;
+        const rankRes = await fetch(RANK_API, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ items, riskProfile: rp, age: a, incomeRange: ir, experience: ex }),
+        });
+        if (rankRes.ok) {
+          const { ranked } = await rankRes.json();
+          const symbolMap = Object.fromEntries(items.map((s) => [s.symbol, s]));
+          const reordered = ranked.map((sym) => symbolMap[sym]).filter(Boolean);
+          const rankedSet = new Set(ranked);
+          const rest = items.filter((s) => !rankedSet.has(s.symbol));
+          setAllStocks([...reordered, ...rest]);
+        } else {
+          setAllStocks(items);
+        }
+      } catch {
+        setAllStocks(items);
+      }
+
       setLastUpdated(new Date());
       setFeedStatus('ready');
     } catch (err) {
@@ -340,9 +356,8 @@ export default function DiscoverScreen() {
     return () => clearInterval(timer);
   }, [lastUpdated]);
 
-  // ── Filtered feed ──
-  const filterFn = RISK_FILTERS[riskProfile] ?? RISK_FILTERS.Moderado;
-  const feed = allStocks.filter(filterFn);
+  // ── Feed (ordered by Claude ranking) ──
+  const feed = allStocks;
 
   const feedRef = useRef(feed);
   useEffect(() => { feedRef.current = feed; }, [feed]);
@@ -366,8 +381,8 @@ export default function DiscoverScreen() {
 
   const userProfileRef = useRef({});
   useEffect(() => {
-    userProfileRef.current = { age, incomeRange, experience };
-  }, [age, incomeRange, experience]);
+    userProfileRef.current = { riskProfile, age, incomeRange, experience };
+  }, [riskProfile, age, incomeRange, experience]);
 
   const ensureTip = useCallback(async (stock) => {
     const { symbol, name, price, changesPercentage } = stock;
