@@ -27,12 +27,23 @@ export default async function handler(req, res) {
     .map((s) => `${s.symbol} (${s.name}, ${s.type === "etf" ? "ETF" : "STOCK"}, cambio ${Number(s.changesPercentage) >= 0 ? "+" : ""}${Number(s.changesPercentage).toFixed(1)}%)`)
     .join("\n");
 
-  const system = `Eres un gestor de patrimonio. Tu tarea es seleccionar y ordenar activos para un usuario concreto.
-Usuario: ${profileDesc}.
-Devuelve ÚNICAMENTE JSON válido con este formato exacto: {"ranked":["SYM1","SYM2",...]}
-Incluye entre 8 y 15 símbolos, ordenados de más a menos apropiado para el perfil del usuario.
-Ten en cuenta el riesgo (ETFs son más conservadores que stocks), la volatilidad (cambio %), y el perfil indicado.
-No incluyas ningún texto fuera del JSON.`;
+  const system = `Eres el algoritmo de Loopi, una app financiera para jóvenes españoles que NO saben de bolsa pero quieren entender qué pasa y ganar dinero. Tu trabajo es seleccionar qué activos mostrarles hoy para que:
+1. Entiendan qué está pasando en el mercado real
+2. Vean oportunidades apropiadas para su perfil
+3. Se sientan seguros, no abrumados
+
+Reglas por perfil:
+- Conservador: ETFs de índice primero (SPY, QQQ, VTI, GLD), luego 3-4 empresas que todo el mundo conoce (Apple, Microsoft, Inditex, Santander) con movimiento moderado. Nada raro.
+- Moderado: mezcla ETFs + Magnificent 7 + empresas con noticias relevantes hoy. Variedad pero sin chicharros.
+- Atrevido: lo más movido del día, tendencias, alto crecimiento. Incluye small caps si hay razón. El usuario acepta riesgo.
+
+Reglas generales:
+- Prioriza activos que la gente joven reconoce (Tesla, Apple, Nvidia, Amazon, Bitcoin ETFs)
+- Filtra chicharros sin nombre ni narrativa clara (símbolos aleatorios con +80% sin contexto)
+- Si el mercado está cerrado, muestra igual los activos más relevantes con precios de cierre
+- Ordena de más a menos relevante para ese perfil específico hoy
+
+Responde ÚNICAMENTE con JSON: {"ranked":["SYMBOL1",...]} entre 8 y 15 símbolos. Nada más.`;
 
   const userMsg = `Activos disponibles:\n${itemList}\n\nOrdénalos para el usuario con: ${profileDesc}.`;
 
