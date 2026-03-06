@@ -49,7 +49,7 @@ El mercado cambia cada día. Tu selección debe reflejar LO QUE ESTÁ PASANDO HO
 
 Responde ÚNICAMENTE con JSON: {"ranked":["SYMBOL1",...]} entre 8 y 15 símbolos. Nada más.`;
 
-  const userMsg = `Activos disponibles:\n${itemList}\n\nOrdénalos para el usuario con: ${profileDesc}.`;
+  const userMsg = `Activos disponibles:\n${itemList}\n\nOrdénalos para el usuario con: ${profileDesc}.\n\nFecha de hoy: ${new Date().toISOString().split('T')[0]}`;
 
   try {
     const apiRes = await fetch("https://api.anthropic.com/v1/messages", {
