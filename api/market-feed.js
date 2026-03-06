@@ -1,6 +1,7 @@
-// v3 - Twelve Data
+// v4 - FMP Starter
 // GET → { items: [...], marketOpen: boolean }
-// Fetches stock and ETF quotes from Twelve Data in parallel.
+// Fetches gainers, losers, and ETF quotes from FMP in parallel.
+// Falls back to curated stock quotes when the market is closed.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -8,60 +9,89 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+const toArray = (x) => (Array.isArray(x) ? x : []);
+
 export default async function handler(req, res) {
   Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const key = process.env.TWELVE_DATA_API_KEY;
-  if (!key) return res.status(500).json({ error: 'TWELVE_DATA_API_KEY not configured' });
+  const key = process.env.FMP_API_KEY;
+  if (!key) return res.status(500).json({ error: 'FMP_API_KEY not configured' });
 
   try {
-    const [stocksRes, etfsRes] = await Promise.all([
-      fetch(`https://api.twelvedata.com/quote?symbol=AAPL,MSFT,NVDA,AMZN,GOOGL,META,TSLA,JPM,IAG,BBVA&apikey=${key}`),
-      fetch(`https://api.twelvedata.com/quote?symbol=SPY,QQQ,VTI,IWDA,VWCE,CSPX,GLD,EIMI,EXS1,AGGH&apikey=${key}`),
+    const [gainersRes, losersRes, etfsRes] = await Promise.all([
+      fetch(`https://financialmodelingprep.com/api/v3/stock_market/gainers?apikey=${key}`),
+      fetch(`https://financialmodelingprep.com/api/v3/stock_market/losers?apikey=${key}`),
+      fetch(`https://financialmodelingprep.com/api/v3/quote/SPY,QQQ,VTI,GLD,CSPX?apikey=${key}`),
     ]);
 
-    const [stocksText, etfsText] = await Promise.all([
-      stocksRes.text(),
-      etfsRes.text(),
+    const [gainersRaw, losersRaw, etfsRaw] = await Promise.all([
+      gainersRes.json(),
+      losersRes.json(),
+      etfsRes.json(),
     ]);
-    console.log('[twelve] stocks raw:', stocksText.slice(0, 200));
-    console.log('[twelve] etfs raw:', etfsText.slice(0, 200));
 
-    const stocksData = JSON.parse(stocksText);
-    const etfsData   = JSON.parse(etfsText);
+    const gainersArr = toArray(gainersRaw).filter((x) => x.symbol && x.price != null);
+    const losersArr  = toArray(losersRaw).filter((x) => x.symbol && x.price != null);
+    const etfsArr    = toArray(etfsRaw).filter((x) => x.symbol && x.price != null);
 
-    // Twelve Data returns an object keyed by symbol for multi-symbol requests
-    const stockResults = Object.values(stocksData).filter((x) => x.symbol);
-    const etfResults   = Object.values(etfsData).filter((x) => x.symbol);
+    console.log(`[market-feed] gainers=${gainersArr.length} losers=${losersArr.length} etfs=${etfsArr.length}`);
 
-    console.log(`[market-feed] Twelve Data stocks=${stockResults.length} etfs=${etfResults.length}`);
+    const marketOpen = gainersArr.length > 0 || losersArr.length > 0;
 
-    const stocks = stockResults.map((item) => ({
+    // ── Stocks ──────────────────────────────────────────────────────────────
+    let stockItems;
+    if (marketOpen) {
+      stockItems = [
+        ...gainersArr.slice(0, 8),
+        ...losersArr.slice(0, 8),
+      ].map((item) => ({
+        symbol:            item.symbol,
+        name:              item.name || item.symbol,
+        price:             Number(item.price)             || 0,
+        changesPercentage: Number(item.changesPercentage) || 0,
+        type:              'stock',
+      }));
+      console.log(`[market-feed] stocks (live): ${stockItems.length}`);
+    } else {
+      console.log('[market-feed] Market closed — fetching curated stock quotes');
+      const fallbackRes = await fetch(
+        `https://financialmodelingprep.com/api/v3/quote/AAPL,MSFT,NVDA,AMZN,GOOGL,META,TSLA,JPM,IAG,BBVA?apikey=${key}`
+      );
+      const fallbackRaw = await fallbackRes.json();
+      stockItems = toArray(fallbackRaw)
+        .filter((x) => x.symbol && x.price != null)
+        .map((item) => ({
+          symbol:            item.symbol,
+          name:              item.name || item.symbol,
+          price:             Number(item.price)             || 0,
+          changesPercentage: Number(item.changesPercentage) || 0,
+          type:              'stock',
+        }));
+      console.log(`[market-feed] stocks (curated fallback): ${stockItems.length}`);
+    }
+
+    // ── ETFs ─────────────────────────────────────────────────────────────────
+    const etfItems = etfsArr.map((item) => ({
       symbol:            item.symbol,
       name:              item.name || item.symbol,
-      price:             parseFloat(item.close)          || 0,
-      changesPercentage: parseFloat(item.percent_change) || 0,
-      type:              'stock',
-    }));
-
-    const etfs = etfResults.map((item) => ({
-      symbol:            item.symbol,
-      name:              item.name || item.symbol,
-      price:             parseFloat(item.close)          || 0,
-      changesPercentage: parseFloat(item.percent_change) || 0,
+      price:             Number(item.price)             || 0,
+      changesPercentage: Number(item.changesPercentage) || 0,
       type:              'etf',
     }));
 
-    const marketOpen = [...stockResults, ...etfResults].some(
-      (item) => item.is_market_open === true
-    );
-
-    console.log(`[market-feed] marketOpen=${marketOpen} total=${etfs.length + stocks.length}`);
+    console.log(`[market-feed] marketOpen=${marketOpen} etfs=${etfItems.length} stocks=${stockItems.length}`);
 
     // ETFs first so the Conservador risk filter sees them at the top
-    const items = [...etfs, ...stocks];
+    const seen  = new Set();
+    const items = [];
+    for (const item of [...etfItems, ...stockItems]) {
+      if (!seen.has(item.symbol)) {
+        seen.add(item.symbol);
+        items.push(item);
+      }
+    }
 
     return res.status(200).json({ items, marketOpen });
   } catch (err) {
