@@ -22,10 +22,15 @@ export default async function handler(req, res) {
       fetch(`https://api.twelvedata.com/quote?symbol=SPY,QQQ,VTI,IWDA,VWCE,CSPX,GLD,EIMI,EXS1,AGGH&apikey=${key}`),
     ]);
 
-    const [stocksData, etfsData] = await Promise.all([
-      stocksRes.json(),
-      etfsRes.json(),
+    const [stocksText, etfsText] = await Promise.all([
+      stocksRes.text(),
+      etfsRes.text(),
     ]);
+    console.log('[twelve] stocks raw:', stocksText.slice(0, 200));
+    console.log('[twelve] etfs raw:', etfsText.slice(0, 200));
+
+    const stocksData = JSON.parse(stocksText);
+    const etfsData   = JSON.parse(etfsText);
 
     // Twelve Data returns an object keyed by symbol for multi-symbol requests
     const stockResults = Object.values(stocksData).filter((x) => x.symbol);
