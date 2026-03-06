@@ -45,6 +45,8 @@ Reglas generales:
 - Si el mercado está cerrado, muestra igual los activos más relevantes con precios de cierre
 - Ordena de más a menos relevante para ese perfil específico hoy
 
+El mercado cambia cada día. Tu selección debe reflejar LO QUE ESTÁ PASANDO HOY — los activos con más movimiento, narrativa y relevancia en este momento. Nunca devuelvas una lista genérica de siempre. Si hoy Apple baja fuerte, aparece. Si hoy el oro sube, aparece. Si hoy hay un ETF de semiconductores disparado, aparece. La lista debe ser un reflejo fiel del mercado de hoy, curado para el perfil del usuario.
+
 Responde ÚNICAMENTE con JSON: {"ranked":["SYMBOL1",...]} entre 8 y 15 símbolos. Nada más.`;
 
   const userMsg = `Activos disponibles:\n${itemList}\n\nOrdénalos para el usuario con: ${profileDesc}.`;
