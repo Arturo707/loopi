@@ -18,7 +18,6 @@ const API_BASE =
     ? window.location.origin
     : '');
 const FEED_API = `${API_BASE}/api/market-feed`;
-const TIP_API  = `${API_BASE}/api/generate-tip`;
 const RANK_API = `${API_BASE}/api/rank-feed`;
 
 // ─── Anthropic chat (in-app) ──────────────────────────────────────────────────
@@ -40,20 +39,6 @@ async function callClaude(system, messages, maxTokens = 150) {
   const data = await res.json();
   if (data.error) throw new Error(data.error.message);
   return data.content[0].text.trim();
-}
-
-async function generateTip(symbol, name, price, changePct, userProfile) {
-  const res = await fetch(TIP_API, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      symbol, name, price: Number(price), changePct: Number(changePct),
-      ...(userProfile || {}),
-    }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Tip API failed');
-  return data;
 }
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -308,7 +293,7 @@ export default function DiscoverScreen() {
       const items = data.items ?? data;
       setMarketOpen(data.marketOpen ?? true);
 
-      // Rank items via Claude for the user's profile
+      // Rank items and get embedded tips via Claude
       try {
         console.log('[RankFeed] sending profile:', { riskProfile, age, incomeRange, experience });
         const rankRes = await fetch(RANK_API, {
@@ -318,13 +303,30 @@ export default function DiscoverScreen() {
         });
         if (rankRes.ok) {
           const rankData = await rankRes.json();
-          console.log('[RankFeed] Claude returned:', rankData.ranked);
-          const { ranked } = rankData;
+          console.log('[RankFeed] top:', rankData.top?.map(i => i.symbol).join(','));
+          console.log('[RankFeed] rest:', rankData.rest?.join(','));
+
           const symbolMap = Object.fromEntries(items.map((s) => [s.symbol, s]));
-          const reordered = ranked.map((sym) => symbolMap[sym]).filter(Boolean);
-          const rankedSet = new Set(ranked);
-          const rest = items.filter((s) => !rankedSet.has(s.symbol));
-          setAllStocks([...reordered, ...rest]);
+
+          // top: merge raw stock data with Claude's indicator + tip
+          const topItems = (rankData.top ?? [])
+            .map((t) => symbolMap[t.symbol])
+            .filter(Boolean);
+
+          // Pre-populate tips from top items
+          const newTips = {};
+          (rankData.top ?? []).forEach((t) => {
+            if (t.indicator && t.tip) newTips[t.symbol] = { indicator: t.indicator, text: t.tip };
+          });
+          setTips(newTips);
+
+          // rest: map symbols back to raw stock objects, exclude anything already in top
+          const topSymbols = new Set(topItems.map((s) => s.symbol));
+          const restItems = (rankData.rest ?? [])
+            .map((sym) => symbolMap[sym])
+            .filter((s) => s && !topSymbols.has(s.symbol));
+
+          setAllStocks([...topItems, ...restItems]);
         } else {
           setAllStocks(items);
         }
@@ -361,9 +363,6 @@ export default function DiscoverScreen() {
   // ── Feed (ordered by Claude ranking) ──
   const feed = allStocks;
 
-  const feedRef = useRef(feed);
-  useEffect(() => { feedRef.current = feed; }, [feed]);
-
   // ── Card height ──
   const [cardHeight, setCardHeight] = useState(windowHeight - 160);
 
@@ -376,42 +375,8 @@ export default function DiscoverScreen() {
       })
     : [];
 
-  // ── AI tips ──
-  const [tips, setTips]             = useState({});
-  const [tipLoading, setTipLoading] = useState({});
-  const generatingRef = useRef(new Set());
-
-  const ensureTip = useCallback(async (stock) => {
-    const { symbol, name, price, changesPercentage } = stock;
-    if (generatingRef.current.has(symbol)) return;
-    generatingRef.current.add(symbol);
-    setTipLoading((p) => ({ ...p, [symbol]: true }));
-    try {
-      const { indicator, tip: text } = await generateTip(symbol, name, price, changesPercentage, userProfileRef.current);
-      setTips((p) => ({ ...p, [symbol]: { indicator, text } }));
-    } catch (err) {
-      console.error('[Claude] tip failed for', symbol, ':', err.message);
-      generatingRef.current.delete(symbol); // allow retry
-    } finally {
-      setTipLoading((p) => ({ ...p, [symbol]: false }));
-    }
-  }, []);
-
-  // Seed tips when feed first loads
-  useEffect(() => {
-    if (feed.length > 0) ensureTip(feed[0]);
-    if (feed.length > 1) ensureTip(feed[1]);
-  }, [feedStatus]); // re-seed when feed transitions to ready
-
-  const onViewableItemsChanged = useCallback(({ viewableItems }) => {
-    viewableItems.forEach(({ item, index }) => {
-      ensureTip(item);
-      const next = feedRef.current[index + 1];
-      if (next) ensureTip(next);
-    });
-  }, [ensureTip]);
-
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 });
+  // ── AI tips (pre-populated from rank-feed for top items) ──
+  const [tips, setTips] = useState({});
 
   // ── Modals & toasts ──
   const [chatStock,   setChatStock]   = useState(null);
@@ -526,14 +491,12 @@ export default function DiscoverScreen() {
                 snapToInterval={cardHeight}
                 snapToAlignment="start"
                 getItemLayout={(_, index) => ({ length: cardHeight, offset: cardHeight * index, index })}
-                onViewableItemsChanged={onViewableItemsChanged}
-                viewabilityConfig={viewabilityConfig.current}
                 renderItem={({ item }) => (
                   <StockCard
                     stock={item}
                     height={cardHeight}
                     tip={tips[item.symbol]}
-                    tipLoading={tipLoading[item.symbol]}
+                    tipLoading={false}
                     onSaberMas={() => setChatStock(item)}
                     onInvertir={() => setInvestStock(item)}
                   />

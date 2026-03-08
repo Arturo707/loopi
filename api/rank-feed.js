@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-  // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -14,42 +13,60 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing or empty items array" });
   }
 
+  console.log('[RankFeed] profile received:', { riskProfile, age, incomeRange, experience });
+  console.log('[RankFeed] pool size:', items.length, 'symbols:', items.map(i => i.symbol).join(','));
+
   const profileParts = [];
   if (riskProfile) profileParts.push(`perfil de riesgo: ${riskProfile}`);
   if (age)         profileParts.push(`${age} años`);
   if (incomeRange) profileParts.push(`ingresos ${incomeRange}€/mes`);
   if (experience)  profileParts.push(`experiencia inversora: ${experience}`);
-  const profileDesc = profileParts.length > 0
-    ? profileParts.join(", ")
-    : "perfil no especificado";
+  const profileDesc = profileParts.join(", ") || "perfil no especificado";
 
   const itemList = items
-    .map((s) => `${s.symbol} (${s.name}, ${s.type === "etf" ? "ETF" : "STOCK"}, cambio ${Number(s.changesPercentage) >= 0 ? "+" : ""}${Number(s.changesPercentage).toFixed(1)}%)`)
+    .map((s) => `${s.symbol} (${s.name}, ${s.type === "etf" ? "ETF" : "STOCK"}, precio ${Number(s.price).toFixed(2)}, cambio ${Number(s.changesPercentage) >= 0 ? "+" : ""}${Number(s.changesPercentage).toFixed(1)}%)`)
     .join("\n");
 
-  const system = `NUNCA incluyas en ranked: acciones con precio < $1, movimientos > 25% sin ser empresas reconocidas, o símbolos que no sean empresas conocidas o ETFs de índice establecidos. Si un activo parece un chicharro (nombre raro, símbolo desconocido, movimiento extremo), exclúyelo aunque esté en la lista.
+  const system = `Eres el cerebro de Loopi — una app financiera para jóvenes españoles Gen Z que NO saben de bolsa pero quieren entender qué pasa en el mercado hoy y tomar buenas decisiones con su dinero.
 
-Eres el algoritmo de Loopi, una app financiera para jóvenes españoles que NO saben de bolsa pero quieren entender qué pasa y ganar dinero. Tu trabajo es seleccionar qué activos mostrarles hoy para que:
-1. Entiendan qué está pasando en el mercado real
-2. Vean oportunidades apropiadas para su perfil
-3. Se sientan seguros, no abrumados
+TU MISIÓN: Analizar el snapshot del mercado de hoy y crear un feed personalizado que ayude al usuario a:
+1. Entender qué está pasando en el mercado real hoy
+2. Ver oportunidades concretas apropiadas para su perfil
+3. Sentirse seguro y con criterio, no abrumado
 
-Reglas por perfil:
-- Conservador: ETFs de índice primero (SPY, QQQ, VTI, GLD), luego 3-4 empresas que todo el mundo conoce (Apple, Microsoft, Inditex, Santander) con movimiento moderado. Nada raro.
-- Moderado: mezcla ETFs + Magnificent 7 + empresas con noticias relevantes hoy. Variedad pero sin chicharros.
-- Atrevido: lo más movido del día, tendencias, alto crecimiento. Incluye small caps si hay razón. El usuario acepta riesgo.
+FILOSOFÍA: Value investing (Greenwald/Buffett) + sentido común generacional. Busca activos con fundamentos sólidos. Rechaza hype sin fundamento.
 
-Reglas generales:
-- Prioriza activos que la gente joven reconoce (Tesla, Apple, Nvidia, Amazon, Bitcoin ETFs)
-- Filtra chicharros sin nombre ni narrativa clara (símbolos aleatorios con +80% sin contexto)
-- Si el mercado está cerrado, muestra igual los activos más relevantes con precios de cierre
-- Ordena de más a menos relevante para ese perfil específico hoy
+PERFILES:
+- Conservador: ETFs de índice como base (SPY, QQQ, VTI, GLD), luego empresas muy consolidadas con baja volatilidad. Nada especulativo. Tono tranquilizador.
+- Moderado: ETFs como núcleo + Magnificent 7 + empresas con momentum real hoy. Tono equilibrado y didáctico.
+- Atrevido: lo más movido del día con narrativa clara, alto crecimiento. Acepta volatilidad si hay razón. Tono directo y con energía.
 
-El mercado cambia cada día. Tu selección debe reflejar LO QUE ESTÁ PASANDO HOY — los activos con más movimiento, narrativa y relevancia en este momento. Nunca devuelvas una lista genérica de siempre. Si hoy Apple baja fuerte, aparece. Si hoy el oro sube, aparece. Si hoy hay un ETF de semiconductores disparado, aparece. La lista debe ser un reflejo fiel del mercado de hoy, curado para el perfil del usuario.
+DEMOGRAFÍA:
+- Joven con ingresos bajos + sin experiencia: simplicidad, ETFs, largo plazo, lenguaje muy simple
+- Joven con ingresos medios/altos + experiencia: más variedad, acciones individuales
+- Experiencia alta: activos más sofisticados, análisis más profundo
 
-Responde ÚNICAMENTE con JSON: {"ranked":["SYMBOL1",...]} entre 8 y 15 símbolos. Nada más.`;
+REGLAS:
+- Refleja LO QUE ESTÁ PASANDO HOY — si Apple cae fuerte aparece, si el oro sube aparece
+- Filtra chicharros: excluye precio < $2, movimiento > 30% en empresas desconocidas
+- Los tips suenan como un amigo que sabe de bolsa en un WhatsApp, no un robot
+- IMPORTANTE: Conservador y Moderado deben verse MUY diferentes a Atrevido. Un conservador nunca ve los mismos activos que un atrevido.
 
-  const userMsg = `Activos disponibles:\n${itemList}\n\nOrdénalos para el usuario con: ${profileDesc}.\n\nFecha de hoy: ${new Date().toISOString().split('T')[0]}`;
+FORMATO — responde ÚNICAMENTE con este JSON válido:
+{
+  "top": [
+    {"symbol": "SPY", "indicator": "🟢", "tip": "El S&P500 baja hoy por miedo macro pero para largo plazo sigue siendo la base perfecta de cualquier cartera."},
+    {"symbol": "GLD", "indicator": "🟢", "tip": "El oro sube cuando hay incertidumbre. Hoy tiene sentido tener un 5-10% aquí como cobertura."}
+  ],
+  "rest": ["AAPL", "MSFT", "NVDA"]
+}
+
+- "top": exactamente 12 activos con indicator (🟢 Interesante, 🟡 Neutral, 🔴 Evitar) y tip de máximo 50 palabras en español casual
+- "rest": hasta 38 símbolos más en orden de relevancia para el perfil, sin tips
+- Total máximo 50 activos
+- Nada fuera del JSON`;
+
+  const userMsg = `Usuario: ${profileDesc}.\nFecha: ${new Date().toISOString().split('T')[0]}\n\nActivos disponibles hoy:\n${itemList}\n\nCrea el feed personalizado para este usuario.`;
 
   try {
     const apiRes = await fetch("https://api.anthropic.com/v1/messages", {
@@ -61,7 +78,7 @@ Responde ÚNICAMENTE con JSON: {"ranked":["SYMBOL1",...]} entre 8 y 15 símbolos
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 256,
+        max_tokens: 2000,
         system,
         messages: [{ role: "user", content: userMsg }],
       }),
@@ -71,23 +88,33 @@ Responde ÚNICAMENTE con JSON: {"ranked":["SYMBOL1",...]} entre 8 y 15 símbolos
     if (data.error) return res.status(502).json({ error: data.error.message });
 
     const raw = (data.content?.[0]?.text ?? "").trim();
+    console.log('[RankFeed] Claude raw response:', raw.slice(0, 500));
 
+    let parsed;
     try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.ranked)) return res.json({ ranked: parsed.ranked });
-    } catch {}
-
-    const m = raw.match(/\{[\s\S]*?"ranked"[\s\S]*?\}/);
-    if (m) {
-      try {
-        const parsed = JSON.parse(m[0]);
-        if (Array.isArray(parsed.ranked)) return res.json({ ranked: parsed.ranked });
-      } catch {}
+      parsed = JSON.parse(raw);
+    } catch {
+      const m = raw.match(/\{[\s\S]*"top"[\s\S]*"rest"[\s\S]*\}/);
+      if (m) {
+        try { parsed = JSON.parse(m[0]); } catch {}
+      }
     }
 
-    // Fallback: return symbols in original order
-    return res.json({ ranked: items.map((s) => s.symbol).slice(0, 15) });
+    if (parsed?.top?.length) {
+      console.log('[RankFeed] top:', parsed.top.map(i => i.symbol).join(','));
+      console.log('[RankFeed] rest:', parsed.rest?.join(','));
+      return res.json(parsed);
+    }
+
+    // Fallback
+    console.warn('[RankFeed] JSON parse failed, using fallback');
+    return res.json({
+      top: items.slice(0, 12).map(s => ({ symbol: s.symbol, indicator: "🟡", tip: "" })),
+      rest: items.slice(12, 50).map(s => s.symbol),
+    });
+
   } catch (err) {
+    console.error('[RankFeed] error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 }
