@@ -10,9 +10,12 @@ const toArray = (x) => (Array.isArray(x) ? x : []);
 const isClean = (x) => {
   const price  = Number(x.price);
   const absPct = Math.abs(Number(x.changesPercentage ?? x.changePercentage ?? 0));
-  if (price < 2) return false;
-  if (absPct > 30) return false;
-  if ((x.symbol ?? '').length > 5) return false;
+  const sym    = x.symbol ?? '';
+  const name   = x.name ?? '';
+  if (price < 5) return false;
+  if (absPct > 25) return false;
+  if (name.length <= 2) return false;
+  if (sym.length < 1 || sym.length > 5) return false;
   return true;
 };
 
@@ -66,6 +69,7 @@ export default async function handler(req, res) {
       if (items.length >= 60) break;
     }
 
+    console.log('[market-feed] after quality filter:', items.length, 'stocks:', items.map(s => s.symbol).join(','));
     console.log(`[market-feed] marketOpen=${marketOpen} total=${items.length}`);
     return res.status(200).json({ items, marketOpen });
 
