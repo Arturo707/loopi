@@ -284,6 +284,8 @@ export default function DiscoverScreen() {
   const [feedStatus,  setFeedStatus]  = useState('loading'); // 'loading' | 'ready' | 'error'
   const [lastUpdated, setLastUpdated] = useState(null);
   const [elapsed,     setElapsed]     = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const seenSymbols = useRef(new Set());
 
   const fetchFeed = useCallback(async () => {
     try {
@@ -327,11 +329,15 @@ export default function DiscoverScreen() {
             .filter((s) => s && !topSymbols.has(s.symbol));
 
           console.log('[Feed] topItems:', topItems.length, 'restItems:', restItems.length, 'total:', topItems.length + restItems.length);
-          setAllStocks([...topItems, ...restItems]);
+          const merged = [...topItems, ...restItems];
+          seenSymbols.current = new Set(merged.map((s) => s.symbol));
+          setAllStocks(merged);
         } else {
+          seenSymbols.current = new Set(items.map((s) => s.symbol));
           setAllStocks(items);
         }
       } catch {
+        seenSymbols.current = new Set(items.map((s) => s.symbol));
         setAllStocks(items);
       }
 
@@ -350,6 +356,55 @@ export default function DiscoverScreen() {
     const interval = setInterval(fetchFeed, 60_000);
     return () => clearInterval(interval);
   }, [fetchFeed]);
+
+  // ── Load more (append fresh Claude-ranked batch, no duplicates) ──
+  const fetchMore = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      const res  = await fetch(FEED_API);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+      // Only pass items Claude hasn't shown yet this session
+      const allItems   = data.items ?? data;
+      const freshItems = allItems.filter((s) => !seenSymbols.current.has(s.symbol));
+      if (freshItems.length === 0) return;
+
+      const rankRes = await fetch(RANK_API, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ items: freshItems, riskProfile, age, incomeRange, experience }),
+      });
+      if (!rankRes.ok) return;
+
+      const rankData = await rankRes.json();
+      const symbolMap = Object.fromEntries(freshItems.map((s) => [s.symbol, s]));
+
+      const topItems = (rankData.top ?? [])
+        .map((t) => symbolMap[t.symbol])
+        .filter((s) => s && !seenSymbols.current.has(s.symbol));
+
+      const newTips = {};
+      (rankData.top ?? []).forEach((t) => {
+        if (t.indicator && t.tip) newTips[t.symbol] = { indicator: t.indicator, text: t.tip };
+      });
+
+      const topSymbols = new Set(topItems.map((s) => s.symbol));
+      const restItems  = (rankData.rest ?? [])
+        .map((sym) => symbolMap[sym])
+        .filter((s) => s && !seenSymbols.current.has(s.symbol) && !topSymbols.has(s.symbol));
+
+      const newItems = [...topItems, ...restItems];
+      newItems.forEach((s) => seenSymbols.current.add(s.symbol));
+
+      setTips((prev) => ({ ...prev, ...newTips }));
+      setAllStocks((prev) => [...prev, ...newItems]);
+    } catch (err) {
+      console.error('[FetchMore] Error:', err.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [riskProfile, age, incomeRange, experience]);
 
   // Elapsed-seconds ticker
   useEffect(() => {
@@ -492,6 +547,14 @@ export default function DiscoverScreen() {
                 snapToInterval={cardHeight}
                 snapToAlignment="start"
                 getItemLayout={(_, index) => ({ length: cardHeight, offset: cardHeight * index, index })}
+                onEndReached={() => { if (!loadingMore) fetchMore(); }}
+                onEndReachedThreshold={0.3}
+                ListFooterComponent={loadingMore ? (
+                  <View style={s.loadingMoreRow}>
+                    <ActivityIndicator size="small" color={C.orange} />
+                    <Text style={s.loadingMoreTxt}>loopi IA buscando más...</Text>
+                  </View>
+                ) : null}
                 renderItem={({ item }) => (
                   <StockCard
                     stock={item}
@@ -687,6 +750,10 @@ const s = StyleSheet.create({
   resultChange:   { fontSize: 12, fontFamily: F.medium, marginTop: 2 },
   separator:      { height: 1, backgroundColor: C.border },
   emptyTxt:       { textAlign: 'center', marginTop: 48, fontSize: 14, fontFamily: F.regular, color: C.muted, paddingHorizontal: 32 },
+
+  // Load more footer
+  loadingMoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 20 },
+  loadingMoreTxt: { fontSize: 13, fontFamily: F.regular, color: C.muted },
 
   // Error / empty state
   errorContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
