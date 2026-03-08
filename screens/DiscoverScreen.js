@@ -326,6 +326,7 @@ export default function DiscoverScreen() {
             .map((sym) => symbolMap[sym])
             .filter((s) => s && !topSymbols.has(s.symbol));
 
+          console.log('[Feed] topItems:', topItems.length, 'restItems:', restItems.length, 'total:', topItems.length + restItems.length);
           setAllStocks([...topItems, ...restItems]);
         } else {
           setAllStocks(items);

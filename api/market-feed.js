@@ -1,4 +1,4 @@
-// v7 - FMP Starter: gainers + losers + most-actives, broad pool for rank-feed
+// v8 - FMP Starter: gainers + losers + most-actives + must-have quotes
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -6,6 +6,8 @@ const CORS = {
 };
 
 const toArray = (x) => (Array.isArray(x) ? x : []);
+
+const MUST_HAVE = ['SPY', 'QQQ', 'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN', 'META', 'GOOGL', 'PLTR', 'IBIT', 'GLD', 'XLE', 'MSTR', 'BRK-B', 'JPM', 'V', 'WMT', 'ITX', 'SAN'];
 
 const isClean = (x) => {
   const price  = Number(x.price);
@@ -28,28 +30,32 @@ export default async function handler(req, res) {
   if (!key) return res.status(500).json({ error: 'FMP_API_KEY not configured' });
 
   try {
-    const [gainersRes, losersRes, activesRes] = await Promise.all([
+    const [gainersRes, losersRes, activesRes, ...mustHaveResponses] = await Promise.all([
       fetch(`https://financialmodelingprep.com/stable/biggest-gainers?apikey=${key}`),
       fetch(`https://financialmodelingprep.com/stable/biggest-losers?apikey=${key}`),
       fetch(`https://financialmodelingprep.com/stable/most-actives?apikey=${key}`),
+      ...MUST_HAVE.map((s) => fetch(`https://financialmodelingprep.com/stable/quote?symbol=${s}&apikey=${key}`)),
     ]);
 
-    const [gainersRaw, losersRaw, activesRaw] = await Promise.all([
+    const [gainersRaw, losersRaw, activesRaw, ...mustHaveRaws] = await Promise.all([
       gainersRes.json(),
       losersRes.json(),
       activesRes.json(),
+      ...mustHaveResponses.map((r) => r.json()),
     ]);
 
-    const gainersArr = toArray(gainersRaw);
-    const losersArr  = toArray(losersRaw);
-    const activesArr = toArray(activesRaw);
-    const marketOpen = gainersArr.length > 0 || losersArr.length > 0;
+    const gainersArr  = toArray(gainersRaw);
+    const losersArr   = toArray(losersRaw);
+    const activesArr  = toArray(activesRaw);
+    const mustHaveArr = mustHaveRaws.flatMap(toArray).filter((x) => x && x.symbol);
+    const marketOpen  = gainersArr.length > 0 || losersArr.length > 0;
 
-    // Combine all three, deduplicate, filter, cap at 60
+    // Combine all sources: must-haves first so they're never bumped by the cap,
+    // then gainers → losers → actives for market-driven content
     const seen  = new Set();
     const items = [];
 
-    for (const item of [...gainersArr, ...losersArr, ...activesArr]) {
+    for (const item of [...mustHaveArr, ...gainersArr, ...losersArr, ...activesArr]) {
       if (!item.symbol || seen.has(item.symbol)) continue;
       if (!isClean(item)) continue;
       seen.add(item.symbol);
@@ -66,7 +72,7 @@ export default async function handler(req, res) {
         type:              isEtf ? 'etf' : 'stock',
       });
 
-      if (items.length >= 60) break;
+      if (items.length >= 80) break;
     }
 
     console.log('[market-feed] after quality filter:', items.length, 'stocks:', items.map(s => s.symbol).join(','));
