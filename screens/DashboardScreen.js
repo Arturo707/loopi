@@ -68,11 +68,11 @@ function MarketPulseCard({ vibe, loading }) {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function DashboardScreen({ navigation }) {
-  const { balance, bankAccount, investedAmount, riskProfile, setRiskProfile } = useApp();
+  const { balance, bankAccount, investedAmount, riskProfile, setRiskProfile, firstName } = useApp();
   const { user } = useAuth();
 
   const freeBalance = balance - investedAmount;
-  const firstName = user?.displayName?.split(' ')[0] || 'there';
+  const displayName = firstName || 'there';
   const ibanDisplay = bankAccount?.iban ? `···· ${bankAccount.iban.slice(-4)}` : null;
 
   const hour = new Date().getHours();
@@ -108,8 +108,7 @@ export default function DashboardScreen({ navigation }) {
         {/* Header */}
         <View style={s.header}>
           <View>
-            <Text style={s.greeting}>{greeting} ☀️</Text>
-            <Text style={s.name}>{firstName}</Text>
+            <Text style={s.greeting}>{greeting}, {displayName} ☀️</Text>
           </View>
           <TouchableOpacity style={s.avatar} onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
             <Text style={s.avatarText}>{(user?.displayName?.[0] || 'L').toUpperCase()}</Text>
@@ -239,8 +238,7 @@ const s = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
     paddingHorizontal: 24, paddingTop: 20, paddingBottom: 16,
   },
-  greeting: { fontSize: 13, color: C.muted, fontFamily: F.medium, marginBottom: 2 },
-  name: { fontSize: 26, color: C.text, fontFamily: F.xbold, letterSpacing: -0.5 },
+  greeting: { fontSize: 20, color: C.text, fontFamily: F.xbold, letterSpacing: -0.5 },
   avatar: {
     width: 44, height: 44, borderRadius: 14,
     backgroundColor: C.orange, alignItems: 'center', justifyContent: 'center',
