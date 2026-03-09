@@ -8,7 +8,8 @@
       "Bash(cd /c/Users/User/Loopi && npx expo install expo-web-browser 2>&1 | tail -5)",
       "Bash(git:*)",
       "Bash(npm install:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(node:*)"
     ]
   }
 }

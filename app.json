@@ -25,7 +25,12 @@
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "Loopi",
+      "shortName": "Loopi",
+      "lang": "en",
+      "backgroundColor": "#FFF9F5",
+      "themeColor": "#FF6B35"
     },
     "plugins": [
       "expo-font",
