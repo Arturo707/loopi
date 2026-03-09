@@ -1,6 +1,6 @@
 // api/market-vibe.js
-// Generates a daily market vibe snippet using Claude with web search.
-// Caches result in Firestore for the day — only one API call per day.
+// Generates a market vibe snippet using Claude with web search.
+// Caches result in Firestore — refreshes three times per day (ET morning/midday/closing).
 // Firebase-admin is optional: if env vars are missing, caching is skipped.
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
@@ -32,11 +32,31 @@ try {
 
 const FALLBACK_VIBE = "Markets are open. Check the feed for today's biggest movers.";
 
-const todayString = () => {
+const SYSTEM_PROMPT =
+  "You are the older brother who works at a hedge fund and actually texts back. You grew up on the same internet as Gen Z — you get the references, you keep it short — but you've also sat in rooms where real money moves and you know how the machine works.\n\n" +
+  "Format your response as exactly 3 bullet points using • character. Each bullet: bold the key thing (**like this**), then one sentence on what's actually happening under the hood, then one sentence on what to do or watch. Max 2 sentences per bullet total.\n\n" +
+  "Tone: like a voice note from someone who genuinely wants you to win. Sharp. Specific. A little irreverent. Never boring. Never academic. Name the stocks, the indexes, the macro forces. Make the young investor feel like they just got the cheat code.\n\n" +
+  "No disclaimers. No 'it's important to note'. No hedging. Just the real picture, fast.";
+
+const USER_MESSAGES = {
+  morning: "Market just opened. Search for premarket moves, overnight news, earnings releases, and macro events driving today's open. What should a young investor know in the first 30 minutes?",
+  midday:  "It's midday on Wall Street. Search for what's moving right now, any reversals from the open, sector rotation, and the big stories developing. What's the real picture at halftime?",
+  closing: "Market is heading into the close. Search for today's winners and losers, any late-day moves, and what tomorrow's setup looks like. What does a young investor need to know before tomorrow morning?",
+};
+
+const getWindowInfo = () => {
   const now = new Date();
-  const etOffset = -5; // EST (use -4 for EDT in summer)
+  const etOffset = -5; // EST (use -4 for EDT)
   const etTime = new Date(now.getTime() + etOffset * 60 * 60 * 1000);
-  return etTime.toISOString().split('T')[0];
+  const hour = etTime.getUTCHours();
+  const date = etTime.toISOString().split('T')[0];
+
+  let window;
+  if (hour < 11) window = 'morning';
+  else if (hour < 15) window = 'midday';
+  else window = 'closing';
+
+  return { date, window, cacheKey: `market-vibe-${date}-${window}` };
 };
 
 export default async function handler(req, res) {
@@ -45,16 +65,18 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   console.log('[market-vibe] ANTHROPIC_API_KEY present:', !!apiKey, '— prefix:', apiKey ? apiKey.slice(0, 8) : 'MISSING');
 
-  const today = todayString();
+  const { date, window: timeWindow, cacheKey } = getWindowInfo();
+  const userMessage = USER_MESSAGES[timeWindow];
+  console.log('[market-vibe] Window:', timeWindow, '| Cache key:', cacheKey);
 
-  // 1. Check Firestore cache — keyed by date so each day gets one fresh call
+  // 1. Check Firestore cache — keyed by date+window, refreshes 3x/day ET
   if (db) {
     try {
-      const snap = await db.collection('cache').doc(`market-vibe-${today}`).get();
+      const snap = await db.collection('cache').doc(cacheKey).get();
       if (snap.exists) {
         const cached = snap.data();
-        console.log('[market-vibe] Returning cached vibe for', today);
-        return res.status(200).json({ vibe: cached.vibe, date: today });
+        console.log('[market-vibe] Returning cached vibe for', cacheKey);
+        return res.status(200).json({ vibe: cached.vibe, date, window: timeWindow });
       }
     } catch (err) {
       console.warn('[market-vibe] Cache read failed:', err.message);
@@ -65,11 +87,12 @@ export default async function handler(req, res) {
   let vibe = FALLBACK_VIBE;
   if (!apiKey) {
     console.error('[market-vibe] No ANTHROPIC_API_KEY — skipping Claude call, returning fallback');
-    return res.status(200).json({ vibe, date: today });
+    return res.status(200).json({ vibe, date, window: timeWindow });
   }
+
   // 2a. Primary call — Claude with web_search
   try {
-    console.log('[market-vibe] Primary call (web_search) for', today);
+    console.log('[market-vibe] Primary call (web_search) for', cacheKey);
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -82,11 +105,8 @@ export default async function handler(req, res) {
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        system: "You are Ray Dalio. You see markets as a machine — interconnected cycles, cause and effect, debt and deleveraging. You think in systems, not headlines. You've watched every cycle since the 70s and you know how this movie ends.\n\nFormat your response as exactly 3 bullet points. Each bullet starts with a bold keyword or phrase in markdown (**like this**), followed by the deeper mechanism at work and what a young investor should actually do about it. Think in second and third derivatives. Connect the macro to the specific. Name stocks, sectors, indexes, central bank moves, geopolitical forces.\n\nExample format:\n- **Debt cycle contraction** — when credit tightens this fast, consumer discretionary gets hit first. XLY and retail names are your leading indicator. Watch them before the broader market reacts.\n- **Dollar as pressure valve** — DXY strength is squeezing emerging markets and multinationals simultaneously. If you hold AAPL or AMZN, their next earnings guidance will reflect this.\n- **Gold breaking out** — not a fear trade, a currency diversification trade. Central banks are buying. That's the signal, not retail sentiment.\n\nNo headlines. No obvious takes. Only the mechanisms others are missing and what to do about them. Write like you're explaining the machine to someone who has 40 years ahead of them to get this right.",
-        messages: [{
-          role: 'user',
-          content: 'In exactly 2 sentences, what\'s the most important thing happening in the US market right now? Be specific. No filler.',
-        }],
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userMessage }],
       }),
     });
 
@@ -120,11 +140,8 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 512,
-          system: "You are Ray Dalio. You see markets as a machine — interconnected cycles, cause and effect, debt and deleveraging. You think in systems, not headlines. You've watched every cycle since the 70s and you know how this movie ends.\n\nFormat your response as exactly 3 bullet points. Each bullet starts with a bold keyword or phrase in markdown (**like this**), followed by the deeper mechanism at work and what a young investor should actually do about it. Think in second and third derivatives. Connect the macro to the specific. Name stocks, sectors, indexes, central bank moves, geopolitical forces.\n\nExample format:\n- **Debt cycle contraction** — when credit tightens this fast, consumer discretionary gets hit first. XLY and retail names are your leading indicator. Watch them before the broader market reacts.\n- **Dollar as pressure valve** — DXY strength is squeezing emerging markets and multinationals simultaneously. If you hold AAPL or AMZN, their next earnings guidance will reflect this.\n- **Gold breaking out** — not a fear trade, a currency diversification trade. Central banks are buying. That's the signal, not retail sentiment.\n\nNo headlines. No obvious takes. Only the mechanisms others are missing and what to do about them. Write like you're explaining the machine to someone who has 40 years ahead of them to get this right.",
-          messages: [{
-            role: 'user',
-            content: 'In exactly 2 sentences, what\'s the most important thing happening in the US market right now? Be specific. No filler.',
-          }],
+          system: SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: userMessage }],
         }),
       });
 
@@ -150,12 +167,13 @@ export default async function handler(req, res) {
     }
   }
 
-  // 4. Save to Firestore cache under the date key
+  // 4. Save to Firestore cache under the window key
   if (db) {
     try {
-      await db.collection('cache').doc(`market-vibe-${today}`).set({
+      await db.collection('cache').doc(cacheKey).set({
         vibe,
-        date: today,
+        date,
+        window: timeWindow,
         generatedAt: new Date().toISOString(),
       });
     } catch (err) {
@@ -164,7 +182,7 @@ export default async function handler(req, res) {
   }
 
   // 5. Return result
-  console.log('[market-vibe] Returning:', JSON.stringify({ vibe: vibe.slice(0, 80) + '...', date: today }));
+  console.log('[market-vibe] Returning:', JSON.stringify({ vibe: vibe.slice(0, 80) + '...', date, window: timeWindow }));
   res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
-  return res.status(200).json({ vibe, date: today });
+  return res.status(200).json({ vibe, date, window: timeWindow });
 }
