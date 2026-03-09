@@ -71,17 +71,18 @@ export default async function handler(req, res) {
       headers: {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'web-search-2025-03-05',
         'content-type': 'application/json',
       },
       body: JSON.stringify({
         model: 'claude-opus-4-6',
-        max_tokens: 500,
+        max_tokens: 1024,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        system: "You are Loopi's market pulse writer. Write a single short paragraph (3-4 sentences) capturing the current state of the US stock market. Whether the market is open or closed, write something useful: if closed, cover what happened today and what to watch tomorrow. Write like a sharp, plugged-in 22-year-old who actually understands markets — not a financial advisor, not cringe. Be specific: mention actual stocks, sectors, or macro events. No disclaimers. No emojis. Just the vibe.",
+        system: "You are Loopi's market pulse writer. Write a single short paragraph (3-4 sentences) covering what happened in the US stock market today AND this week. Be specific: name actual indexes (S&P 500, Nasdaq, Dow), sectors, or major individual stocks. Whether markets are open or closed, always write something useful — if closed, recap today and flag what to watch next. Write like a sharp, plugged-in 22-year-old who actually follows markets. No financial advisor voice, no disclaimers, no emojis. Just the vibe.",
         messages: [
           {
             role: 'user',
-            content: "What's the current state of the US stock market? Search for the latest news and give me the market vibe in 3-4 sentences.",
+            content: "Search for the latest US stock market news. Summarize what happened in the market today and this week in 3-4 sentences. Be specific — mention actual indexes (S&P 500, Nasdaq, Dow), sectors, and any major moves or events. Write like a sharp 22-year-old who actually follows markets.",
           },
         ],
       }),
@@ -103,10 +104,14 @@ export default async function handler(req, res) {
       .join(' ')
       .trim();
 
-    if (text) vibe = text;
-    console.log('[market-vibe] Generated vibe, length:', vibe.length, '— preview:', vibe.slice(0, 80));
+    if (text) {
+      vibe = text;
+      console.log('[market-vibe] Generated vibe, length:', vibe.length, '— preview:', vibe.slice(0, 80));
+    } else {
+      console.error('[market-vibe] Empty text extracted — full response:', JSON.stringify(data));
+    }
   } catch (err) {
-    console.error('[market-vibe] Anthropic call failed:', err.message);
+    console.error('[market-vibe] Anthropic call failed:', err);
   }
 
   // 4. Save to Firestore cache (skip if db unavailable)

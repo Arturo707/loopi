@@ -39,16 +39,17 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
-      setAuthLoading(false);
 
       if (!firebaseUser) {
         setBankConnectedState(false);
         setOnboardingDoneState(false);
         if (Platform.OS === 'web') { ls.set(KEYS.bank, false); ls.set(KEYS.onboarding, false); }
+        setAuthLoading(false);
         return;
       }
 
-      // Authoritative cross-device state from Firestore
+      // Authoritative cross-device state from Firestore — resolve BEFORE clearing authLoading
+      // so the navigator never shows the wrong screen on startup.
       try {
         const snap = await getDoc(doc(db, 'users', firebaseUser.uid));
         if (snap.exists()) {
@@ -69,6 +70,10 @@ export function AuthProvider({ children }) {
         }
       } catch (err) {
         console.warn('[Auth] Firestore load failed:', err.message);
+      } finally {
+        // Always clear loading AFTER Firestore resolves so the navigator
+        // has the correct onboardingDone/bankConnected state from the start.
+        setAuthLoading(false);
       }
     });
     return unsubscribe;
