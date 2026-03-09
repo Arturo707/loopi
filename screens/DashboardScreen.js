@@ -22,6 +22,29 @@ function getEmojiTag(stock) {
 
 // ─── Market Pulse Card ────────────────────────────────────────────────────────
 
+const renderBoldText = (text) => {
+  const parts = text.split(/\*\*(.*?)\*\*/g);
+  return parts.map((part, i) =>
+    i % 2 === 1
+      ? <Text key={i} style={pulse.bold}>{part}</Text>
+      : <Text key={i}>{part}</Text>
+  );
+};
+
+const parseVibe = (vibe) => {
+  const lines = vibe.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('---'));
+  const bullets = [];
+  const intro = [];
+  for (const line of lines) {
+    if (line.startsWith('•') || line.startsWith('-')) {
+      bullets.push(line.replace(/^[•\-]\s*/, ''));
+    } else {
+      if (bullets.length === 0) intro.push(line);
+    }
+  }
+  return { intro: intro.join(' '), bullets };
+};
+
 function MarketPulseCard({ vibe, loading }) {
   const anim = useRef(new Animated.Value(0.35)).current;
   useEffect(() => {
@@ -45,22 +68,28 @@ function MarketPulseCard({ vibe, loading }) {
         </View>
         <View style={pulse.skLine1} />
         <View style={pulse.skLine2} />
+        <View style={pulse.skLine3} />
       </Animated.View>
     );
   }
 
   if (!vibe) return null;
 
+  const { intro, bullets } = parseVibe(vibe);
+
   return (
     <View style={pulse.card}>
-      <View style={pulse.accent} />
-      <View style={pulse.content}>
-        <View style={pulse.labelRow}>
-          <Text style={pulse.label}>MARKET PULSE</Text>
-          <Text style={pulse.date}>{todayStr}</Text>
-        </View>
-        <Text style={pulse.text}>{vibe}</Text>
+      <View style={pulse.labelRow}>
+        <Text style={pulse.label}>MARKET PULSE</Text>
+        <Text style={pulse.date}>{todayStr}</Text>
       </View>
+      {intro ? <Text style={pulse.intro}>{intro}</Text> : null}
+      {bullets.map((b, i) => (
+        <View key={i} style={pulse.bulletRow}>
+          <Text style={pulse.bulletDot}>•</Text>
+          <Text style={pulse.bulletText}>{renderBoldText(b)}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -68,7 +97,7 @@ function MarketPulseCard({ vibe, loading }) {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function DashboardScreen({ navigation }) {
-  const { balance, bankAccount, investedAmount, riskProfile, setRiskProfile, firstName } = useApp();
+  const { balance, bankAccount, investedAmount, riskProfile, setRiskProfile, firstName, alpacaPortfolioValue, alpacaPositions } = useApp();
   const { user } = useAuth();
 
   const freeBalance = balance - investedAmount;
@@ -148,11 +177,25 @@ export default function DashboardScreen({ navigation }) {
               <View style={s.insightDot} />
               <Text style={s.insightLabel}>Vibe check</Text>
             </View>
-            <Text style={s.insightText}>
-              You have{' '}
-              <Text style={s.insightHighlight}>${freeBalance} sitting idle</Text>
-              . Inflation eats 3% a year. Put it to work in 3 taps.
-            </Text>
+            {alpacaPortfolioValue > 0 && alpacaPositions.length > 0 ? (() => {
+              const biggest = alpacaPositions.reduce((a, b) =>
+                Number(a.market_value) >= Number(b.market_value) ? a : b
+              );
+              const plPct = Number(biggest.unrealized_plpc) * 100;
+              const sign = plPct >= 0 ? '+' : '';
+              return (
+                <Text style={s.insightText}>
+                  Your money's working.{' '}
+                  <Text style={s.insightHighlight}>{biggest.symbol}</Text>
+                  {` is your biggest position (${sign}${plPct.toFixed(1)}% unrealized).`}
+                </Text>
+              );
+            })() : (
+              <Text style={s.insightText}>
+                Hey <Text style={s.insightHighlight}>{displayName}</Text>
+                , inflation eats 3% a year. Your move.
+              </Text>
+            )}
           </View>
 
           {/* Market Pulse */}
@@ -317,24 +360,25 @@ const s = StyleSheet.create({
 
 const pulse = StyleSheet.create({
   card: {
-    flexDirection: 'row',
     marginHorizontal: 24,
-    backgroundColor: C.card, borderRadius: 16,
-    borderWidth: 1, borderColor: C.border,
-    overflow: 'hidden',
+    backgroundColor: C.card, borderRadius: 20,
+    borderWidth: 1, borderColor: C.border, padding: 18,
     shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+    shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
   },
-  accent:   { width: 4, backgroundColor: C.orange },
-  content:  { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
-  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  label:    { fontSize: 10, fontFamily: F.semibold, color: C.orange, letterSpacing: 1.5 },
-  date:     { fontSize: 10, fontFamily: F.regular, color: C.muted },
-  text:     { fontSize: 13, fontFamily: F.regular, color: C.sub, lineHeight: 20 },
+  labelRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  label:     { fontSize: 10, fontFamily: F.semibold, color: C.orange, letterSpacing: 1.5 },
+  date:      { fontSize: 10, fontFamily: F.regular, color: C.muted },
+  intro:     { fontSize: 14, fontFamily: F.regular, color: C.sub, lineHeight: 22, marginBottom: 8 },
+  bulletRow: { flexDirection: 'row', marginBottom: 8 },
+  bulletDot: { fontSize: 14, color: C.orange, marginRight: 8, lineHeight: 22 },
+  bulletText:{ flex: 1, fontSize: 14, fontFamily: F.regular, color: C.sub, lineHeight: 22 },
+  bold:      { fontFamily: F.bold, color: C.text },
   // skeleton
-  skRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, padding: 12 },
+  skRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   skLabel: { height: 10, width: 90, backgroundColor: C.border, borderRadius: 4 },
   skDate:  { height: 10, width: 40, backgroundColor: C.border, borderRadius: 4 },
-  skLine1: { height: 12, marginHorizontal: 12, backgroundColor: C.border, borderRadius: 4, marginBottom: 6 },
-  skLine2: { height: 12, width: '70%', marginHorizontal: 12, backgroundColor: C.border, borderRadius: 4, marginBottom: 12 },
+  skLine1: { height: 12, backgroundColor: C.border, borderRadius: 4, marginBottom: 8 },
+  skLine2: { height: 12, width: '80%', backgroundColor: C.border, borderRadius: 4, marginBottom: 8 },
+  skLine3: { height: 12, width: '65%', backgroundColor: C.border, borderRadius: 4 },
 });
