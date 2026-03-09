@@ -99,6 +99,7 @@ export default function LoginScreen() {
           {/* Form */}
           <View style={s.form}>
             {/* Google Sign-In */}
+            {console.log('rendering Google button')}
             <TouchableOpacity
               style={[s.googleBtn, (loading || googleLoading) && { opacity: 0.7 }]}
               onPress={handleGoogleSignIn}

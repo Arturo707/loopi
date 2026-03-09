@@ -13,13 +13,17 @@ import {
   GoogleAuthProvider,
   signOut,
 } from 'firebase/auth';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-
+// GoogleSignin is native-only — require() conditionally to avoid crashing on web
 if (Platform.OS !== 'web') {
-  GoogleSignin.configure({
-    webClientId: '951562367501-g8s43mcsqtk0ns3lfa2kf1dn6brtljo7.apps.googleusercontent.com',
-    offlineAccess: true,
-  });
+  try {
+    const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+    GoogleSignin.configure({
+      webClientId: '951562367501-g8s43mcsqtk0ns3lfa2kf1dn6brtljo7.apps.googleusercontent.com',
+      offlineAccess: true,
+    });
+  } catch (e) {
+    console.warn('[Auth] GoogleSignin configure failed:', e.message);
+  }
 }
 
 // ── localStorage helpers (web only) ──────────────────────────────────────────
@@ -135,6 +139,7 @@ export function AuthProvider({ children }) {
       const result = await signInWithPopup(auth, provider);
       return result.user;
     }
+    const { GoogleSignin } = require('@react-native-google-signin/google-signin');
     await GoogleSignin.hasPlayServices();
     const { idToken } = await GoogleSignin.signIn();
     const credential = GoogleAuthProvider.credential(idToken);
