@@ -1,3 +1,20 @@
+const normalizeIncomeRange = (range) => {
+  const legacyMap = {
+    '0-1000': 'under_30k',
+    '1000-2000': 'under_30k',
+    '2000-3500': 'under_30k',
+    '3500-5000': '30k_60k',
+    '5000-10000': '60k_100k',
+    '10000+': 'over_300k',
+    'menos_de_20k': 'under_30k',
+    '20k_50k': '30k_60k',
+    '50k_100k': '60k_100k',
+    '100k_300k': '100k_300k',
+    'mas_de_300k': 'over_300k',
+  };
+  return legacyMap[range] || range;
+};
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -8,7 +25,8 @@ export default async function handler(req, res) {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured" });
 
-  const { items, riskProfile, age, incomeRange, experience } = req.body;
+  const { items, riskProfile, age, incomeRange: rawIncomeRange, experience } = req.body;
+  const incomeRange = normalizeIncomeRange(rawIncomeRange);
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: "Missing or empty items array" });
   }

@@ -32,7 +32,12 @@ try {
 
 const FALLBACK_VIBE = "Markets are open. Check the feed for today's biggest movers.";
 
-const todayString = () => new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+const todayString = () => {
+  const now = new Date();
+  const etOffset = -5; // EST (use -4 for EDT in summer)
+  const etTime = new Date(now.getTime() + etOffset * 60 * 60 * 1000);
+  return etTime.toISOString().split('T')[0];
+};
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -160,5 +165,6 @@ export default async function handler(req, res) {
 
   // 5. Return result
   console.log('[market-vibe] Returning:', JSON.stringify({ vibe: vibe.slice(0, 80) + '...', date: today }));
+  res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
   return res.status(200).json({ vibe, date: today });
 }

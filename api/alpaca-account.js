@@ -15,6 +15,23 @@ const alpacaHeaders = () => {
   };
 };
 
+const normalizeIncomeRange = (range) => {
+  const legacyMap = {
+    '0-1000': 'under_30k',
+    '1000-2000': 'under_30k',
+    '2000-3500': 'under_30k',
+    '3500-5000': '30k_60k',
+    '5000-10000': '60k_100k',
+    '10000+': 'over_300k',
+    'menos_de_20k': 'under_30k',
+    '20k_50k': '30k_60k',
+    '50k_100k': '60k_100k',
+    '100k_300k': '100k_300k',
+    'mas_de_300k': 'over_300k',
+  };
+  return legacyMap[range] || range;
+};
+
 // Map Loopi income ranges to Alpaca min/max numbers
 const INCOME_MAP = {
   'menos_de_20k': { min: 0,      max: 19999   },
@@ -91,7 +108,7 @@ export default async function handler(req, res) {
   }
 
   const isUS = country === 'USA';
-  const income = INCOME_MAP[incomeRange] || { min: 0, max: 49999 };
+  const income = INCOME_MAP[normalizeIncomeRange(incomeRange)] || { min: 0, max: 49999 };
   const fundingSource = FUNDING_SOURCE_MAP[experience] || ['savings'];
   const signedAt = agreementSignedAt || new Date().toISOString();
   const userIp = ipAddress || req.headers['x-forwarded-for'] || '127.0.0.1';
