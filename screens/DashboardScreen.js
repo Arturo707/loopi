@@ -19,7 +19,7 @@ export default function DashboardScreen({ navigation }) {
   const [refreshError, setRefreshError] = useState(null);
 
   const freeBalance = balance - investedAmount;
-  const firstName = user?.displayName?.split(' ')[0] || 'Inversor';
+  const firstName = user?.displayName?.split(' ')[0] || 'there';
   const ibanDisplay = bankAccount?.iban
     ? `···· ${bankAccount.iban.slice(-4)}`
     : null;
@@ -27,7 +27,7 @@ export default function DashboardScreen({ navigation }) {
   const handleRefreshBalance = async () => {
     if (refreshing) return;
     const accessToken = bankAccount?.accessToken;
-    if (!accessToken) { setRefreshError('Reconecta tu banco para actualizar.'); return; }
+    if (!accessToken) { setRefreshError('Reconnect your bank to refresh.'); return; }
 
     setRefreshing(true);
     setRefreshError(null);
@@ -40,7 +40,7 @@ export default function DashboardScreen({ navigation }) {
       const data = await res.json();
 
       if (data.expired) {
-        setRefreshError('Sesión expirada. Ve a Ajustes para reconectar tu banco.');
+        setRefreshError('Session expired. Reconnect your bank in Settings.');
         return;
       }
       if (!res.ok) throw new Error(data.error);
@@ -54,17 +54,15 @@ export default function DashboardScreen({ navigation }) {
           { merge: true }
         );
       }
-      // AppContext will pick this up on next onAuthStateChanged or we can force-refresh.
-      // For now, show a brief confirmation (full reload on next session).
     } catch (err) {
-      setRefreshError('Error al actualizar. Inténtalo de nuevo.');
+      setRefreshError('Failed to refresh. Try again.');
     } finally {
       setRefreshing(false);
     }
   };
 
   const hour = new Date().getHours();
-  const greeting = hour < 14 ? 'Buenos días' : hour < 21 ? 'Buenas tardes' : 'Buenas noches';
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   return (
     <View style={s.container}>
@@ -92,7 +90,7 @@ export default function DashboardScreen({ navigation }) {
               style={s.balanceGradient}
             >
               <View style={s.balanceTitleRow}>
-                <Text style={s.balanceLabel}>SALDO DISPONIBLE</Text>
+                <Text style={s.balanceLabel}>AVAILABLE BALANCE</Text>
                 <TouchableOpacity onPress={handleRefreshBalance} disabled={refreshing} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   {refreshing
                     ? <ActivityIndicator size="small" color={C.orange} />
@@ -101,15 +99,15 @@ export default function DashboardScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
               <Text style={s.balanceAmount}>
-                {new Intl.NumberFormat('es-ES', { style: 'currency', currency: bankAccount?.currency || 'EUR' }).format(freeBalance)}
+                {new Intl.NumberFormat('en-US', { style: 'currency', currency: bankAccount?.currency || 'USD' }).format(freeBalance)}
               </Text>
               <View style={s.balanceRow}>
                 <View style={s.balancePill}>
-                  <Text style={s.balancePillText}>↑ Invertido: {investedAmount}€</Text>
+                  <Text style={s.balancePillText}>↑ Invested: ${investedAmount}</Text>
                 </View>
                 {ibanDisplay
                   ? <Text style={s.balanceHint}>IBAN {ibanDisplay}</Text>
-                  : <Text style={s.balanceHint}>Tu dinero durmiendo 😴</Text>
+                  : <Text style={s.balanceHint}>Your money sitting idle 😴</Text>
                 }
               </View>
               {refreshError && <Text style={s.refreshError}>{refreshError}</Text>}
@@ -120,18 +118,18 @@ export default function DashboardScreen({ navigation }) {
           <View style={s.insightCard}>
             <View style={s.insightHeader}>
               <View style={s.insightDot} />
-              <Text style={s.insightLabel}>loopi IA</Text>
+              <Text style={s.insightLabel}>loopi AI</Text>
             </View>
             <Text style={s.insightText}>
-              Tienes{' '}
-              <Text style={s.insightHighlight}>{freeBalance}€ parados</Text>
-              . La inflación te come un 3% al año. Con 3 clicks puedes hacer que trabajen.
+              You have{' '}
+              <Text style={s.insightHighlight}>${freeBalance} sitting idle</Text>
+              . Inflation eats 3% a year. Put it to work in 3 taps.
             </Text>
           </View>
 
           {/* Quick picks */}
           <View style={s.section}>
-            <Text style={s.sectionLabel}>PARA TI HOY</Text>
+            <Text style={s.sectionLabel}>FOR YOU TODAY</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.hScroll}>
               {stocks.slice(0, 4).map((stock, i) => (
                 <TouchableOpacity
@@ -153,9 +151,9 @@ export default function DashboardScreen({ navigation }) {
 
           {/* Risk profile */}
           <View style={s.section}>
-            <Text style={s.sectionLabel}>TU PERFIL DE RIESGO</Text>
+            <Text style={s.sectionLabel}>YOUR RISK PROFILE</Text>
             <View style={s.riskCard}>
-              {['Conservador', 'Moderado', 'Atrevido'].map((label) => {
+              {['Conservative', 'Moderate', 'Aggressive'].map((label) => {
                 const active = label === riskProfile;
                 return (
                   <TouchableOpacity
@@ -170,7 +168,7 @@ export default function DashboardScreen({ navigation }) {
                     </Text>
                     {active && (
                       <View style={s.riskBadge}>
-                        <Text style={s.riskBadgeText}>Seleccionado</Text>
+                        <Text style={s.riskBadgeText}>Selected</Text>
                       </View>
                     )}
                   </TouchableOpacity>

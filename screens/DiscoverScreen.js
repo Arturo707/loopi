@@ -47,9 +47,9 @@ const fmtPrice  = (n) => `$${Number(n).toLocaleString('en-US', { minimumFraction
 const fmtChange = (n) => { const v = Number(n); return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`; };
 
 const fmtElapsed = (secs) => {
-  if (secs < 60)  return `Actualizado hace ${secs}s`;
-  if (secs < 3600) return `Actualizado hace ${Math.floor(secs / 60)}min`;
-  return `Actualizado hace ${Math.floor(secs / 3600)}h`;
+  if (secs < 60)   return `Updated ${secs}s ago`;
+  if (secs < 3600) return `Updated ${Math.floor(secs / 60)}m ago`;
+  return `Updated ${Math.floor(secs / 3600)}h ago`;
 };
 
 const INDICATOR_STYLES = {
@@ -57,7 +57,7 @@ const INDICATOR_STYLES = {
   '🟡': { bg: '#FEFCE8', border: '#FDE047', text: '#CA8A04' },
   '🔴': { bg: '#FFF1F2', border: '#FECDD3', text: '#DC2626' },
 };
-const INDICATOR_LABELS = { '🟢': 'Interesante', '🟡': 'Neutral', '🔴': 'Evitar' };
+const INDICATOR_LABELS = { '🟢': 'Interesting', '🟡': 'Neutral', '🔴': 'Avoid' };
 
 // ─── Skeleton card ────────────────────────────────────────────────────────────
 
@@ -100,7 +100,7 @@ function ChatModal({ visible, stock, onClose }) {
     if (visible && stock) {
       setMsgs([{
         id: 0, role: 'assistant',
-        text: `Hola 👋 Estoy viendo ${stock.symbol} contigo. ${stock.changesPercentage >= 0 ? 'Sube' : 'Baja'} un ${Math.abs(stock.changesPercentage).toFixed(1)}% hoy. ¿Qué quieres saber?`,
+        text: `Hey 👋 I'm looking at ${stock.symbol} with you. It's ${stock.changesPercentage >= 0 ? 'up' : 'down'} ${Math.abs(stock.changesPercentage).toFixed(1)}% today. What do you want to know?`,
       }]);
       setInput('');
     }
@@ -116,11 +116,11 @@ function ChatModal({ visible, stock, onClose }) {
     setTyping(true);
     try {
       const history = nextMsgs.map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.text }));
-      const system = `Eres loopi IA, asesor financiero cercano. El usuario ve ${stock.name} (${stock.symbol}), precio ${fmtPrice(stock.price)}, cambio ${fmtChange(stock.changesPercentage)} hoy. Responde en español casual, máximo 80 palabras, sin jerga.`;
+      const system = `You are loopi AI, a friendly finance assistant. The user is looking at ${stock.name} (${stock.symbol}), price ${fmtPrice(stock.price)}, change ${fmtChange(stock.changesPercentage)} today. Reply in casual English, max 80 words, no jargon.`;
       const reply = await callClaude(system, history, 200);
       setMsgs((p) => [...p, { id: Date.now(), role: 'assistant', text: reply }]);
     } catch {
-      setMsgs((p) => [...p, { id: Date.now(), role: 'assistant', text: 'Error al conectar. Inténtalo de nuevo.' }]);
+      setMsgs((p) => [...p, { id: Date.now(), role: 'assistant', text: 'Connection failed. Try again.' }]);
     } finally {
       setTyping(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
@@ -154,7 +154,7 @@ function ChatModal({ visible, stock, onClose }) {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={cm.inputRow}>
             <TextInput style={cm.input} value={input} onChangeText={setInput}
-              placeholder="Pregunta algo…" placeholderTextColor={C.muted}
+              placeholder="Ask something…" placeholderTextColor={C.muted}
               onSubmitEditing={send} returnKeyType="send" editable={!typing} />
             <TouchableOpacity style={[cm.sendBtn, typing && { opacity: 0.5 }]} onPress={send} disabled={typing}>
               <Text style={cm.sendTxt}>→</Text>
@@ -163,6 +163,51 @@ function ChatModal({ visible, stock, onClose }) {
         </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
+  );
+}
+
+// ─── Market Pulse Card ────────────────────────────────────────────────────────
+
+function MarketPulseCard({ vibe, loading }) {
+  const anim = useRef(new Animated.Value(0.35)).current;
+  useEffect(() => {
+    if (!loading) return;
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 0.9, duration: 850, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0.35, duration: 850, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [loading]);
+
+  const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  if (loading) {
+    return (
+      <Animated.View style={[pulse.card, { opacity: anim }]}>
+        <View style={pulse.skRow}>
+          <View style={pulse.skLabel} />
+          <View style={pulse.skDate} />
+        </View>
+        <View style={pulse.skLine1} />
+        <View style={pulse.skLine2} />
+      </Animated.View>
+    );
+  }
+
+  if (!vibe) return null;
+
+  return (
+    <View style={pulse.card}>
+      <View style={pulse.accent} />
+      <View style={pulse.content}>
+        <View style={pulse.labelRow}>
+          <Text style={pulse.label}>MARKET PULSE</Text>
+          <Text style={pulse.date}>{todayStr}</Text>
+        </View>
+        <Text style={pulse.text}>{vibe}</Text>
+      </View>
+    </View>
   );
 }
 
@@ -187,29 +232,29 @@ function InvestModal({ visible, stock, onClose, onConfirm, loading, error, hasAc
               <Text style={[im.pillTxt, { color: up ? C.green : C.red }]}>{up ? '▲' : '▼'} {fmtChange(stock.changesPercentage)}</Text>
             </View>
           </View>
-          <Text style={im.label}>¿Cuánto quieres invertir?</Text>
+          <Text style={im.label}>How much do you want to invest?</Text>
           <View style={im.amounts}>
             {AMOUNTS.map((a) => (
               <TouchableOpacity key={a} style={[im.amountBtn, amount === a && im.amountBtnActive]} onPress={() => setAmount(a)} activeOpacity={0.7} disabled={loading}>
-                <Text style={[im.amountTxt, amount === a && im.amountTxtActive]}>{a}€</Text>
+                <Text style={[im.amountTxt, amount === a && im.amountTxtActive]}>${a}</Text>
               </TouchableOpacity>
             ))}
           </View>
           {!hasAccount ? (
             <View style={im.noAccountBox}>
-              <Text style={im.noAccountTxt}>Necesitas conectar tu cuenta primero</Text>
+              <Text style={im.noAccountTxt}>Connect your account first</Text>
             </View>
           ) : (
             <TouchableOpacity style={[im.confirmBtn, loading && { opacity: 0.7 }]} onPress={() => onConfirm(amount)} activeOpacity={0.85} disabled={loading}>
               {loading
                 ? <ActivityIndicator color="#FFF" />
-                : <Text style={im.confirmTxt}>⚡ Invertir {amount}€ en {stock.symbol}</Text>
+                : <Text style={im.confirmTxt}>⚡ Invest ${amount} in {stock.symbol}</Text>
               }
             </TouchableOpacity>
           )}
           {error ? <Text style={im.errorTxt}>{error}</Text> : null}
           <TouchableOpacity style={im.cancelBtn} onPress={onClose} disabled={loading}>
-            <Text style={im.cancelTxt}>Cancelar</Text>
+            <Text style={im.cancelTxt}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -250,12 +295,12 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
           {tipLoading ? (
             <View style={card.tipRow}>
               <ActivityIndicator color={C.orange} size="small" />
-              <Text style={card.tipLoading}>loopi IA analizando…</Text>
+              <Text style={card.tipLoading}>loopi AI analyzing…</Text>
             </View>
           ) : tip ? (
             <>
               <View style={card.tipHeader}>
-                <Text style={card.tipLabel}>💡 loopi IA</Text>
+                <Text style={card.tipLabel}>💡 loopi AI</Text>
                 <View style={[card.indicatorPill, { backgroundColor: indStyle.bg, borderColor: indStyle.border }]}>
                   <Text style={[card.indicatorTxt, { color: indStyle.text }]}>{tip.indicator} {indLabel}</Text>
                 </View>
@@ -263,18 +308,18 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
               <Text style={card.tipText}>{tip.text}</Text>
             </>
           ) : (
-            <Text style={card.tipEmpty}>Toca "Saber más" para chatear con loopi IA sobre este activo.</Text>
+            <Text style={card.tipEmpty}>Tap "Learn more" to chat with loopi AI about this stock.</Text>
           )}
         </View>
 
-        <Text style={card.swipeHint}>↕ desliza para ver más</Text>
+        <Text style={card.swipeHint}>↕ swipe for more</Text>
 
         <View style={card.buttons}>
           <TouchableOpacity style={card.btnSecondary} onPress={onSaberMas} activeOpacity={0.8}>
-            <Text style={card.btnSecondaryTxt}>💬 Saber más</Text>
+            <Text style={card.btnSecondaryTxt}>💬 Learn more</Text>
           </TouchableOpacity>
           <TouchableOpacity style={card.btnPrimary} onPress={onInvertir} activeOpacity={0.8}>
-            <Text style={card.btnPrimaryTxt}>⚡ Invertir</Text>
+            <Text style={card.btnPrimaryTxt}>⚡ Invest</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -444,6 +489,18 @@ export default function DiscoverScreen() {
   // ── AI tips (pre-populated from rank-feed for top items) ──
   const [tips, setTips] = useState({});
 
+  // ── Market Pulse ──
+  const [marketVibe,    setMarketVibe]    = useState(null);
+  const [vibeLoading,   setVibeLoading]   = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/market-vibe`)
+      .then((r) => r.json())
+      .then((data) => { if (data.vibe) setMarketVibe(data.vibe); })
+      .catch(() => {})
+      .finally(() => setVibeLoading(false));
+  }, []);
+
   // ── Modals & toasts ──
   const [chatStock,    setChatStock]   = useState(null);
   const [investStock,  setInvestStock] = useState(null);
@@ -492,7 +549,7 @@ export default function DiscoverScreen() {
             <Text style={s.searchIcon}>🔍</Text>
             <TextInput
               style={s.searchInput}
-              placeholder="Buscar ticker o empresa…"
+              placeholder="Search ticker or company…"
               placeholderTextColor={C.muted}
               value={query}
               onChangeText={setQuery}
@@ -513,12 +570,14 @@ export default function DiscoverScreen() {
         {/* Closed-market banner */}
         {feedStatus === 'ready' && !marketOpen && (
           <View style={s.closedBanner}>
-            <Text style={s.closedBannerTxt}>🔒 Mercado cerrado — precios de cierre</Text>
+            <Text style={s.closedBannerTxt}>🔒 Market closed — closing prices</Text>
           </View>
         )}
 
         {/* Toast */}
         {toast && <View style={s.toast}><Text style={s.toastTxt}>{toast}</Text></View>}
+
+        {!isSearching && <MarketPulseCard vibe={marketVibe} loading={vibeLoading} />}
 
         {isSearching ? (
           /* ── Search results ── */
@@ -544,7 +603,7 @@ export default function DiscoverScreen() {
               );
             }}
             ItemSeparatorComponent={() => <View style={s.separator} />}
-            ListEmptyComponent={<Text style={s.emptyTxt}>Sin resultados para "{query}"</Text>}
+            ListEmptyComponent={<Text style={s.emptyTxt}>No results for "{query}"</Text>}
           />
         ) : feedStatus === 'loading' ? (
           /* ── Skeleton ── */
@@ -557,10 +616,10 @@ export default function DiscoverScreen() {
           /* ── Error state ── */
           <View style={s.errorContainer}>
             <Text style={s.errorEmoji}>⚠️</Text>
-            <Text style={s.errorTitle}>No se pudo cargar el mercado</Text>
-            <Text style={s.errorSub}>Comprueba tu conexión e inténtalo de nuevo.</Text>
+            <Text style={s.errorTitle}>Could not load market data</Text>
+            <Text style={s.errorSub}>Check your connection and try again.</Text>
             <TouchableOpacity style={s.retryBtn} onPress={() => { setFeedStatus('loading'); fetchFeed(); }} activeOpacity={0.8}>
-              <Text style={s.retryTxt}>Reintentar</Text>
+              <Text style={s.retryTxt}>Retry</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -584,7 +643,7 @@ export default function DiscoverScreen() {
                 ListFooterComponent={loadingMore ? (
                   <View style={s.loadingMoreRow}>
                     <ActivityIndicator size="small" color={C.orange} />
-                    <Text style={s.loadingMoreTxt}>loopi IA buscando más...</Text>
+                    <Text style={s.loadingMoreTxt}>loopi AI looking for more...</Text>
                   </View>
                 ) : null}
                 renderItem={({ item }) => (
@@ -602,8 +661,8 @@ export default function DiscoverScreen() {
             {cardHeight > 0 && feed.length === 0 && feedStatus === 'ready' && (
               <View style={s.errorContainer}>
                 <Text style={s.errorEmoji}>📭</Text>
-                <Text style={s.errorTitle}>Sin resultados para este perfil</Text>
-                <Text style={s.errorSub}>Cambia tu perfil de riesgo para ver más activos.</Text>
+                <Text style={s.errorTitle}>No results for your profile</Text>
+                <Text style={s.errorSub}>Change your risk profile to see more.</Text>
               </View>
             )}
           </View>
@@ -811,4 +870,28 @@ const s = StyleSheet.create({
     shadowColor: C.orange, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
   },
   retryTxt: { fontSize: 15, fontFamily: F.bold, color: '#FFF' },
+});
+
+const pulse = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    marginHorizontal: 20, marginBottom: 8,
+    backgroundColor: C.card, borderRadius: 16,
+    borderWidth: 1, borderColor: C.border,
+    overflow: 'hidden',
+    shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+  },
+  accent: { width: 4, backgroundColor: C.orange },
+  content: { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  label: { fontSize: 10, fontFamily: F.semibold, color: C.orange, letterSpacing: 1.5 },
+  date: { fontSize: 10, fontFamily: F.regular, color: C.muted },
+  text: { fontSize: 13, fontFamily: F.regular, color: C.sub, lineHeight: 20 },
+  // skeleton
+  skRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  skLabel: { height: 10, width: 90, backgroundColor: C.border, borderRadius: 4 },
+  skDate:  { height: 10, width: 40, backgroundColor: C.border, borderRadius: 4 },
+  skLine1: { height: 12, backgroundColor: C.border, borderRadius: 4, marginBottom: 6 },
+  skLine2: { height: 12, width: '70%', backgroundColor: C.border, borderRadius: 4 },
 });

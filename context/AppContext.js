@@ -13,7 +13,7 @@ export function AppProvider({ children }) {
   const [bankAccount,    setBankAccount]     = useState(null);
   const [investedAmount, setInvestedAmount]  = useState(0);
   const [portfolio,      setPortfolio]       = useState([]);
-  const [riskProfile,    setRiskProfileState] = useState('Moderado');
+  const [riskProfile,    setRiskProfileState] = useState('Moderate');
 
   // Onboarding / profile fields
   const [age,         setAge]         = useState(null);

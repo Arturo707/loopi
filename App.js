@@ -64,7 +64,7 @@ function MainTabs() {
         name="Dashboard"
         component={DashboardScreen}
         options={{
-          tabBarLabel: 'Inicio',
+          tabBarLabel: 'Home',
           tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
         }}
       />
@@ -72,7 +72,7 @@ function MainTabs() {
         name="Discover"
         component={DiscoverScreen}
         options={{
-          tabBarLabel: 'Descubrir',
+          tabBarLabel: 'Discover',
           tabBarIcon: ({ focused }) => <TabIcon emoji="✦" focused={focused} />,
         }}
       />
@@ -80,7 +80,7 @@ function MainTabs() {
         name="Portfolio"
         component={PortfolioScreen}
         options={{
-          tabBarLabel: 'Cartera',
+          tabBarLabel: 'Portfolio',
           tabBarIcon: ({ focused }) => <TabIcon emoji="📈" focused={focused} />,
         }}
       />

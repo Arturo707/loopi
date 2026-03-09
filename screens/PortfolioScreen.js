@@ -36,8 +36,8 @@ export default function PortfolioScreen() {
     <View style={s.container}>
       <SafeAreaView style={{ flex: 1 }}>
         <View style={s.header}>
-          <Text style={s.title}>Tu cartera</Text>
-          <Text style={s.subtitle}>Resumen de tus posiciones</Text>
+          <Text style={s.title}>Your portfolio</Text>
+          <Text style={s.subtitle}>Summary of your positions</Text>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -49,13 +49,13 @@ export default function PortfolioScreen() {
           >
             <View style={s.summaryRow}>
               <View>
-                <Text style={s.summaryLabel}>VALOR TOTAL</Text>
+                <Text style={s.summaryLabel}>TOTAL VALUE</Text>
                 <Text style={s.summaryValue}>{fmtMoney(alpacaPortfolioValue)}</Text>
                 <Text style={s.cashLabel}>Efectivo: {fmtMoney(alpacaCash)}</Text>
               </View>
               <View style={s.divider} />
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={s.summaryLabel}>GANANCIA/PÉRDIDA</Text>
+                <Text style={s.summaryLabel}>GAIN / LOSS</Text>
                 <Text style={[s.summaryValue, { color: totalPL >= 0 ? C.green : C.red }]}>
                   {totalPL >= 0 ? '+' : ''}{fmtMoney(totalPL)}
                 </Text>
@@ -73,14 +73,14 @@ export default function PortfolioScreen() {
               <View style={s.emptyIcon}>
                 <Text style={{ fontSize: 40 }}>📭</Text>
               </View>
-              <Text style={s.emptyTitle}>Portfolio vacío</Text>
-              <Text style={s.emptySub}>Empieza invirtiendo desde 50€. Sin comisiones ocultas.</Text>
+              <Text style={s.emptyTitle}>Your portfolio is empty</Text>
+              <Text style={s.emptySub}>Start investing from $50. No hidden fees.</Text>
               <TouchableOpacity
                 style={s.exploreBtn}
                 activeOpacity={0.85}
                 onPress={() => navigation.navigate('Discover')}
               >
-                <Text style={s.exploreBtnText}>Explorar inversiones →</Text>
+                <Text style={s.exploreBtnText}>Explore investments →</Text>
               </TouchableOpacity>
             </View>
           ) : alpacaPositions.length === 0 ? (
@@ -88,19 +88,19 @@ export default function PortfolioScreen() {
               <View style={s.emptyIcon}>
                 <Text style={{ fontSize: 40 }}>📈</Text>
               </View>
-              <Text style={s.emptyTitle}>Sin posiciones aún</Text>
-              <Text style={s.emptySub}>Tu cuenta está lista. Compra tu primera acción desde Descubrir.</Text>
+              <Text style={s.emptyTitle}>No positions yet</Text>
+              <Text style={s.emptySub}>Your account is ready. Buy your first stock from Discover.</Text>
               <TouchableOpacity
                 style={s.exploreBtn}
                 activeOpacity={0.85}
                 onPress={() => navigation.navigate('Discover')}
               >
-                <Text style={s.exploreBtnText}>Explorar inversiones →</Text>
+                <Text style={s.exploreBtnText}>Explore investments →</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <View style={{ paddingHorizontal: 24 }}>
-              <Text style={s.sectionLabel}>TUS POSICIONES</Text>
+              <Text style={s.sectionLabel}>YOUR POSITIONS</Text>
               {alpacaPositions.map((pos) => {
                 const pl = pos.unrealizedPL;
                 const plPct = pos.unrealizedPLPC;
@@ -109,7 +109,7 @@ export default function PortfolioScreen() {
                   <View key={pos.symbol} style={s.positionCard}>
                     <View style={s.positionLeft}>
                       <Text style={s.posTicker}>{pos.symbol}</Text>
-                      <Text style={s.posDetail}>{pos.qty} acciones · {fmtMoney(pos.currentPrice)}</Text>
+                      <Text style={s.posDetail}>{pos.qty} shares · {fmtMoney(pos.currentPrice)}</Text>
                     </View>
                     <View style={s.positionRight}>
                       <Text style={s.posAmount}>{fmtMoney(pos.marketValue)}</Text>

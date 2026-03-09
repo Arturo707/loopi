@@ -75,7 +75,7 @@ export default function ConnectBankScreen() {
     } catch (err) {
       console.error('[ConnectBank] Token exchange failed:', err.message);
       setPhase('error');
-      setErrorMsg(err.message || 'Error al verificar el banco. Inténtalo de nuevo.');
+      setErrorMsg(err.message || 'Failed to verify bank. Try again.');
     }
   };
 
@@ -87,7 +87,7 @@ export default function ConnectBankScreen() {
 
     try {
       const uid = auth.currentUser?.uid;
-      if (!uid) throw new Error('Debes iniciar sesión primero.');
+      if (!uid) throw new Error('You must be signed in first.');
 
       console.log('[ConnectBank] Requesting Tink auth URL for uid:', uid);
       const { url: tinkUrl } = await apiFetch('/api/tink-auth', {
@@ -99,13 +99,8 @@ export default function ConnectBankScreen() {
 
       if (Platform.OS === 'web') {
         // ── Web: navigate current tab directly ──────────────────────
-        // Using window.open/popup would be blocked by browsers because
-        // window.open runs after an async fetch (outside user-gesture stack).
-        // Full-tab navigation is the correct OAuth pattern for web.
         console.log('[ConnectBank] Navigating to Tink (web full-tab redirect)…');
         window.location.href = tinkUrl;
-        // ↑ page navigates away; when Tink redirects back to
-        //   loopi-teal.vercel.app?code=xxx the useEffect above picks up the code.
       } else {
         // ── Native: in-app browser session (iOS ASWebAuthenticationSession) ─
         console.log('[ConnectBank] Opening Tink in-app browser (native)…');
@@ -115,19 +110,19 @@ export default function ConnectBankScreen() {
 
         if (result.type !== 'success') {
           setPhase('idle');
-          setErrorMsg('Proceso cancelado. Pulsa el botón para intentarlo de nuevo.');
+          setErrorMsg('Canceled. Tap the button to try again.');
           return;
         }
 
         const urlObj = new URL(result.url);
         const code = urlObj.searchParams.get('code');
-        if (!code) throw new Error('No se recibió el código de autorización de Tink.');
+        if (!code) throw new Error('No authorization code received from Tink.');
         await exchangeCode(code);
       }
     } catch (err) {
       console.error('[ConnectBank] handleConnect error:', err.message);
       setPhase('error');
-      setErrorMsg(err.message || 'Algo salió mal. Inténtalo de nuevo.');
+      setErrorMsg(err.message || 'Something went wrong. Try again.');
     }
   };
 
@@ -164,8 +159,8 @@ export default function ConnectBankScreen() {
   const isConnecting = phase === 'connecting';
   const isSaving = phase === 'saving';
 
-  const formatBalance = (amount, currency = 'EUR') =>
-    new Intl.NumberFormat('es-ES', { style: 'currency', currency }).format(amount);
+  const formatBalance = (amount, currency = 'USD') =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
 
   const formatIban = (iban) =>
     iban ? `${iban.slice(0, 4)} •••• •••• •••• ${iban.slice(-4)}` : null;
@@ -179,13 +174,13 @@ export default function ConnectBankScreen() {
             <View style={s.checkCircle}>
               <Text style={s.checkEmoji}>✅</Text>
             </View>
-            <Text style={s.successTitle}>¡Banco conectado!</Text>
+            <Text style={s.successTitle}>Bank connected!</Text>
             <Text style={s.successSub}>
-              Tus datos financieros se han importado de forma segura.
+              Your financial data was imported securely.
             </Text>
 
             <View style={s.balanceCard}>
-              <Text style={s.balanceLabel}>SALDO DISPONIBLE</Text>
+              <Text style={s.balanceLabel}>AVAILABLE BALANCE</Text>
               <Text style={s.balanceAmount}>
                 {formatBalance(account.balance, account.currency)}
               </Text>
@@ -202,7 +197,7 @@ export default function ConnectBankScreen() {
             >
               {isSaving
                 ? <ActivityIndicator color="#FFF" />
-                : <Text style={s.ctaBtnText}>Empezar a invertir →</Text>
+                : <Text style={s.ctaBtnText}>Start investing →</Text>
               }
             </TouchableOpacity>
           </View>
@@ -216,21 +211,21 @@ export default function ConnectBankScreen() {
       <SafeAreaView style={s.safe}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
 
-          <Text style={s.title}>Conecta tu banco</Text>
+          <Text style={s.title}>Connect your bank</Text>
           <Text style={s.subtitle}>
-            Acceso de solo lectura. Loopi nunca ve tus credenciales.{'\n'}
-            Open Banking certificado por la UE (PSD2) · Tecnología Tink (Visa).
+            Read-only access. Loopi never sees your credentials.{'\n'}
+            EU-certified Open Banking (PSD2) · Powered by Tink (Visa).
           </Text>
 
           <View style={s.badges}>
-            {['🔒 Cifrado 256-bit', '✅ PSD2', '🇪🇺 Regulado', '👁️ Solo lectura'].map((b) => (
+            {['🔒 256-bit Encrypted', '✅ PSD2', '🇪🇺 Regulated', '👁️ Read-only'].map((b) => (
               <View key={b} style={s.badge}>
                 <Text style={s.badgeText}>{b}</Text>
               </View>
             ))}
           </View>
 
-          <Text style={s.supportedLabel}>BANCOS COMPATIBLES</Text>
+          <Text style={s.supportedLabel}>SUPPORTED BANKS</Text>
           <View style={s.bankGrid}>
             {BANKS.map((bank) => (
               <View key={bank.id} style={s.bankPill}>
@@ -255,21 +250,21 @@ export default function ConnectBankScreen() {
             {isConnecting ? (
               <View style={s.ctaRow}>
                 <ActivityIndicator color="#FFF" size="small" />
-                <Text style={s.ctaBtnText}>Conectando con Tink…</Text>
+                <Text style={s.ctaBtnText}>Connecting to Tink…</Text>
               </View>
             ) : (
-              <Text style={s.ctaBtnText}>Conectar mi banco →</Text>
+              <Text style={s.ctaBtnText}>Connect my bank →</Text>
             )}
           </TouchableOpacity>
 
-          <Text style={s.poweredBy}>Conexión segura vía Tink (Visa) · Open Banking PSD2</Text>
+          <Text style={s.poweredBy}>Secure connection via Tink (Visa) · Open Banking PSD2</Text>
 
           <TouchableOpacity
             style={s.skipBtn}
             onPress={() => setBankConnected(true)}
             disabled={isConnecting}
           >
-            <Text style={s.skipText}>Lo haré después</Text>
+            <Text style={s.skipText}>I'll do this later</Text>
           </TouchableOpacity>
 
         </ScrollView>

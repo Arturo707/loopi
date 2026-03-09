@@ -24,7 +24,7 @@ const FALLBACK_STOCKS = [
   { symbol: 'IAG',  name: 'Iberia',      price: 2.41,  changePercent:  1.8, exchange: 'BME'    },
   { symbol: 'SAN',  name: 'Santander',   price: 4.82,  changePercent:  0.4, exchange: 'BME'    },
   { symbol: 'ITX',  name: 'Inditex',     price: 52.30, changePercent:  1.1, exchange: 'BME'    },
-  { symbol: 'GOLD', name: 'Oro',         price: 2340,  changePercent:  0.6, exchange: 'CMDTY'  },
+  { symbol: 'GOLD', name: 'Gold',        price: 2340,  changePercent:  0.6, exchange: 'CMDTY'  },
   { symbol: 'BTC',  name: 'Bitcoin',     price: 87500, changePercent:  2.4, exchange: 'CRYPTO' },
 ];
 
@@ -95,7 +95,7 @@ export function MarketProvider({ children }) {
         .catch((e) => console.warn('[Market] Firestore write skipped:', e.message));
     } catch (err) {
       console.error('[Market] FMP fetch failed:', err.message);
-      setError('No se pudo actualizar el mercado.');
+      setError('Could not refresh market data.');
       setStale(false);
     } finally {
       fetchingRef.current = false;

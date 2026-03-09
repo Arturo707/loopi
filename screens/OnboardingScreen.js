@@ -14,43 +14,43 @@ import { F } from '../constants/fonts';
 const TOTAL_STEPS = 9;
 
 const INCOME_OPTIONS = [
-  { value: '<1000',     label: 'Menos de 1.000€' },
-  { value: '1000-2000', label: '1.000 – 2.000€'  },
-  { value: '2000-3500', label: '2.000 – 3.500€'  },
-  { value: '3500+',     label: '3.500€ o más'    },
+  { value: '<1000',     label: 'Less than $1,000' },
+  { value: '1000-2000', label: '$1,000 – $2,000'  },
+  { value: '2000-3500', label: '$2,000 – $3,500'  },
+  { value: '3500+',     label: '$3,500 or more'   },
 ];
 
 const EXPERIENCE_OPTIONS = [
-  { value: 'Ninguna', label: 'Ninguna', sub: 'Nunca he invertido' },
-  { value: 'Algo',    label: 'Algo',    sub: 'He invertido alguna vez' },
-  { value: 'Experto', label: 'Experto', sub: 'Invierto de forma regular' },
+  { value: 'None',   label: 'None',   sub: 'Never invested before' },
+  { value: 'Some',   label: 'Some',   sub: 'Invested a few times'  },
+  { value: 'Expert', label: 'Expert', sub: 'I invest regularly'    },
 ];
 
 const RISK_OPTIONS = [
   {
-    value: 'Conservador', emoji: '🛡️', label: 'Conservador',
-    sub: 'Prefiero seguridad. ETFs y activos estables con rentabilidad predecible.',
+    value: 'Conservative', emoji: '🛡️', label: 'Conservative',
+    sub: 'Safety first. ETFs and stable assets with predictable returns.',
   },
   {
-    value: 'Moderado', emoji: '⚖️', label: 'Moderado',
-    sub: 'Equilibrio entre seguridad y crecimiento. El perfil más popular.',
+    value: 'Moderate', emoji: '⚖️', label: 'Moderate',
+    sub: 'Balance between safety and growth. The most popular pick.',
   },
   {
-    value: 'Atrevido', emoji: '🚀', label: 'Atrevido',
-    sub: 'Alta rentabilidad potencial con mayor riesgo. Para maximizar rendimientos.',
+    value: 'Aggressive', emoji: '🚀', label: 'Aggressive',
+    sub: 'High potential returns with higher risk. For those who want to go all in.',
   },
 ];
 
 const STEP_META = [
-  { emoji: '🎂', title: '¿Cuántos años tienes?',                  subtitle: 'Tu edad define cuánto tiempo tienes para que tu dinero crezca.' },
-  { emoji: '💰', title: '¿Cuáles son tus ingresos mensuales?',    subtitle: 'Invertiremos solo lo que sobra, nunca lo que necesitas para vivir.' },
-  { emoji: '📊', title: '¿Cuánta experiencia tienes invirtiendo?', subtitle: 'Sé honesto — nos ayuda a personalizar tus recomendaciones.' },
-  { emoji: '🎯', title: '¿Cuál es tu perfil de riesgo?',          subtitle: 'Sin presiones — puedes cambiarlo cuando quieras desde tu perfil.' },
-  { emoji: '👤', title: '¿Cuál es tu nombre?',                    subtitle: 'Tal como aparece en tu documento de identidad.' },
-  { emoji: '📝', title: '¿Y tus apellidos?',                      subtitle: 'Tal como figuran en tu DNI, NIE o pasaporte.' },
-  { emoji: '📅', title: '¿Cuándo naciste?',                       subtitle: 'Tu fecha de nacimiento completa.' },
-  { emoji: '🏠', title: '¿Dónde vives?',                          subtitle: 'Tu dirección de residencia actual.' },
-  { emoji: '🪪', title: '¿Cuál es tu DNI, NIE o pasaporte?',      subtitle: 'Lo necesitamos para verificar tu identidad y abrir tu cuenta.' },
+  { emoji: '🎂', title: 'How old are you?',                    subtitle: 'Your age determines how long your money has to grow.' },
+  { emoji: '💰', title: "What's your monthly income?",         subtitle: "We only invest what you have left over — never what you need to live." },
+  { emoji: '📊', title: 'How much investing experience do you have?', subtitle: 'Be honest — it helps us tailor your recommendations.' },
+  { emoji: '🎯', title: "What's your risk profile?",           subtitle: 'No pressure — you can change it anytime from your profile.' },
+  { emoji: '👤', title: "What's your first name?",             subtitle: 'As it appears on your ID.' },
+  { emoji: '📝', title: 'And your last name?',                  subtitle: 'As it appears on your passport or ID.' },
+  { emoji: '📅', title: 'When were you born?',                  subtitle: 'Your full date of birth.' },
+  { emoji: '🏠', title: 'Where do you live?',                   subtitle: 'Your current home address.' },
+  { emoji: '🪪', title: "What's your SSN or ID number?",       subtitle: 'We need this to verify your identity and open your account.' },
 ];
 
 function ChoiceCard({ label, sub, emoji, selected, onPress }) {
@@ -111,7 +111,7 @@ export default function OnboardingScreen() {
   const [streetAddress, setStreetAddress]         = useState('');
   const [city,          setCity]                  = useState('');
   const [postalCode,    setPostalCode]             = useState('');
-  const [country,       setCountry]               = useState('España');
+  const [country,       setCountry]               = useState('United States');
   const [addressError,  setAddressError]           = useState(null);
 
   // ── Step 9: Tax ID ──
@@ -121,8 +121,8 @@ export default function OnboardingScreen() {
   // ── Validation helpers ──
   const validateAge = (v) => {
     const n = parseInt(v, 10);
-    if (!v.trim()) return 'Introduce tu edad.';
-    if (isNaN(n) || n < 16 || n > 100) return 'Introduce una edad entre 16 y 100.';
+    if (!v.trim()) return 'Enter your age.';
+    if (isNaN(n) || n < 16 || n > 100) return 'Enter an age between 16 and 100.';
     return null;
   };
 
@@ -130,12 +130,12 @@ export default function OnboardingScreen() {
     const d = parseInt(dobDay, 10);
     const m = parseInt(dobMonth, 10);
     const y = parseInt(dobYear, 10);
-    if (!dobDay || !dobMonth || !dobYear) return 'Completa tu fecha de nacimiento.';
+    if (!dobDay || !dobMonth || !dobYear) return 'Enter your full date of birth.';
     if (dobDay.length !== 2 || dobMonth.length !== 2 || dobYear.length !== 4)
-      return 'Formato: DD MM AAAA.';
-    if (d < 1 || d > 31) return 'Día no válido.';
-    if (m < 1 || m > 12) return 'Mes no válido.';
-    if (y < 1900 || y > new Date().getFullYear() - 16) return 'Año no válido.';
+      return 'Format: DD MM YYYY.';
+    if (d < 1 || d > 31) return 'Invalid day.';
+    if (m < 1 || m > 12) return 'Invalid month.';
+    if (y < 1900 || y > new Date().getFullYear() - 16) return 'Invalid year.';
     return null;
   };
 
@@ -161,11 +161,11 @@ export default function OnboardingScreen() {
       setAgeError(null);
     }
     if (step === 5) {
-      if (!firstName.trim()) { setFirstNameError('Introduce tu nombre.'); return; }
+      if (!firstName.trim()) { setFirstNameError('Enter your first name.'); return; }
       setFirstNameError(null);
     }
     if (step === 6) {
-      if (!lastName1.trim()) { setLastName1Error('Introduce al menos el primer apellido.'); return; }
+      if (!lastName1.trim()) { setLastName1Error('Enter at least your last name.'); return; }
       setLastName1Error(null);
     }
     if (step === 7) {
@@ -175,13 +175,13 @@ export default function OnboardingScreen() {
     }
     if (step === 8) {
       if (!streetAddress.trim() || !city.trim() || !country.trim()) {
-        setAddressError('Completa los campos obligatorios.');
+        setAddressError('Fill in the required fields.');
         return;
       }
       setAddressError(null);
     }
     if (step === 9) {
-      if (!taxId.trim()) { setTaxIdError('Introduce tu documento de identidad.'); return; }
+      if (!taxId.trim()) { setTaxIdError('Enter your ID number.'); return; }
       setTaxIdError(null);
     }
 
@@ -270,7 +270,7 @@ export default function OnboardingScreen() {
                   autoFocus
                   textAlign="center"
                 />
-                <Text style={s.bigInputUnit}>años</Text>
+                <Text style={s.bigInputUnit}>years old</Text>
                 {ageError ? <Text style={s.errorTxt}>{ageError}</Text> : null}
               </View>
             )}
@@ -329,7 +329,7 @@ export default function OnboardingScreen() {
             {step === 6 && (
               <View style={s.stackedInputs}>
                 <View>
-                  <Text style={s.fieldLabel}>Primer apellido</Text>
+                  <Text style={s.fieldLabel}>Last name</Text>
                   <TextInput
                     style={[s.fieldInput, lastName1Error && s.fieldInputError]}
                     value={lastName1}
@@ -342,7 +342,7 @@ export default function OnboardingScreen() {
                   {lastName1Error ? <Text style={s.errorTxt}>{lastName1Error}</Text> : null}
                 </View>
                 <View>
-                  <Text style={s.fieldLabel}>Segundo apellido <Text style={s.optional}>(opcional)</Text></Text>
+                  <Text style={s.fieldLabel}>Middle name <Text style={s.optional}>(optional)</Text></Text>
                   <TextInput
                     style={s.fieldInput}
                     value={lastName2}
@@ -360,7 +360,7 @@ export default function OnboardingScreen() {
               <View style={s.centerWrapper}>
                 <View style={s.dobRow}>
                   <View style={s.dobBox}>
-                    <Text style={s.dobLabel}>Día</Text>
+                    <Text style={s.dobLabel}>Day</Text>
                     <TextInput
                       style={[s.dobInput, dobError && s.bigInputError]}
                       value={dobDay}
@@ -379,7 +379,7 @@ export default function OnboardingScreen() {
                   </View>
                   <Text style={s.dobSep}>/</Text>
                   <View style={s.dobBox}>
-                    <Text style={s.dobLabel}>Mes</Text>
+                    <Text style={s.dobLabel}>Month</Text>
                     <TextInput
                       ref={monthRef}
                       style={[s.dobInput, dobError && s.bigInputError]}
@@ -398,13 +398,13 @@ export default function OnboardingScreen() {
                   </View>
                   <Text style={s.dobSep}>/</Text>
                   <View style={[s.dobBox, s.dobBoxYear]}>
-                    <Text style={s.dobLabel}>Año</Text>
+                    <Text style={s.dobLabel}>Year</Text>
                     <TextInput
                       ref={yearRef}
                       style={[s.dobInput, dobError && s.bigInputError]}
                       value={dobYear}
                       onChangeText={(v) => { setDobYear(v); setDobError(null); }}
-                      placeholder="AAAA"
+                      placeholder="YYYY"
                       placeholderTextColor={C.muted}
                       keyboardType="number-pad"
                       maxLength={4}
@@ -420,30 +420,30 @@ export default function OnboardingScreen() {
             {step === 8 && (
               <View style={s.stackedInputs}>
                 <View>
-                  <Text style={s.fieldLabel}>Calle y número</Text>
+                  <Text style={s.fieldLabel}>Street address</Text>
                   <TextInput
                     style={s.fieldInput}
                     value={streetAddress}
                     onChangeText={setStreetAddress}
-                    placeholder="Calle Mayor 12, 3º A"
+                    placeholder="123 Main St, Apt 3A"
                     placeholderTextColor={C.muted}
                     autoCapitalize="words"
                     autoFocus
                   />
                 </View>
                 <View>
-                  <Text style={s.fieldLabel}>Ciudad</Text>
+                  <Text style={s.fieldLabel}>City</Text>
                   <TextInput
                     style={s.fieldInput}
                     value={city}
                     onChangeText={setCity}
-                    placeholder="Madrid"
+                    placeholder="New York"
                     placeholderTextColor={C.muted}
                     autoCapitalize="words"
                   />
                 </View>
                 <View>
-                  <Text style={s.fieldLabel}>Código postal <Text style={s.optional}>(opcional)</Text></Text>
+                  <Text style={s.fieldLabel}>ZIP code <Text style={s.optional}>(optional)</Text></Text>
                   <TextInput
                     style={s.fieldInput}
                     value={postalCode}
@@ -455,12 +455,12 @@ export default function OnboardingScreen() {
                   />
                 </View>
                 <View>
-                  <Text style={s.fieldLabel}>País</Text>
+                  <Text style={s.fieldLabel}>Country</Text>
                   <TextInput
                     style={s.fieldInput}
                     value={country}
                     onChangeText={setCountry}
-                    placeholder="España"
+                    placeholder="United States"
                     placeholderTextColor={C.muted}
                     autoCapitalize="words"
                   />
@@ -484,7 +484,7 @@ export default function OnboardingScreen() {
                 />
                 {taxIdError ? <Text style={s.errorTxt}>{taxIdError}</Text> : null}
                 <Text style={s.legalNote}>
-                  Requerido para operar en mercados financieros (MiFID II)
+                  Required for financial markets compliance (FINRA/SEC)
                 </Text>
               </View>
             )}
@@ -502,7 +502,7 @@ export default function OnboardingScreen() {
           >
             {saving
               ? <ActivityIndicator color="#FFF" />
-              : <Text style={s.nextBtnTxt}>{isLast ? 'Empezar a invertir →' : 'Siguiente →'}</Text>
+              : <Text style={s.nextBtnTxt}>{isLast ? 'Start investing →' : 'Next →'}</Text>
             }
           </TouchableOpacity>
         </View>

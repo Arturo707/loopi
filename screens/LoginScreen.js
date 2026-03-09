@@ -9,14 +9,14 @@ import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 
 const ERROR_MESSAGES = {
-  'auth/invalid-email':            'El correo no es válido.',
-  'auth/user-not-found':           'No existe una cuenta con ese correo.',
-  'auth/wrong-password':           'Contraseña incorrecta.',
-  'auth/invalid-credential':       'Correo o contraseña incorrectos.',
-  'auth/email-already-in-use':     'Ya existe una cuenta con ese correo.',
-  'auth/weak-password':            'La contraseña debe tener al menos 6 caracteres.',
-  'auth/too-many-requests':        'Demasiados intentos. Inténtalo más tarde.',
-  'auth/network-request-failed':   'Error de red. Comprueba tu conexión.',
+  'auth/invalid-email':            'That email address is not valid.',
+  'auth/user-not-found':           'No account found with that email.',
+  'auth/wrong-password':           'Incorrect password.',
+  'auth/invalid-credential':       'Incorrect email or password.',
+  'auth/email-already-in-use':     'An account with that email already exists.',
+  'auth/weak-password':            'Password must be at least 6 characters.',
+  'auth/too-many-requests':        'Too many attempts. Try again later.',
+  'auth/network-request-failed':   'Network error. Check your connection.',
 };
 
 export default function LoginScreen() {
@@ -33,7 +33,7 @@ export default function LoginScreen() {
     setError(null);
     setResetSent(false);
     if (!email.trim()) {
-      setError('Introduce tu correo para restablecer la contraseña.');
+      setError('Enter your email to reset your password.');
       return;
     }
     setLoading(true);
@@ -50,7 +50,7 @@ export default function LoginScreen() {
   const handleSubmit = async () => {
     setError(null);
     if (!email.trim() || !password) {
-      setError('Por favor introduce tu correo y contraseña.');
+      setError('Please enter your email and password.');
       return;
     }
     setLoading(true);
@@ -82,7 +82,7 @@ export default function LoginScreen() {
               <Text style={s.logoMarkText}>∞</Text>
             </View>
             <Text style={s.logo}>loopi</Text>
-            <Text style={s.tagline}>Invierte en lo que crees.</Text>
+            <Text style={s.tagline}>Invest in what you believe in.</Text>
           </View>
 
           {/* Form */}
@@ -94,7 +94,7 @@ export default function LoginScreen() {
                 onPress={() => { setMode('login'); setError(null); setResetSent(false); }}
               >
                 <Text style={[s.toggleText, mode === 'login' && s.toggleTextActive]}>
-                  Iniciar sesión
+                  Sign in
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -102,14 +102,14 @@ export default function LoginScreen() {
                 onPress={() => { setMode('register'); setError(null); setResetSent(false); }}
               >
                 <Text style={[s.toggleText, mode === 'register' && s.toggleTextActive]}>
-                  Registrarse
+                  Sign up
                 </Text>
               </TouchableOpacity>
             </View>
 
             <TextInput
               style={s.input}
-              placeholder="Correo electrónico"
+              placeholder="Email"
               placeholderTextColor={C.muted}
               value={email}
               onChangeText={setEmail}
@@ -120,7 +120,7 @@ export default function LoginScreen() {
             />
             <TextInput
               style={s.input}
-              placeholder="Contraseña"
+              placeholder="Password"
               placeholderTextColor={C.muted}
               value={password}
               onChangeText={setPassword}
@@ -134,7 +134,7 @@ export default function LoginScreen() {
             )}
             {resetSent && (
               <Text style={s.successText}>
-                Hemos enviado un enlace a {email.trim()}. Revisa tu bandeja de entrada.
+                We sent a link to {email.trim()}. Check your inbox.
               </Text>
             )}
 
@@ -148,7 +148,7 @@ export default function LoginScreen() {
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
                 <Text style={s.primaryBtnText}>
-                  {mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+                  {mode === 'login' ? 'Sign in' : 'Create account'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -160,16 +160,16 @@ export default function LoginScreen() {
                 activeOpacity={0.7}
                 style={s.resetLink}
               >
-                <Text style={s.resetLinkText}>¿Olvidaste tu contraseña?</Text>
+                <Text style={s.resetLinkText}>Forgot your password?</Text>
               </TouchableOpacity>
             )}
           </View>
 
           <Text style={s.terms}>
-            Al continuar aceptas los{' '}
-            <Text style={s.termsLink}>Términos de uso</Text>
-            {' '}y la{' '}
-            <Text style={s.termsLink}>Política de privacidad</Text>.
+            By continuing you agree to our{' '}
+            <Text style={s.termsLink}>Terms of Use</Text>
+            {' '}and{' '}
+            <Text style={s.termsLink}>Privacy Policy</Text>.
           </Text>
 
         </SafeAreaView>
