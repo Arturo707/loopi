@@ -101,10 +101,14 @@ export default function DashboardScreen({ navigation }) {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
-  const [marketVibe,  setMarketVibe]  = useState(null);
-  const [vibeLoading, setVibeLoading] = useState(true);
-  const [forYouItems, setForYouItems] = useState([]);
-  const [feedLoaded,  setFeedLoaded]  = useState(false);
+  const [marketVibe,    setMarketVibe]    = useState(null);
+  const [vibeLoading,   setVibeLoading]   = useState(true);
+  const [forYouItems,   setForYouItems]   = useState([]);
+  const [feedLoaded,    setFeedLoaded]    = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  const isGoogleUser = user?.providerData?.some(p => p.providerId === 'google.com');
+  const showVerifyBanner = !bannerDismissed && !user?.emailVerified && !isGoogleUser;
 
   useEffect(() => {
     // Market Pulse
@@ -137,6 +141,18 @@ export default function DashboardScreen({ navigation }) {
             <Text style={s.avatarText}>{(user?.displayName?.[0] || 'L').toUpperCase()}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Email verification banner */}
+        {showVerifyBanner && (
+          <View style={s.verifyBanner}>
+            <Text style={s.verifyBannerTxt}>
+              📧 Verify your email to secure your account. Check your spam folder.
+            </Text>
+            <TouchableOpacity onPress={() => setBannerDismissed(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={s.verifyBannerX}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Balance card */}
@@ -311,6 +327,14 @@ const s = StyleSheet.create({
   insightLabel: { fontSize: 12, color: C.orange, fontFamily: F.bold, letterSpacing: 0.5 },
   insightText: { fontSize: 14, color: C.sub, lineHeight: 22, fontFamily: F.regular },
   insightHighlight: { color: C.orange, fontFamily: F.bold },
+
+  verifyBanner: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FFFBEB', borderBottomWidth: 1, borderBottomColor: '#FDE68A',
+    paddingHorizontal: 16, paddingVertical: 10, gap: 10,
+  },
+  verifyBannerTxt: { flex: 1, fontSize: 13, fontFamily: F.regular, color: '#92400E', lineHeight: 18 },
+  verifyBannerX:   { fontSize: 14, color: '#92400E', fontFamily: F.bold },
 
   section: { marginBottom: 20 },
   sectionLabel: {

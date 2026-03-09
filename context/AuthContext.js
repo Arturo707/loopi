@@ -8,8 +8,19 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   sendEmailVerification,
+  signInWithCredential,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut,
 } from 'firebase/auth';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+
+if (Platform.OS !== 'web') {
+  GoogleSignin.configure({
+    webClientId: '160199820801-YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+    offlineAccess: true,
+  });
+}
 
 // ── localStorage helpers (web only) ──────────────────────────────────────────
 const ls = {
@@ -46,12 +57,6 @@ export function AuthProvider({ children }) {
         setBankConnectedState(false);
         setOnboardingDoneState(false);
         if (Platform.OS === 'web') { ls.set(KEYS.bank, false); ls.set(KEYS.onboarding, false); }
-        setAuthLoading(false);
-        return;
-      }
-
-      // Unverified users get blocked at the navigator — skip Firestore load
-      if (!firebaseUser.emailVerified) {
         setAuthLoading(false);
         return;
       }
@@ -124,6 +129,18 @@ export function AuthProvider({ children }) {
     setUser(auth.currentUser ? Object.assign(Object.create(Object.getPrototypeOf(auth.currentUser)), auth.currentUser) : null);
     return auth.currentUser;
   };
+  const signInWithGoogle = async () => {
+    if (Platform.OS === 'web') {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      return result.user;
+    }
+    await GoogleSignin.hasPlayServices();
+    const { idToken } = await GoogleSignin.signIn();
+    const credential = GoogleAuthProvider.credential(idToken);
+    const result = await signInWithCredential(auth, credential);
+    return result.user;
+  };
   const resetPassword = (email) => sendPasswordResetEmail(auth, email);
 
   const signOutUser = async () => {
@@ -138,7 +155,7 @@ export function AuthProvider({ children }) {
       user, authLoading,
       bankConnected,  setBankConnected,
       onboardingDone, setOnboardingDone,
-      signInWithEmail, registerWithEmail, resetPassword, signOutUser,
+      signInWithEmail, registerWithEmail, signInWithGoogle, resetPassword, signOutUser,
       resendVerification, reloadUser,
     }}>
       {children}

@@ -20,14 +20,28 @@ const ERROR_MESSAGES = {
 };
 
 export default function LoginScreen() {
-  const { signInWithEmail, registerWithEmail, resetPassword } = useAuth();
+  const { signInWithEmail, registerWithEmail, resetPassword, signInWithGoogle } = useAuth();
 
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState(null);
   const [resetSent, setResetSent] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      // AuthContext.user updates → RootNavigator renders correct screen automatically
+    } catch (err) {
+      setError(ERROR_MESSAGES[err.code] ?? 'Google sign-in failed. Try again.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleResetPassword = async () => {
     setError(null);
@@ -84,6 +98,30 @@ export default function LoginScreen() {
 
           {/* Form */}
           <View style={s.form}>
+            {/* Google Sign-In */}
+            <TouchableOpacity
+              style={[s.googleBtn, (loading || googleLoading) && { opacity: 0.7 }]}
+              onPress={handleGoogleSignIn}
+              disabled={loading || googleLoading}
+              activeOpacity={0.85}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color="#1a1a1a" size="small" />
+              ) : (
+                <>
+                  <Text style={s.googleG}>G</Text>
+                  <Text style={s.googleTxt}>Continue with Google</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View style={s.divider}>
+              <View style={s.dividerLine} />
+              <Text style={s.dividerTxt}>or</Text>
+              <View style={s.dividerLine} />
+            </View>
+
             {/* Mode toggle */}
             <View style={s.toggle}>
               <TouchableOpacity
@@ -187,6 +225,18 @@ const s = StyleSheet.create({
 
   // Form
   form: { paddingBottom: 16 },
+
+  googleBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FFF', borderWidth: 1, borderColor: '#e0e0e0',
+    borderRadius: 12, height: 52, marginBottom: 16,
+  },
+  googleG:   { fontSize: 18, fontWeight: '700', color: '#4285F4', marginRight: 10 },
+  googleTxt: { fontSize: 15, color: '#1a1a1a', fontFamily: F.medium },
+
+  divider: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: C.border },
+  dividerTxt: { marginHorizontal: 12, fontSize: 13, color: C.muted, fontFamily: F.regular },
 
   toggle: {
     flexDirection: 'row',
