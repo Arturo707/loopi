@@ -74,20 +74,38 @@ FORMAT — respond ONLY with valid JSON:
   const userMsg = `User: ${profileDesc}.\nDate: ${new Date().toISOString().split('T')[0]}\n\nAvailable assets today:\n${itemList}\n\nBuild the personalized feed for this user.`;
 
   try {
-    const apiRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 2000,
-        system,
-        messages: [{ role: "user", content: userMsg }],
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), 10_000);
+
+    let apiRes;
+    try {
+      apiRes = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": key,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 2000,
+          system,
+          messages: [{ role: "user", content: userMsg }],
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchErr) {
+      clearTimeout(timeoutId);
+      if (fetchErr.name === 'AbortError') {
+        console.warn('[RankFeed] Claude timed out after 10s — returning unranked fallback');
+        return res.json({
+          top: items.slice(0, 12).map(s => ({ symbol: s.symbol, indicator: "🟡", tip: "" })),
+          rest: items.slice(12, 50).map(s => s.symbol),
+        });
+      }
+      throw fetchErr;
+    }
+    clearTimeout(timeoutId);
 
     const data = await apiRes.json();
     if (data.error) return res.status(502).json({ error: data.error.message });

@@ -57,7 +57,12 @@ export function AuthProvider({ children }) {
             setBankConnectedState(true);
             if (Platform.OS === 'web') ls.set(KEYS.bank, true);
           }
-          if (data.onboardingDone === true) {
+          const profileComplete =
+            data.onboardingDone === true &&
+            !!data.liquidNetWorth &&
+            !!data.employmentStatus &&
+            !!data.achRelationshipId;
+          if (profileComplete) {
             setOnboardingDoneState(true);
             if (Platform.OS === 'web') ls.set(KEYS.onboarding, true);
           }

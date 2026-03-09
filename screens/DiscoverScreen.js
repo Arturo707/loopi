@@ -335,13 +335,50 @@ export default function DiscoverScreen() {
   const { height: windowHeight } = useWindowDimensions();
 
   // ── Live feed state ──
-  const [allStocks,   setAllStocks]   = useState([]);
-  const [marketOpen,  setMarketOpen]  = useState(true);
-  const [feedStatus,  setFeedStatus]  = useState('loading'); // 'loading' | 'ready' | 'error'
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [elapsed,     setElapsed]     = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [allStocks,    setAllStocks]    = useState([]);
+  const [marketOpen,   setMarketOpen]   = useState(true);
+  const [feedStatus,   setFeedStatus]   = useState('loading'); // 'loading' | 'ready' | 'error'
+  const [rankingStatus, setRankingStatus] = useState('idle'); // 'idle' | 'ranking' | 'done'
+  const [lastUpdated,  setLastUpdated]  = useState(null);
+  const [elapsed,      setElapsed]      = useState(0);
+  const [loadingMore,  setLoadingMore]  = useState(false);
   const seenSymbols = useRef(new Set());
+
+  // Phase 2: rank raw items in background, swap in ranked results when ready
+  const rankItems = useCallback(async (items) => {
+    setRankingStatus('ranking');
+    try {
+      const rankRes = await fetch(RANK_API, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ items, riskProfile, age, incomeRange, experience }),
+      });
+      if (!rankRes.ok) { setRankingStatus('done'); return; }
+
+      const rankData = await rankRes.json();
+      const symbolMap = Object.fromEntries(items.map((s) => [s.symbol, s]));
+
+      const topItems = (rankData.top ?? []).map((t) => symbolMap[t.symbol]).filter(Boolean);
+      const newTips  = {};
+      (rankData.top ?? []).forEach((t) => {
+        if (t.indicator && t.tip) newTips[t.symbol] = { indicator: t.indicator, text: t.tip };
+      });
+
+      const topSymbols = new Set(topItems.map((s) => s.symbol));
+      const restItems  = (rankData.rest ?? [])
+        .map((sym) => symbolMap[sym])
+        .filter((s) => s && !topSymbols.has(s.symbol));
+
+      const merged = [...topItems, ...restItems];
+      seenSymbols.current = new Set(merged.map((s) => s.symbol));
+      setTips((prev) => ({ ...prev, ...newTips }));
+      setAllStocks(merged);
+    } catch {
+      // ranking failed — keep raw order that's already showing
+    } finally {
+      setRankingStatus('done');
+    }
+  }, [riskProfile, age, incomeRange, experience]);
 
   const fetchFeed = useCallback(async () => {
     try {
@@ -351,60 +388,19 @@ export default function DiscoverScreen() {
       const items = data.items ?? data;
       setMarketOpen(data.marketOpen ?? true);
 
-      // Rank items and get embedded tips via Claude
-      try {
-        console.log('[RankFeed] sending profile:', { riskProfile, age, incomeRange, experience });
-        const rankRes = await fetch(RANK_API, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ items, riskProfile, age, incomeRange, experience }),
-        });
-        if (rankRes.ok) {
-          const rankData = await rankRes.json();
-          console.log('[RankFeed] top:', rankData.top?.map(i => i.symbol).join(','));
-          console.log('[RankFeed] rest:', rankData.rest?.join(','));
-
-          const symbolMap = Object.fromEntries(items.map((s) => [s.symbol, s]));
-
-          // top: merge raw stock data with Claude's indicator + tip
-          const topItems = (rankData.top ?? [])
-            .map((t) => symbolMap[t.symbol])
-            .filter(Boolean);
-
-          // Pre-populate tips from top items
-          const newTips = {};
-          (rankData.top ?? []).forEach((t) => {
-            if (t.indicator && t.tip) newTips[t.symbol] = { indicator: t.indicator, text: t.tip };
-          });
-          setTips(newTips);
-
-          // rest: map symbols back to raw stock objects, exclude anything already in top
-          const topSymbols = new Set(topItems.map((s) => s.symbol));
-          const restItems = (rankData.rest ?? [])
-            .map((sym) => symbolMap[sym])
-            .filter((s) => s && !topSymbols.has(s.symbol));
-
-          console.log('[Feed] topItems:', topItems.length, 'restItems:', restItems.length, 'total:', topItems.length + restItems.length);
-          const merged = [...topItems, ...restItems];
-          seenSymbols.current = new Set(merged.map((s) => s.symbol));
-          setAllStocks(merged);
-        } else {
-          seenSymbols.current = new Set(items.map((s) => s.symbol));
-          setAllStocks(items);
-        }
-      } catch {
-        seenSymbols.current = new Set(items.map((s) => s.symbol));
-        setAllStocks(items);
-      }
-
+      // Phase 1: show raw stocks immediately
+      seenSymbols.current = new Set(items.map((s) => s.symbol));
+      setAllStocks(items);
       setLastUpdated(new Date());
       setFeedStatus('ready');
+
+      // Phase 2: rank in background (non-blocking)
+      rankItems(items);
     } catch (err) {
       console.error('[Feed] Error:', err.message);
-      // Don't flip back to 'error' if we already have data — keep showing stale
       setFeedStatus((prev) => (prev === 'loading' ? 'error' : prev));
     }
-  }, [riskProfile, age, incomeRange, experience]);
+  }, [rankItems]);
 
   // Initial fetch + 60s refresh interval; re-run when risk profile changes
   useEffect(() => {
@@ -604,6 +600,14 @@ export default function DiscoverScreen() {
         {feedStatus === 'ready' && !marketOpen && (
           <View style={s.closedBanner}>
             <Text style={s.closedBannerTxt}>🔒 Market closed — closing prices</Text>
+          </View>
+        )}
+
+        {/* Personalizing banner — shown while rank-feed is running in background */}
+        {feedStatus === 'ready' && rankingStatus === 'ranking' && !isSearching && (
+          <View style={s.personalizingBanner}>
+            <ActivityIndicator size="small" color={C.orange} style={{ marginRight: 8 }} />
+            <Text style={s.personalizingTxt}>Personalizing your feed…</Text>
           </View>
         )}
 
@@ -871,6 +875,14 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   closedBannerTxt: { fontSize: 12, fontFamily: F.medium, color: C.muted },
+
+  personalizingBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    marginHorizontal: 20, marginBottom: 8,
+    backgroundColor: C.orangeGlow, borderWidth: 1, borderColor: C.orangeBorder,
+    borderRadius: 12, paddingVertical: 7, paddingHorizontal: 14,
+  },
+  personalizingTxt: { fontSize: 12, fontFamily: F.medium, color: C.orange },
 
   toast: {
     marginHorizontal: 20, marginBottom: 8, backgroundColor: C.text,
