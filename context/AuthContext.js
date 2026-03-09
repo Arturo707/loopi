@@ -38,6 +38,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('[Auth] Auth state changed:', firebaseUser?.email || 'no user');
       setUser(firebaseUser);
 
       if (!firebaseUser) {
@@ -54,6 +55,7 @@ export function AuthProvider({ children }) {
         const snap = await getDoc(doc(db, 'users', firebaseUser.uid));
         if (snap.exists()) {
           const data = snap.data();
+          console.log('[Auth] Firestore profile:', JSON.stringify(data));
           if (data.bankConnected === true) {
             setBankConnectedState(true);
             if (Platform.OS === 'web') ls.set(KEYS.bank, true);
@@ -63,10 +65,20 @@ export function AuthProvider({ children }) {
             !!data.liquidNetWorth &&
             !!data.employmentStatus &&
             !!data.achRelationshipId;
+          console.log('[Auth] Navigation decision:', {
+            isAuthenticated: true,
+            onboardingComplete: profileComplete,
+            hasLiquidNetWorth: !!data.liquidNetWorth,
+            hasEmploymentStatus: !!data.employmentStatus,
+            hasAchRelationshipId: !!data.achRelationshipId,
+          });
           if (profileComplete) {
             setOnboardingDoneState(true);
             if (Platform.OS === 'web') ls.set(KEYS.onboarding, true);
           }
+        } else {
+          console.log('[Auth] Firestore profile: no document found');
+          console.log('[Auth] Navigation decision:', { isAuthenticated: true, onboardingComplete: false, hasLiquidNetWorth: false, hasEmploymentStatus: false, hasAchRelationshipId: false });
         }
       } catch (err) {
         console.warn('[Auth] Firestore load failed:', err.message);

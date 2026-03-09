@@ -128,6 +128,9 @@ function RootNavigator() {
     );
   }
 
+  const screen = !user ? 'Login' : !onboardingDone ? 'Onboarding' : !bankConnected ? 'ConnectBank' : 'Main';
+  console.log('[Nav] Rendering screen:', screen, { user: user?.email || null, onboardingDone, bankConnected });
+
   // Conditional navigator — React Navigation automatically transitions between
   // screens as user/bankConnected state changes. No manual navigation.replace() needed.
   return (
