@@ -8,8 +8,6 @@ import { useApp } from '../context/AppContext';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 
-const ANTHROPIC_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
-
 const API_BASE =
   process.env.EXPO_PUBLIC_API_URL ??
   (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
@@ -115,24 +113,14 @@ export default function ChatScreen() {
         .filter((m) => m.id !== STARTER_ID)
         .map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
 
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch(`${API_BASE}/api/chat`, {
         method: 'POST',
-        headers: {
-          'x-api-key': ANTHROPIC_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-allow-browser': 'true',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
-          system: buildSystem(),
-          messages: history,
-        }),
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ messages: history, systemPrompt: buildSystem() }),
       });
       const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      const reply = data.content[0].text.trim();
+      if (!res.ok) throw new Error(data.error || 'Chat failed');
+      const reply = data.text;
       setMsgs((prev) => [...prev, { id: Date.now(), role: 'assistant', text: reply }]);
     } catch {
       setMsgs((prev) => [

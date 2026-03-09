@@ -31,6 +31,19 @@ const formatSsn = (raw) => {
 const fmtPrice  = (n) => `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtChange = (n) => { const v = Number(n); return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`; };
 
+const parseTradeError = (message) => {
+  const msg = (message || '').toLowerCase();
+  if (
+    msg.includes('market') || msg.includes('closed') ||
+    msg.includes('trading hours') || msg.includes('not open') ||
+    msg.includes('outside') || msg.includes('after hours') ||
+    msg.includes('pre-market') || msg.includes('session')
+  ) {
+    return 'Markets are closed. Try during trading hours (Mon–Fri 9:30am–4pm ET).';
+  }
+  return message || 'Something went wrong. Please try again.';
+};
+
 // ─── Chip selector ────────────────────────────────────────────────────────────
 
 function Chips({ options, value, onSelect }) {
@@ -218,7 +231,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
       onSuccess('✅ Order placed');
       handleClose();
     } catch (err) {
-      setError(err.message);
+      setError(parseTradeError(err.message));
     } finally {
       setLoading(false);
     }
@@ -257,7 +270,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
       onSuccess('✅ Order placed');
       handleClose();
     } catch (err) {
-      setError(err.message);
+      setError(parseTradeError(err.message));
     } finally {
       setLoading(false);
     }

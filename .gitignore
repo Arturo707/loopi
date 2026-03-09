@@ -43,3 +43,5 @@ yarn-error.*
 /android
 
 .vercel
+
+.vercel

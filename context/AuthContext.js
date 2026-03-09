@@ -7,6 +7,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
   signInWithCredential,
   signInWithPopup,
   GoogleAuthProvider,
@@ -109,6 +110,12 @@ export function AuthProvider({ children }) {
   const signInWithEmail   = (email, password) => signInWithEmailAndPassword(auth, email, password).then(r => r.user);
   const registerWithEmail = async (email, password) => {
     const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
+    try {
+      const appUrl = process.env.EXPO_PUBLIC_APP_URL || 'https://loopi-teal.vercel.app';
+      await sendEmailVerification(newUser, { url: appUrl, handleCodeInApp: false });
+    } catch (e) {
+      console.warn('[Auth] sendEmailVerification failed:', e.message);
+    }
     return newUser;
   };
   const reloadUser = async () => {
