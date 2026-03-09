@@ -1,65 +1,22 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import React from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { doc, setDoc } from 'firebase/firestore';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { auth, db } from '../config/firebase';
 import { stocks } from '../constants/data';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || '';
-
 export default function DashboardScreen({ navigation }) {
   const { balance, bankAccount, investedAmount, riskProfile, setRiskProfile } = useApp();
   const { user } = useAuth();
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshError, setRefreshError] = useState(null);
 
   const freeBalance = balance - investedAmount;
   const firstName = user?.displayName?.split(' ')[0] || 'there';
   const ibanDisplay = bankAccount?.iban
     ? `···· ${bankAccount.iban.slice(-4)}`
     : null;
-
-  const handleRefreshBalance = async () => {
-    if (refreshing) return;
-    const accessToken = bankAccount?.accessToken;
-    if (!accessToken) { setRefreshError('Reconnect your bank to refresh.'); return; }
-
-    setRefreshing(true);
-    setRefreshError(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/tink-balance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken }),
-      });
-      const data = await res.json();
-
-      if (data.expired) {
-        setRefreshError('Session expired. Reconnect your bank in Settings.');
-        return;
-      }
-      if (!res.ok) throw new Error(data.error);
-
-      // Persist fresh balance to Firestore
-      const uid = auth.currentUser?.uid;
-      if (uid) {
-        await setDoc(
-          doc(db, 'users', uid),
-          { bankAccount: { ...bankAccount, balance: data.balance, currency: data.currency } },
-          { merge: true }
-        );
-      }
-    } catch (err) {
-      setRefreshError('Failed to refresh. Try again.');
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -91,12 +48,6 @@ export default function DashboardScreen({ navigation }) {
             >
               <View style={s.balanceTitleRow}>
                 <Text style={s.balanceLabel}>AVAILABLE BALANCE</Text>
-                <TouchableOpacity onPress={handleRefreshBalance} disabled={refreshing} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  {refreshing
-                    ? <ActivityIndicator size="small" color={C.orange} />
-                    : <Text style={s.refreshIcon}>↻</Text>
-                  }
-                </TouchableOpacity>
               </View>
               <Text style={s.balanceAmount}>
                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: bankAccount?.currency || 'USD' }).format(freeBalance)}
@@ -110,7 +61,6 @@ export default function DashboardScreen({ navigation }) {
                   : <Text style={s.balanceHint}>Your money sitting idle 😴</Text>
                 }
               </View>
-              {refreshError && <Text style={s.refreshError}>{refreshError}</Text>}
             </LinearGradient>
           </View>
 
@@ -214,8 +164,6 @@ const s = StyleSheet.create({
   balanceGradient: { padding: 24 },
   balanceTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   balanceLabel: { fontSize: 11, color: C.muted, fontFamily: F.semibold, letterSpacing: 2 },
-  refreshIcon: { fontSize: 18, color: C.orange, fontFamily: F.bold },
-  refreshError: { fontSize: 11, color: C.red, fontFamily: F.regular, marginTop: 8 },
   balanceAmount: { fontSize: 42, color: C.text, fontFamily: F.xbold, letterSpacing: -1.5, marginBottom: 14 },
   balanceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   balancePill: {
