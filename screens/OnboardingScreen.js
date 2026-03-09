@@ -8,12 +8,12 @@ import { doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { auth, db } from '../config/firebase';
+import { C } from '../constants/colors';
+import { F } from '../constants/fonts';
 
 const API_BASE =
   process.env.EXPO_PUBLIC_API_URL ??
   (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
-import { C } from '../constants/colors';
-import { F } from '../constants/fonts';
 
 const TOTAL_STEPS = 10;
 
@@ -54,9 +54,17 @@ const STEP_META = [
   { emoji: '📝', title: 'And your last name?',                  subtitle: 'As it appears on your passport or ID.' },
   { emoji: '📅', title: 'When were you born?',                  subtitle: 'Your full date of birth.' },
   { emoji: '🏠', title: 'Where do you live?',                   subtitle: 'Your current home address.' },
-  { emoji: '🪪', title: "What's your SSN or ID number?",       subtitle: 'We need this to verify your identity and open your account.' },
+  { emoji: '🪪', title: 'Social Security Number',              subtitle: 'We need this to verify your identity and open your account.' },
   { emoji: '🏦', title: 'Link your bank account',              subtitle: 'Connect your bank to fund your investments instantly via ACH.' },
 ];
+
+// ── SSN auto-formatter ──
+const formatSsn = (raw) => {
+  const digits = raw.replace(/\D/g, '').slice(0, 9);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+};
 
 function ChoiceCard({ label, sub, emoji, selected, onPress }) {
   return (
@@ -96,72 +104,109 @@ export default function OnboardingScreen() {
   const [riskProfile, setRisk] = useState(null);
 
   // ── Step 5: First name ──
-  const [firstName, setFirstName]       = useState('');
+  const [firstName, setFirstName]           = useState('');
   const [firstNameError, setFirstNameError] = useState(null);
 
-  // ── Step 6: Last names ──
-  const [lastName1, setLastName1]         = useState('');
-  const [lastName2, setLastName2]         = useState('');
-  const [lastName1Error, setLastName1Error] = useState(null);
+  // ── Step 6: Last name + middle ──
+  const [lastName1, setLastName1]             = useState('');
+  const [lastName2, setLastName2]             = useState('');
+  const [lastName1Error, setLastName1Error]   = useState(null);
 
-  // ── Step 7: Date of birth ──
-  const [dobDay,   setDobDay]   = useState('');
+  // ── Step 7: Date of birth (MM / DD / YYYY) ──
   const [dobMonth, setDobMonth] = useState('');
+  const [dobDay,   setDobDay]   = useState('');
   const [dobYear,  setDobYear]  = useState('');
   const [dobError, setDobError] = useState(null);
-  const monthRef = useRef(null);
-  const yearRef  = useRef(null);
+  const dayRef  = useRef(null);
+  const yearRef = useRef(null);
 
   // ── Step 8: Address ──
-  const [streetAddress, setStreetAddress]         = useState('');
-  const [city,          setCity]                  = useState('');
-  const [postalCode,    setPostalCode]             = useState('');
-  const [country,       setCountry]               = useState('United States');
-  const [addressError,  setAddressError]           = useState(null);
+  const [streetAddress, setStreetAddress] = useState('');
+  const [city,          setCity]          = useState('');
+  const [state,         setState]         = useState('');
+  const [postalCode,    setPostalCode]    = useState('');
+  const [country,       setCountry]       = useState('United States');
+  const [addressError,  setAddressError]  = useState(null);
 
-  // ── Step 9: Tax ID ──
+  // ── Step 9: SSN ──
   const [taxId,      setTaxId]      = useState('');
   const [taxIdError, setTaxIdError] = useState(null);
 
   // ── Step 10: Bank link ──
-  const [routingNumber,    setRoutingNumber]    = useState('');
-  const [bankAccountNum,   setBankAccountNum]   = useState('');
-  const [bankLinkError,    setBankLinkError]    = useState(null);
-  const [bankLinkLoading,  setBankLinkLoading]  = useState(false);
+  const [routingNumber,   setRoutingNumber]   = useState('');
+  const [bankAccountNum,  setBankAccountNum]  = useState('');
+  const [routingError,    setRoutingError]    = useState(null);
+  const [accountNumError, setAccountNumError] = useState(null);
+  const [bankLinkError,   setBankLinkError]   = useState(null);
+  const [bankLinkLoading, setBankLinkLoading] = useState(false);
 
   // ── Validation helpers ──
   const validateAge = (v) => {
     const n = parseInt(v, 10);
     if (!v.trim()) return 'Enter your age.';
-    if (isNaN(n) || n < 16 || n > 100) return 'Enter an age between 16 and 100.';
+    if (isNaN(n) || n < 18 || n > 100) return 'You must be at least 18 years old.';
+    return null;
+  };
+
+  const validateName = (v) => {
+    if (v.trim().length < 2) return 'Must be at least 2 characters.';
+    if (/\d/.test(v)) return 'Name cannot contain numbers.';
     return null;
   };
 
   const validateDob = () => {
-    const d = parseInt(dobDay, 10);
     const m = parseInt(dobMonth, 10);
+    const d = parseInt(dobDay, 10);
     const y = parseInt(dobYear, 10);
-    if (!dobDay || !dobMonth || !dobYear) return 'Enter your full date of birth.';
-    if (dobDay.length !== 2 || dobMonth.length !== 2 || dobYear.length !== 4)
-      return 'Format: DD MM YYYY.';
-    if (d < 1 || d > 31) return 'Invalid day.';
+    if (!dobMonth || !dobDay || !dobYear) return 'Enter your full date of birth.';
+    if (dobMonth.length !== 2 || dobDay.length !== 2 || dobYear.length !== 4) return 'Use MM / DD / YYYY format.';
     if (m < 1 || m > 12) return 'Invalid month.';
-    if (y < 1900 || y > new Date().getFullYear() - 16) return 'Invalid year.';
+    if (d < 1 || d > 31) return 'Invalid day.';
+    if (y < 1900) return 'Invalid year.';
+    const dob = new Date(y, m - 1, d);
+    const threshold = new Date();
+    threshold.setFullYear(threshold.getFullYear() - 18);
+    if (dob > threshold) return 'You must be at least 18 years old.';
+    return null;
+  };
+
+  const validateZip = (v) => {
+    if (!/^\d{5}$/.test(v)) return 'ZIP code must be exactly 5 digits.';
+    return null;
+  };
+
+  const validateSsn = (v) => {
+    if (!/^\d{3}-\d{2}-\d{4}$/.test(v)) return 'Enter a valid SSN: 123-45-6789.';
+    return null;
+  };
+
+  const validateRouting = (v) => {
+    if (!/^\d{9}$/.test(v.trim())) return 'Routing number must be exactly 9 digits.';
+    return null;
+  };
+
+  const validateAccountNum = (v) => {
+    if (!/^\d{4,17}$/.test(v.trim())) return 'Account number must be 4–17 digits.';
     return null;
   };
 
   const canProceed = () => {
     switch (step) {
-      case 1: return age.trim().length > 0 && !validateAge(age);
-      case 2: return !!incomeRange;
-      case 3: return !!experience;
-      case 4: return !!riskProfile;
-      case 5: return firstName.trim().length > 0;
-      case 6: return lastName1.trim().length > 0;
-      case 7: return dobDay.length === 2 && dobMonth.length === 2 && dobYear.length === 4 && !validateDob();
-      case 8: return streetAddress.trim().length > 0 && city.trim().length > 0 && country.trim().length > 0;
-      case 9: return taxId.trim().length > 0;
-      case 10: return routingNumber.trim().length >= 9 && bankAccountNum.trim().length >= 4;
+      case 1:  return age.trim().length > 0 && !validateAge(age);
+      case 2:  return !!incomeRange;
+      case 3:  return !!experience;
+      case 4:  return !!riskProfile;
+      case 5:  return !validateName(firstName);
+      case 6:  return !validateName(lastName1);
+      case 7:  return dobMonth.length === 2 && dobDay.length === 2 && dobYear.length === 4 && !validateDob();
+      case 8:  return (
+        streetAddress.trim().length > 0 &&
+        city.trim().length > 0 &&
+        state.trim().length > 0 &&
+        !validateZip(postalCode)
+      );
+      case 9:  return !validateSsn(taxId);
+      case 10: return !validateRouting(routingNumber) && !validateAccountNum(bankAccountNum);
       default: return false;
     }
   };
@@ -173,11 +218,13 @@ export default function OnboardingScreen() {
       setAgeError(null);
     }
     if (step === 5) {
-      if (!firstName.trim()) { setFirstNameError('Enter your first name.'); return; }
+      const err = validateName(firstName);
+      if (err) { setFirstNameError(err); return; }
       setFirstNameError(null);
     }
     if (step === 6) {
-      if (!lastName1.trim()) { setLastName1Error('Enter at least your last name.'); return; }
+      const err = validateName(lastName1);
+      if (err) { setLastName1Error(err); return; }
       setLastName1Error(null);
     }
     if (step === 7) {
@@ -186,14 +233,17 @@ export default function OnboardingScreen() {
       setDobError(null);
     }
     if (step === 8) {
-      if (!streetAddress.trim() || !city.trim() || !country.trim()) {
-        setAddressError('Fill in the required fields.');
+      if (!streetAddress.trim() || !city.trim() || !state.trim()) {
+        setAddressError('Please fill in all required fields.');
         return;
       }
+      const zipErr = validateZip(postalCode);
+      if (zipErr) { setAddressError(zipErr); return; }
       setAddressError(null);
     }
     if (step === 9) {
-      if (!taxId.trim()) { setTaxIdError('Enter your ID number.'); return; }
+      const err = validateSsn(taxId);
+      if (err) { setTaxIdError(err); return; }
       setTaxIdError(null);
     }
 
@@ -204,12 +254,15 @@ export default function OnboardingScreen() {
 
     if (step < TOTAL_STEPS) {
       setStep((s) => s + 1);
-    } else {
-      handleFinish();
     }
   };
 
   const handleBankLink = async () => {
+    const rErr = validateRouting(routingNumber);
+    const aErr = validateAccountNum(bankAccountNum);
+    if (rErr) { setRoutingError(rErr); return; }
+    if (aErr) { setAccountNumError(aErr); return; }
+
     setBankLinkError(null);
     setBankLinkLoading(true);
     try {
@@ -218,7 +271,6 @@ export default function OnboardingScreen() {
       const bankAccountOwnerName = [firstName.trim(), lastName1.trim()].filter(Boolean).join(' ') || 'Account Owner';
 
       if (!accountId) {
-        // No Alpaca account yet — skip to finish, link can be done later
         handleFinish();
         return;
       }
@@ -249,7 +301,7 @@ export default function OnboardingScreen() {
   const handleFinish = async () => {
     setSaving(true);
     const lastName = [lastName1.trim(), lastName2.trim()].filter(Boolean).join(' ');
-    const dateOfBirth = `${dobDay}/${dobMonth}/${dobYear}`;
+    const dateOfBirth = `${dobMonth}/${dobDay}/${dobYear}`;
     try {
       await saveProfile({
         age: parseInt(age, 10),
@@ -261,7 +313,7 @@ export default function OnboardingScreen() {
       if (uid) {
         await setDoc(
           doc(db, 'users', uid),
-          { firstName, lastName, dateOfBirth, streetAddress, city, postalCode, country, taxId },
+          { firstName, lastName, dateOfBirth, streetAddress, city, state, postalCode, country, taxId, taxIdType: 'USA_SSN' },
           { merge: true }
         );
       }
@@ -369,7 +421,7 @@ export default function OnboardingScreen() {
                   style={[s.bigTextInput, firstNameError && s.bigInputError]}
                   value={firstName}
                   onChangeText={(v) => { setFirstName(v); setFirstNameError(null); }}
-                  placeholder="Ana"
+                  placeholder="e.g. James"
                   placeholderTextColor={C.muted}
                   autoCapitalize="words"
                   autoFocus
@@ -379,7 +431,7 @@ export default function OnboardingScreen() {
               </View>
             )}
 
-            {/* ── Step 6: Last names ── */}
+            {/* ── Step 6: Last name + middle ── */}
             {step === 6 && (
               <View style={s.stackedInputs}>
                 <View>
@@ -388,7 +440,7 @@ export default function OnboardingScreen() {
                     style={[s.fieldInput, lastName1Error && s.fieldInputError]}
                     value={lastName1}
                     onChangeText={(v) => { setLastName1(v); setLastName1Error(null); }}
-                    placeholder="García"
+                    placeholder="e.g. Rivera"
                     placeholderTextColor={C.muted}
                     autoCapitalize="words"
                     autoFocus
@@ -401,7 +453,7 @@ export default function OnboardingScreen() {
                     style={s.fieldInput}
                     value={lastName2}
                     onChangeText={setLastName2}
-                    placeholder="Martínez"
+                    placeholder="e.g. Michael (optional)"
                     placeholderTextColor={C.muted}
                     autoCapitalize="words"
                   />
@@ -409,21 +461,21 @@ export default function OnboardingScreen() {
               </View>
             )}
 
-            {/* ── Step 7: Date of birth ── */}
+            {/* ── Step 7: Date of birth (MM / DD / YYYY) ── */}
             {step === 7 && (
               <View style={s.centerWrapper}>
                 <View style={s.dobRow}>
-                  <View style={s.dobBox}>
-                    <Text style={s.dobLabel}>Day</Text>
+                  <View style={s.dobField}>
+                    <Text style={s.dobLabel}>Month</Text>
                     <TextInput
                       style={[s.dobInput, dobError && s.bigInputError]}
-                      value={dobDay}
+                      value={dobMonth}
                       onChangeText={(v) => {
-                        setDobDay(v);
+                        setDobMonth(v);
                         setDobError(null);
-                        if (v.length === 2) monthRef.current?.focus();
+                        if (v.length === 2) dayRef.current?.focus();
                       }}
-                      placeholder="DD"
+                      placeholder="MM"
                       placeholderTextColor={C.muted}
                       keyboardType="number-pad"
                       maxLength={2}
@@ -432,18 +484,18 @@ export default function OnboardingScreen() {
                     />
                   </View>
                   <Text style={s.dobSep}>/</Text>
-                  <View style={s.dobBox}>
-                    <Text style={s.dobLabel}>Month</Text>
+                  <View style={s.dobField}>
+                    <Text style={s.dobLabel}>Day</Text>
                     <TextInput
-                      ref={monthRef}
+                      ref={dayRef}
                       style={[s.dobInput, dobError && s.bigInputError]}
-                      value={dobMonth}
+                      value={dobDay}
                       onChangeText={(v) => {
-                        setDobMonth(v);
+                        setDobDay(v);
                         setDobError(null);
                         if (v.length === 2) yearRef.current?.focus();
                       }}
-                      placeholder="MM"
+                      placeholder="DD"
                       placeholderTextColor={C.muted}
                       keyboardType="number-pad"
                       maxLength={2}
@@ -451,7 +503,7 @@ export default function OnboardingScreen() {
                     />
                   </View>
                   <Text style={s.dobSep}>/</Text>
-                  <View style={[s.dobBox, s.dobBoxYear]}>
+                  <View style={[s.dobField, s.dobFieldYear]}>
                     <Text style={s.dobLabel}>Year</Text>
                     <TextInput
                       ref={yearRef}
@@ -479,7 +531,7 @@ export default function OnboardingScreen() {
                     style={s.fieldInput}
                     value={streetAddress}
                     onChangeText={setStreetAddress}
-                    placeholder="123 Main St, Apt 3A"
+                    placeholder="e.g. 123 Main St"
                     placeholderTextColor={C.muted}
                     autoCapitalize="words"
                     autoFocus
@@ -491,54 +543,63 @@ export default function OnboardingScreen() {
                     style={s.fieldInput}
                     value={city}
                     onChangeText={setCity}
-                    placeholder="New York"
+                    placeholder="e.g. New York"
                     placeholderTextColor={C.muted}
                     autoCapitalize="words"
                   />
                 </View>
-                <View>
-                  <Text style={s.fieldLabel}>ZIP code <Text style={s.optional}>(optional)</Text></Text>
-                  <TextInput
-                    style={s.fieldInput}
-                    value={postalCode}
-                    onChangeText={setPostalCode}
-                    placeholder="28001"
-                    placeholderTextColor={C.muted}
-                    keyboardType="number-pad"
-                    maxLength={10}
-                  />
-                </View>
-                <View>
-                  <Text style={s.fieldLabel}>Country</Text>
-                  <TextInput
-                    style={s.fieldInput}
-                    value={country}
-                    onChangeText={setCountry}
-                    placeholder="United States"
-                    placeholderTextColor={C.muted}
-                    autoCapitalize="words"
-                  />
+                <View style={s.twoCol}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.fieldLabel}>State</Text>
+                    <TextInput
+                      style={s.fieldInput}
+                      value={state}
+                      onChangeText={(v) => { setState(v.toUpperCase().slice(0, 2)); }}
+                      placeholder="e.g. NY"
+                      placeholderTextColor={C.muted}
+                      autoCapitalize="characters"
+                      maxLength={2}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.fieldLabel}>ZIP code</Text>
+                    <TextInput
+                      style={[s.fieldInput, addressError && validateZip(postalCode) && s.fieldInputError]}
+                      value={postalCode}
+                      onChangeText={(v) => { setPostalCode(v); setAddressError(null); }}
+                      placeholder="e.g. 10001"
+                      placeholderTextColor={C.muted}
+                      keyboardType="number-pad"
+                      maxLength={5}
+                    />
+                  </View>
                 </View>
                 {addressError ? <Text style={s.errorTxt}>{addressError}</Text> : null}
               </View>
             )}
 
-            {/* ── Step 9: Tax ID ── */}
+            {/* ── Step 9: SSN ── */}
             {step === 9 && (
-              <View style={s.centerWrapper}>
-                <TextInput
-                  style={[s.bigTextInput, taxIdError && s.bigInputError]}
-                  value={taxId}
-                  onChangeText={(v) => { setTaxId(v); setTaxIdError(null); }}
-                  placeholder="12345678A"
-                  placeholderTextColor={C.muted}
-                  autoCapitalize="characters"
-                  autoFocus
-                  textAlign="center"
-                />
-                {taxIdError ? <Text style={s.errorTxt}>{taxIdError}</Text> : null}
+              <View style={s.stackedInputs}>
+                <View>
+                  <Text style={s.ssnLabel}>Social Security Number (SSN)</Text>
+                  <TextInput
+                    style={[s.fieldInput, taxIdError && s.fieldInputError]}
+                    value={taxId}
+                    onChangeText={(v) => {
+                      setTaxId(formatSsn(v));
+                      setTaxIdError(null);
+                    }}
+                    placeholder="e.g. 123-45-6789"
+                    placeholderTextColor={C.muted}
+                    keyboardType="number-pad"
+                    maxLength={11}
+                    autoFocus
+                  />
+                  {taxIdError ? <Text style={s.errorTxt}>{taxIdError}</Text> : null}
+                </View>
                 <Text style={s.legalNote}>
-                  Required for financial markets compliance (FINRA/SEC)
+                  Your SSN is used to verify your identity. It is encrypted and sent directly to our brokerage partner.
                 </Text>
               </View>
             )}
@@ -546,36 +607,51 @@ export default function OnboardingScreen() {
             {/* ── Step 10: Bank link ── */}
             {step === 10 && (
               <View style={s.stackedInputs}>
+                {/* Security notice */}
+                <View style={s.securityBanner}>
+                  <Text style={s.securityBannerTitle}>🔒 Your bank details are never stored by Loopi</Text>
+                  <Text style={s.securityBannerBody}>
+                    All information is encrypted and sent directly to Alpaca Securities, our SIPC-insured brokerage partner. Loopi never has access to your credentials.
+                  </Text>
+                </View>
+
                 <View>
                   <Text style={s.fieldLabel}>Routing number</Text>
                   <TextInput
-                    style={[s.fieldInput, bankLinkError && s.fieldInputError]}
+                    style={[s.fieldInput, routingError && s.fieldInputError]}
                     value={routingNumber}
-                    onChangeText={(v) => { setRoutingNumber(v); setBankLinkError(null); }}
-                    placeholder="021000021"
+                    onChangeText={(v) => {
+                      const digits = v.replace(/\D/g, '').slice(0, 9);
+                      setRoutingNumber(digits);
+                      setRoutingError(null);
+                    }}
+                    placeholder="e.g. 021000021"
                     placeholderTextColor={C.muted}
                     keyboardType="number-pad"
                     maxLength={9}
                     autoFocus
                   />
+                  {routingError ? <Text style={s.errorTxt}>{routingError}</Text> : null}
                 </View>
                 <View>
                   <Text style={s.fieldLabel}>Account number</Text>
                   <TextInput
-                    style={[s.fieldInput, bankLinkError && s.fieldInputError]}
+                    style={[s.fieldInput, accountNumError && s.fieldInputError]}
                     value={bankAccountNum}
-                    onChangeText={(v) => { setBankAccountNum(v); setBankLinkError(null); }}
-                    placeholder="000123456789"
+                    onChangeText={(v) => {
+                      const digits = v.replace(/\D/g, '').slice(0, 17);
+                      setBankAccountNum(digits);
+                      setAccountNumError(null);
+                    }}
+                    placeholder="e.g. 000123456789"
                     placeholderTextColor={C.muted}
                     keyboardType="number-pad"
                     maxLength={17}
                     secureTextEntry
                   />
+                  {accountNumError ? <Text style={s.errorTxt}>{accountNumError}</Text> : null}
                 </View>
                 {bankLinkError ? <Text style={s.errorTxt}>{bankLinkError}</Text> : null}
-                <Text style={s.legalNote}>
-                  Your details are encrypted and never stored on our servers.
-                </Text>
               </View>
             )}
 
@@ -634,12 +710,11 @@ const s = StyleSheet.create({
   title:     { fontSize: 26, fontFamily: F.xbold, color: C.text, letterSpacing: -0.5, lineHeight: 33, marginBottom: 10 },
   subtitle:  { fontSize: 14, fontFamily: F.regular, color: C.sub, lineHeight: 22, marginBottom: 28 },
 
-  errorTxt: { fontSize: 13, color: C.red, fontFamily: F.medium, marginTop: 12, textAlign: 'center' },
+  errorTxt: { fontSize: 13, color: C.red, fontFamily: F.medium, marginTop: 8 },
 
-  // ── Centered single-input steps (age, name, taxId) ──
+  // ── Centered single-input steps ──
   centerWrapper: { alignItems: 'center', marginTop: 8 },
 
-  // Age-style big number input
   bigInput: {
     fontSize: 72, fontFamily: F.xbold, color: C.text, letterSpacing: -3,
     borderBottomWidth: 3, borderBottomColor: C.orange,
@@ -647,7 +722,6 @@ const s = StyleSheet.create({
   },
   bigInputUnit: { fontSize: 18, fontFamily: F.medium, color: C.muted, marginTop: 10 },
 
-  // Text-style big input (name, taxId)
   bigTextInput: {
     fontSize: 36, fontFamily: F.xbold, color: C.text, letterSpacing: -1,
     borderBottomWidth: 3, borderBottomColor: C.orange,
@@ -655,7 +729,7 @@ const s = StyleSheet.create({
   },
   bigInputError: { borderBottomColor: C.red },
 
-  // ── Choice cards (income, experience, risk) ──
+  // ── Choice cards ──
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border,
@@ -670,11 +744,16 @@ const s = StyleSheet.create({
   cardSub:         { fontSize: 13, fontFamily: F.regular, color: C.muted, lineHeight: 18 },
   check:           { fontSize: 16, color: C.orange, fontFamily: F.bold },
 
-  // ── Stacked text inputs (last names, address) ──
+  // ── Stacked text inputs ──
   stackedInputs: { gap: 16 },
+  twoCol: { flexDirection: 'row', gap: 12 },
   fieldLabel: {
     fontSize: 12, fontFamily: F.semibold, color: C.muted,
     letterSpacing: 0.3, marginBottom: 8,
+  },
+  ssnLabel: {
+    fontSize: 14, fontFamily: F.semibold, color: C.text,
+    marginBottom: 10,
   },
   optional: { fontFamily: F.regular, color: C.muted },
   fieldInput: {
@@ -685,21 +764,32 @@ const s = StyleSheet.create({
   fieldInputError: { borderColor: C.red },
 
   // ── Date of birth ──
-  dobRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  dobBox: { alignItems: 'center' },
-  dobBoxYear: { width: 96 },
-  dobLabel: { fontSize: 11, fontFamily: F.semibold, color: C.muted, letterSpacing: 0.5, marginBottom: 8 },
+  dobRow:       { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  dobField:     { flex: 1, alignItems: 'center' },
+  dobFieldYear: { flex: 2 },
+  dobLabel:     { fontSize: 11, fontFamily: F.semibold, color: C.muted, letterSpacing: 0.5, marginBottom: 8 },
   dobInput: {
-    fontSize: 32, fontFamily: F.xbold, color: C.text, letterSpacing: -1,
+    fontSize: 28, fontFamily: F.xbold, color: C.text, letterSpacing: -1,
     borderBottomWidth: 3, borderBottomColor: C.orange,
-    paddingVertical: 4, width: 64, textAlign: 'center',
+    paddingVertical: 4, width: '100%', textAlign: 'center',
   },
-  dobSep: { fontSize: 28, fontFamily: F.bold, color: C.muted, marginBottom: 8 },
+  dobSep: { fontSize: 24, fontFamily: F.bold, color: C.muted, marginBottom: 10 },
 
   // ── Legal note ──
   legalNote: {
     fontSize: 12, fontFamily: F.regular, color: C.muted,
-    lineHeight: 18, marginTop: 24, textAlign: 'center', paddingHorizontal: 16,
+    lineHeight: 18, textAlign: 'center', paddingHorizontal: 8,
+  },
+
+  // ── Bank security banner ──
+  securityBanner: {
+    backgroundColor: C.orange, borderRadius: 16, padding: 16,
+  },
+  securityBannerTitle: {
+    fontSize: 14, fontFamily: F.bold, color: '#FFF', marginBottom: 8,
+  },
+  securityBannerBody: {
+    fontSize: 13, fontFamily: F.regular, color: 'rgba(255,255,255,0.9)', lineHeight: 20,
   },
 
   // ── Footer ──

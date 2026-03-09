@@ -58,6 +58,7 @@ export default async function handler(req, res) {
   // 2. Call Anthropic API with web_search tool
   let vibe = FALLBACK_VIBE;
   try {
+    console.log('[market-vibe] Calling Anthropic API for', today);
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -66,25 +67,27 @@ export default async function handler(req, res) {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-5',
+        model: 'claude-opus-4-6',
         max_tokens: 500,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        system: "You are Loopi's market pulse writer. Your job is to write a single short paragraph (3-4 sentences max) that captures what's happening in the US stock market TODAY. Write like a sharp, plugged-in 22-year-old who actually understands markets — not a financial advisor, not cringe. Be specific: mention actual stocks, sectors, or events happening today. Use FOMO-inducing but honest language. No disclaimers. No emojis. Just the vibe.",
+        system: "You are Loopi's market pulse writer. Write a single short paragraph (3-4 sentences) capturing the current state of the US stock market. Whether the market is open or closed, write something useful: if closed, cover what happened today and what to watch tomorrow. Write like a sharp, plugged-in 22-year-old who actually understands markets — not a financial advisor, not cringe. Be specific: mention actual stocks, sectors, or macro events. No disclaimers. No emojis. Just the vibe.",
         messages: [
           {
             role: 'user',
-            content: "What's happening in the US stock market today? Search for the latest news and give me the market vibe in 3-4 sentences.",
+            content: "What's the current state of the US stock market? Search for the latest news and give me the market vibe in 3-4 sentences.",
           },
         ],
       }),
     });
 
     if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.error?.message || `HTTP ${response.status}`);
+      const errBody = await response.json().catch(() => ({}));
+      console.error('[market-vibe] Anthropic HTTP error:', response.status, JSON.stringify(errBody));
+      throw new Error(errBody.error?.message || `HTTP ${response.status}`);
     }
 
     const data = await response.json();
+    console.log('[market-vibe] Anthropic response stop_reason:', data.stop_reason, 'content blocks:', data.content?.length);
 
     // 3. Extract text blocks from the response
     const text = (data.content ?? [])
@@ -94,7 +97,7 @@ export default async function handler(req, res) {
       .trim();
 
     if (text) vibe = text;
-    console.log('[market-vibe] Generated vibe, length:', vibe.length);
+    console.log('[market-vibe] Generated vibe, length:', vibe.length, '— preview:', vibe.slice(0, 80));
   } catch (err) {
     console.error('[market-vibe] Anthropic call failed:', err.message);
   }
@@ -113,5 +116,6 @@ export default async function handler(req, res) {
   }
 
   // 5. Return result
+  console.log('[market-vibe] Returning:', JSON.stringify({ vibe: vibe.slice(0, 80) + '...', date: today }));
   return res.status(200).json({ vibe, date: today });
 }

@@ -674,6 +674,7 @@ export default function DiscoverScreen() {
                 decelerationRate="fast"
                 snapToInterval={cardHeight}
                 snapToAlignment="start"
+                extraData={tips}
                 getItemLayout={(_, index) => ({ length: cardHeight, offset: cardHeight * index, index })}
                 onEndReached={() => { if (!loadingMore) fetchMore(); }}
                 onEndReachedThreshold={0.3}
@@ -688,7 +689,7 @@ export default function DiscoverScreen() {
                     stock={item}
                     height={cardHeight}
                     tip={tips[item.symbol]}
-                    tipLoading={false}
+                    tipLoading={rankingStatus === 'ranking' && !tips[item.symbol]}
                     onSaberMas={() => setChatStock(item)}
                     onInvertir={() => setInvestStock(item)}
                   />
