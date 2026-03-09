@@ -7,7 +7,6 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
-  sendEmailVerification,
   signInWithCredential,
   signInWithPopup,
   GoogleAuthProvider,
@@ -110,22 +109,7 @@ export function AuthProvider({ children }) {
   const signInWithEmail   = (email, password) => signInWithEmailAndPassword(auth, email, password).then(r => r.user);
   const registerWithEmail = async (email, password) => {
     const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
-    try {
-      await sendEmailVerification(newUser);
-      console.log('Verification email sent to:', newUser.email);
-    } catch (error) {
-      console.error('sendEmailVerification error:', error.code, error.message);
-    }
     return newUser;
-  };
-  const resendVerification = async () => {
-    try {
-      await sendEmailVerification(auth.currentUser);
-      console.log('Verification email sent to:', auth.currentUser?.email);
-    } catch (error) {
-      console.error('sendEmailVerification error:', error.code, error.message);
-      throw error;
-    }
   };
   const reloadUser = async () => {
     await auth.currentUser?.reload();
@@ -161,7 +145,7 @@ export function AuthProvider({ children }) {
       bankConnected,  setBankConnected,
       onboardingDone, setOnboardingDone,
       signInWithEmail, registerWithEmail, signInWithGoogle, resetPassword, signOutUser,
-      resendVerification, reloadUser,
+      reloadUser,
     }}>
       {children}
     </AuthContext.Provider>
