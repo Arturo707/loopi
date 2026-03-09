@@ -29,6 +29,7 @@ import DiscoverScreen from './screens/DiscoverScreen';
 import ChatScreen from './screens/ChatScreen';
 import PortfolioScreen from './screens/PortfolioScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import VerifyEmailScreen from './screens/VerifyEmailScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -128,8 +129,13 @@ function RootNavigator() {
     );
   }
 
-  const screen = !user ? 'Login' : !onboardingDone ? 'Onboarding' : !bankConnected ? 'ConnectBank' : 'Main';
-  console.log('[Nav] Rendering screen:', screen, { user: user?.email || null, onboardingDone, bankConnected });
+  const emailVerified = user?.emailVerified ?? false;
+  const screen = !user ? 'Login'
+    : !emailVerified  ? 'VerifyEmail'
+    : !onboardingDone ? 'Onboarding'
+    : !bankConnected  ? 'ConnectBank'
+    : 'Main';
+  console.log('[Nav] Rendering screen:', screen, { user: user?.email || null, emailVerified, onboardingDone, bankConnected });
 
   // Conditional navigator — React Navigation automatically transitions between
   // screens as user/bankConnected state changes. No manual navigation.replace() needed.
@@ -137,6 +143,8 @@ function RootNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
       {!user ? (
         <Stack.Screen name="Login" component={LoginScreen} />
+      ) : !emailVerified ? (
+        <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
       ) : !onboardingDone ? (
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       ) : !bankConnected ? (

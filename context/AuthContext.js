@@ -7,6 +7,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
   signOut,
 } from 'firebase/auth';
 
@@ -45,6 +46,12 @@ export function AuthProvider({ children }) {
         setBankConnectedState(false);
         setOnboardingDoneState(false);
         if (Platform.OS === 'web') { ls.set(KEYS.bank, false); ls.set(KEYS.onboarding, false); }
+        setAuthLoading(false);
+        return;
+      }
+
+      // Unverified users get blocked at the navigator — skip Firestore load
+      if (!firebaseUser.emailVerified) {
         setAuthLoading(false);
         return;
       }
@@ -91,9 +98,20 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
-  const signInWithEmail    = (email, password) => signInWithEmailAndPassword(auth, email, password).then(r => r.user);
-  const registerWithEmail  = (email, password) => createUserWithEmailAndPassword(auth, email, password).then(r => r.user);
-  const resetPassword      = (email)            => sendPasswordResetEmail(auth, email);
+  const signInWithEmail   = (email, password) => signInWithEmailAndPassword(auth, email, password).then(r => r.user);
+  const registerWithEmail = async (email, password) => {
+    const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
+    await sendEmailVerification(newUser);
+    return newUser;
+  };
+  const resendVerification = () => sendEmailVerification(auth.currentUser);
+  const reloadUser = async () => {
+    await auth.currentUser?.reload();
+    // Clone the user object so React detects the state change
+    setUser(auth.currentUser ? Object.assign(Object.create(Object.getPrototypeOf(auth.currentUser)), auth.currentUser) : null);
+    return auth.currentUser;
+  };
+  const resetPassword = (email) => sendPasswordResetEmail(auth, email);
 
   const signOutUser = async () => {
     await signOut(auth);
@@ -108,6 +126,7 @@ export function AuthProvider({ children }) {
       bankConnected,  setBankConnected,
       onboardingDone, setOnboardingDone,
       signInWithEmail, registerWithEmail, resetPassword, signOutUser,
+      resendVerification, reloadUser,
     }}>
       {children}
     </AuthContext.Provider>
