@@ -16,10 +16,12 @@ export function AppProvider({ children }) {
   const [riskProfile,    setRiskProfileState] = useState('Moderate');
 
   // Onboarding / profile fields
-  const [firstName,   setFirstName]   = useState(null);
-  const [age,         setAge]         = useState(null);
-  const [incomeRange, setIncomeRange] = useState(null);
-  const [experience,  setExperience]  = useState(null);
+  const [firstName,    setFirstName]    = useState(null);
+  const [lastName,     setLastName]     = useState(null);
+  const [dateOfBirth,  setDateOfBirth]  = useState(null);
+  const [age,          setAge]          = useState(null);
+  const [incomeRange,  setIncomeRange]  = useState(null);
+  const [experience,   setExperience]   = useState(null);
 
   // Alpaca brokerage account
   const [alpacaAccountId,     setAlpacaAccountId]     = useState(null);
@@ -51,6 +53,8 @@ export function AppProvider({ children }) {
         setRiskProfileState('Moderate');
         setBankAccount(null);
         setFirstName(null);
+        setLastName(null);
+        setDateOfBirth(null);
         setAge(null);
         setIncomeRange(null);
         setExperience(null);
@@ -69,6 +73,8 @@ export function AppProvider({ children }) {
           if (d.riskProfile)          setRiskProfileState(d.riskProfile);
           if (d.bankAccount)          setBankAccount(d.bankAccount);
           if (d.firstName)            setFirstName(d.firstName);
+          if (d.lastName)             setLastName(d.lastName);
+          if (d.dateOfBirth)          setDateOfBirth(d.dateOfBirth);
           if (d.age != null)          setAge(d.age);
           if (d.incomeRange)          setIncomeRange(d.incomeRange);
           if (d.experience)           setExperience(d.experience);
@@ -144,7 +150,7 @@ export function AppProvider({ children }) {
       balance, bankAccount,
       investedAmount, portfolio, addToPortfolio,
       riskProfile, setRiskProfile,
-      firstName, age, incomeRange, experience,
+      firstName, lastName, dateOfBirth, age, incomeRange, experience,
       saveProfile,
       alpacaAccountId, alpacaAccountStatus, createAlpacaAccount,
       achRelationshipId, setAchRelationshipId,

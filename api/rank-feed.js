@@ -1,3 +1,36 @@
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+
+let db = null;
+try {
+  if (
+    process.env.FIREBASE_PROJECT_ID &&
+    process.env.FIREBASE_CLIENT_EMAIL &&
+    process.env.FIREBASE_PRIVATE_KEY
+  ) {
+    if (!getApps().length) {
+      initializeApp({
+        credential: cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        }),
+      });
+    }
+    db = getFirestore();
+  }
+} catch (err) {
+  console.warn('[RankFeed] Firebase init failed — caching disabled:', err.message);
+}
+
+const GEN_Z_SYMBOLS = new Set([
+  'SPY', 'QQQ', 'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN', 'META', 'GOOGL', 'PLTR',
+  'IBIT', 'GLD', 'JPM', 'V', 'WMT', 'SOFI', 'AMD', 'NFLX', 'DIS', 'UBER',
+  'COIN', 'BRK-B', 'XLE', 'IWM', 'TLT',
+]);
+
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
 const normalizeIncomeRange = (range) => {
   const legacyMap = {
     '0-1000': 'under_30k',
@@ -31,8 +64,32 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing or empty items array" });
   }
 
+  // Conservative falls back to the Moderate cache
+  const cacheProfile = riskProfile === 'Conservative' ? 'Moderate' : (riskProfile || 'Moderate');
+
+  // Check Firestore cache — return immediately if fresh (< 30 min)
+  if (db) {
+    try {
+      const snap = await db.collection('feed-cache').doc(cacheProfile).get();
+      if (snap.exists) {
+        const cached = snap.data();
+        const age_ms = Date.now() - new Date(cached.generatedAt).getTime();
+        if (age_ms < CACHE_TTL_MS) {
+          console.log('[RankFeed] Returning cached result for', cacheProfile, '— age:', Math.round(age_ms / 60000), 'min');
+          return res.json({ top: cached.top, rest: cached.rest, fromCache: true });
+        }
+      }
+    } catch (err) {
+      console.warn('[RankFeed] Cache read failed:', err.message);
+    }
+  }
+
+  // Filter to Gen Z symbol pool
+  const filteredItems = items.filter(i => GEN_Z_SYMBOLS.has(i.symbol));
+  const poolItems = filteredItems.length >= 10 ? filteredItems : items.slice(0, 25);
+
   console.log('[RankFeed] profile received:', { riskProfile, age, incomeRange, experience });
-  console.log('[RankFeed] pool size:', items.length, 'symbols:', items.map(i => i.symbol).join(','));
+  console.log('[RankFeed] pool size:', poolItems.length, 'symbols:', poolItems.map(i => i.symbol).join(','));
 
   const profileParts = [];
   if (riskProfile) profileParts.push(`risk profile: ${riskProfile}`);
@@ -41,7 +98,7 @@ export default async function handler(req, res) {
   if (experience)  profileParts.push(`investing experience: ${experience}`);
   const profileDesc = profileParts.join(", ") || "profile not specified";
 
-  const itemList = items
+  const itemList = poolItems
     .map((s) => `${s.symbol} (${s.name}, ${s.type === "etf" ? "ETF" : "STOCK"}, price $${Number(s.price).toFixed(2)}, change ${Number(s.changesPercentage) >= 0 ? "+" : ""}${Number(s.changesPercentage).toFixed(1)}%)`)
     .join("\n");
 
@@ -117,8 +174,8 @@ FORMAT — respond ONLY with valid JSON:
       if (fetchErr.name === 'AbortError') {
         console.warn('[RankFeed] Claude timed out after 10s — returning unranked fallback');
         return res.json({
-          top: items.slice(0, 12).map(s => ({ symbol: s.symbol, indicator: "🟡", tip: "" })),
-          rest: items.slice(12, 50).map(s => s.symbol),
+          top: poolItems.slice(0, 12).map(s => ({ symbol: s.symbol, indicator: "🟡", tip: "" })),
+          rest: poolItems.slice(12, 25).map(s => s.symbol),
         });
       }
       throw fetchErr;
@@ -150,14 +207,29 @@ FORMAT — respond ONLY with valid JSON:
       }
       console.log('[RankFeed] full tips object:', JSON.stringify(parsed.top.map(i => ({ symbol: i.symbol, indicator: i.indicator, tip: i.tip?.slice(0, 40) }))));
       console.log('[RankFeed] rest:', parsed.rest?.join(','));
+
+      // Write to Firestore cache
+      if (db) {
+        try {
+          await db.collection('feed-cache').doc(cacheProfile).set({
+            top: parsed.top,
+            rest: parsed.rest ?? [],
+            generatedAt: new Date().toISOString(),
+            date: new Date().toISOString().split('T')[0],
+          });
+        } catch (err) {
+          console.warn('[RankFeed] Cache write failed:', err.message);
+        }
+      }
+
       return res.json(parsed);
     }
 
     // Fallback
     console.warn('[RankFeed] JSON parse failed, using fallback');
     return res.json({
-      top: items.slice(0, 12).map(s => ({ symbol: s.symbol, indicator: "🟡", tip: "" })),
-      rest: items.slice(12, 50).map(s => s.symbol),
+      top: poolItems.slice(0, 12).map(s => ({ symbol: s.symbol, indicator: "🟡", tip: "" })),
+      rest: poolItems.slice(12, 25).map(s => s.symbol),
     });
 
   } catch (err) {

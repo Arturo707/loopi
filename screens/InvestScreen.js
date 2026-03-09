@@ -55,24 +55,30 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
   const {
     alpacaAccountId, achRelationshipId, riskProfile,
     setAchRelationshipId, createAlpacaAccount, refreshAlpacaPortfolio,
+    firstName: ctxFirstName, lastName: ctxLastName, dateOfBirth: ctxDob,
   } = useApp();
   const { user } = useAuth();
 
   const isVerified = !!alpacaAccountId;
 
+  // Pre-fill from onboarding — parse "YYYY-MM-DD" into parts
+  const [ctxDobYear, ctxDobMonth, ctxDobDay] = (ctxDob || '').split('-');
+  const hasPrefill = !!(ctxFirstName && ctxLastName && ctxDob);
+  const startStep  = hasPrefill ? 2 : 1;
+
   // ── Amount (both modes) ──
   const [amount, setAmount] = useState(100);
 
   // ── KYC step ──
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(startStep);
 
-  // Step 1 — Identity
-  const [firstName,  setFirstName]  = useState('');
+  // Step 1 — Identity (pre-filled from onboarding if available)
+  const [firstName,  setFirstName]  = useState(ctxFirstName || '');
   const [middleName, setMiddleName] = useState('');
-  const [lastName,   setLastName]   = useState('');
-  const [dobMonth,   setDobMonth]   = useState('');
-  const [dobDay,     setDobDay]     = useState('');
-  const [dobYear,    setDobYear]    = useState('');
+  const [lastName,   setLastName]   = useState(ctxLastName || '');
+  const [dobMonth,   setDobMonth]   = useState(ctxDobMonth || '');
+  const [dobDay,     setDobDay]     = useState(ctxDobDay || '');
+  const [dobYear,    setDobYear]    = useState(ctxDobYear || '');
   const [ssn,        setSsn]        = useState('');
   const dayRef  = useRef(null);
   const yearRef = useRef(null);
@@ -108,9 +114,9 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
   const [error,   setError]   = useState(null);
 
   const reset = () => {
-    setStep(1); setError(null); setAmount(100);
-    setFirstName(''); setMiddleName(''); setLastName('');
-    setDobMonth(''); setDobDay(''); setDobYear('');
+    setStep(startStep); setError(null); setAmount(100);
+    setFirstName(ctxFirstName || ''); setMiddleName(''); setLastName(ctxLastName || '');
+    setDobMonth(ctxDobMonth || ''); setDobDay(ctxDobDay || ''); setDobYear(ctxDobYear || '');
     setSsn(''); setStreet(''); setUnit(''); setCity('');
     setAddrState(''); setZip('');
     setEmployment(null); setIncome(null); setNetWorth(null);
