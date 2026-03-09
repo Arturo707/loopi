@@ -1,4 +1,5 @@
 // Places a buy or sell order for a user via Alpaca Broker API
+// Optionally initiates an ACH transfer before placing the order (buy only)
 // Supports fractional shares via dollar amount (notional)
 // POST /api/alpaca-trade
 
@@ -17,7 +18,7 @@ const alpacaHeaders = () => {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { accountId, symbol, side, amount, qty } = req.body;
+  const { accountId, symbol, side, amount, qty, achRelationshipId } = req.body;
 
   if (!accountId || !symbol || !side || (!amount && !qty)) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -27,6 +28,27 @@ export default async function handler(req, res) {
   }
 
   try {
+    // For buy orders with an ACH relationship, initiate a transfer first
+    if (side === 'buy' && achRelationshipId && amount) {
+      const transferRes = await fetch(
+        `${ALPACA_BASE}/v1/accounts/${accountId}/transfers`,
+        {
+          method: 'POST',
+          headers: alpacaHeaders(),
+          body: JSON.stringify({
+            transfer_type: 'ach',
+            relationship_id: achRelationshipId,
+            amount: parseFloat(amount).toFixed(2),
+            direction: 'INCOMING',
+          }),
+        }
+      );
+      if (!transferRes.ok) {
+        const transferErr = await transferRes.json().catch(() => ({}));
+        console.warn('[alpaca-trade] ACH transfer failed (proceeding with order):', transferErr.message);
+      }
+    }
+
     const orderBody = {
       symbol,
       side,

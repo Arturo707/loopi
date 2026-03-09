@@ -23,6 +23,7 @@ export function AppProvider({ children }) {
   // Alpaca brokerage account
   const [alpacaAccountId,     setAlpacaAccountId]     = useState(null);
   const [alpacaAccountStatus, setAlpacaAccountStatus] = useState(null);
+  const [achRelationshipId,   setAchRelationshipId]   = useState(null);
 
   // Alpaca portfolio (live data)
   const [alpacaPositions,      setAlpacaPositions]      = useState([]);
@@ -46,13 +47,14 @@ export function AppProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
-        setRiskProfileState('Moderado');
+        setRiskProfileState('Moderate');
         setBankAccount(null);
         setAge(null);
         setIncomeRange(null);
         setExperience(null);
         setAlpacaAccountId(null);
         setAlpacaAccountStatus(null);
+        setAchRelationshipId(null);
         setAlpacaPositions([]);
         setAlpacaCash(0);
         setAlpacaPortfolioValue(0);
@@ -69,6 +71,7 @@ export function AppProvider({ children }) {
           if (d.experience)           setExperience(d.experience);
           if (d.alpacaAccountId)      setAlpacaAccountId(d.alpacaAccountId);
           if (d.alpacaAccountStatus)  setAlpacaAccountStatus(d.alpacaAccountStatus);
+          if (d.achRelationshipId)    setAchRelationshipId(d.achRelationshipId);
           if (d.alpacaAccountId)      fetchAlpacaPortfolio(d.alpacaAccountId);
         }
       } catch (err) {
@@ -141,6 +144,7 @@ export function AppProvider({ children }) {
       age, incomeRange, experience,
       saveProfile,
       alpacaAccountId, alpacaAccountStatus, createAlpacaAccount,
+      achRelationshipId, setAchRelationshipId,
       alpacaPositions, alpacaCash, alpacaPortfolioValue, refreshAlpacaPortfolio,
     }}>
       {children}

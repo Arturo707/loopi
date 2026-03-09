@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useApp } from '../context/AppContext';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
@@ -330,7 +331,7 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function DiscoverScreen() {
-  const { balance, investedAmount, addToPortfolio, riskProfile, age, incomeRange, experience, alpacaAccountId, refreshAlpacaPortfolio } = useApp();
+  const { balance, investedAmount, addToPortfolio, riskProfile, age, incomeRange, experience, alpacaAccountId, achRelationshipId, refreshAlpacaPortfolio } = useApp();
   const { height: windowHeight } = useWindowDimensions();
 
   // ── Live feed state ──
@@ -530,15 +531,36 @@ export default function DiscoverScreen() {
     setTradeLoading(true);
     setTradeError(null);
     try {
+      // Biometric auth — graceful fallback if hardware unavailable
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled  = await LocalAuthentication.isEnrolledAsync();
+      if (hasHardware && isEnrolled) {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: `Confirm $${amount} investment in ${investStock.symbol}`,
+          fallbackLabel: 'Use passcode',
+          cancelLabel: 'Cancel',
+        });
+        if (!result.success) {
+          setTradeLoading(false);
+          return;
+        }
+      }
+
       const res = await fetch(`${API_BASE}/api/alpaca-trade`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: alpacaAccountId, symbol: investStock.symbol, side: 'buy', amount }),
+        body: JSON.stringify({
+          accountId: alpacaAccountId,
+          symbol: investStock.symbol,
+          side: 'buy',
+          amount,
+          achRelationshipId: achRelationshipId ?? undefined,
+        }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Error al enviar la orden');
+      if (!res.ok) throw new Error(data.error || 'Order failed');
       closeInvestModal();
-      setToast('✅ Orden enviada');
+      setToast('✅ Order placed');
       setTimeout(() => setToast(null), 3000);
       refreshAlpacaPortfolio();
     } catch (err) {

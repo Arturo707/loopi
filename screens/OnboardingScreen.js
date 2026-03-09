@@ -8,10 +8,14 @@ import { doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { auth, db } from '../config/firebase';
+
+const API_BASE =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 
-const TOTAL_STEPS = 9;
+const TOTAL_STEPS = 10;
 
 const INCOME_OPTIONS = [
   { value: '<1000',     label: 'Less than $1,000' },
@@ -51,6 +55,7 @@ const STEP_META = [
   { emoji: '📅', title: 'When were you born?',                  subtitle: 'Your full date of birth.' },
   { emoji: '🏠', title: 'Where do you live?',                   subtitle: 'Your current home address.' },
   { emoji: '🪪', title: "What's your SSN or ID number?",       subtitle: 'We need this to verify your identity and open your account.' },
+  { emoji: '🏦', title: 'Link your bank account',              subtitle: 'Connect your bank to fund your investments instantly via ACH.' },
 ];
 
 function ChoiceCard({ label, sub, emoji, selected, onPress }) {
@@ -72,7 +77,7 @@ function ChoiceCard({ label, sub, emoji, selected, onPress }) {
 
 export default function OnboardingScreen() {
   const { setOnboardingDone } = useAuth();
-  const { saveProfile }       = useApp();
+  const { saveProfile, alpacaAccountId, setAchRelationshipId } = useApp();
 
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -118,6 +123,12 @@ export default function OnboardingScreen() {
   const [taxId,      setTaxId]      = useState('');
   const [taxIdError, setTaxIdError] = useState(null);
 
+  // ── Step 10: Bank link ──
+  const [routingNumber,    setRoutingNumber]    = useState('');
+  const [bankAccountNum,   setBankAccountNum]   = useState('');
+  const [bankLinkError,    setBankLinkError]    = useState(null);
+  const [bankLinkLoading,  setBankLinkLoading]  = useState(false);
+
   // ── Validation helpers ──
   const validateAge = (v) => {
     const n = parseInt(v, 10);
@@ -150,6 +161,7 @@ export default function OnboardingScreen() {
       case 7: return dobDay.length === 2 && dobMonth.length === 2 && dobYear.length === 4 && !validateDob();
       case 8: return streetAddress.trim().length > 0 && city.trim().length > 0 && country.trim().length > 0;
       case 9: return taxId.trim().length > 0;
+      case 10: return routingNumber.trim().length >= 9 && bankAccountNum.trim().length >= 4;
       default: return false;
     }
   };
@@ -185,9 +197,51 @@ export default function OnboardingScreen() {
       setTaxIdError(null);
     }
 
+    if (step === TOTAL_STEPS) {
+      handleBankLink();
+      return;
+    }
+
     if (step < TOTAL_STEPS) {
       setStep((s) => s + 1);
     } else {
+      handleFinish();
+    }
+  };
+
+  const handleBankLink = async () => {
+    setBankLinkError(null);
+    setBankLinkLoading(true);
+    try {
+      const uid = auth.currentUser?.uid;
+      const accountId = alpacaAccountId;
+      const bankAccountOwnerName = [firstName.trim(), lastName1.trim()].filter(Boolean).join(' ') || 'Account Owner';
+
+      if (!accountId) {
+        // No Alpaca account yet — skip to finish, link can be done later
+        handleFinish();
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/api/alpaca-bank`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId,
+          uid,
+          routingNumber: routingNumber.trim(),
+          accountNumber: bankAccountNum.trim(),
+          bankAccountOwnerName,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to link bank');
+
+      setAchRelationshipId(data.achRelationshipId);
+    } catch (err) {
+      setBankLinkError(err.message);
+    } finally {
+      setBankLinkLoading(false);
       handleFinish();
     }
   };
@@ -489,22 +543,68 @@ export default function OnboardingScreen() {
               </View>
             )}
 
+            {/* ── Step 10: Bank link ── */}
+            {step === 10 && (
+              <View style={s.stackedInputs}>
+                <View>
+                  <Text style={s.fieldLabel}>Routing number</Text>
+                  <TextInput
+                    style={[s.fieldInput, bankLinkError && s.fieldInputError]}
+                    value={routingNumber}
+                    onChangeText={(v) => { setRoutingNumber(v); setBankLinkError(null); }}
+                    placeholder="021000021"
+                    placeholderTextColor={C.muted}
+                    keyboardType="number-pad"
+                    maxLength={9}
+                    autoFocus
+                  />
+                </View>
+                <View>
+                  <Text style={s.fieldLabel}>Account number</Text>
+                  <TextInput
+                    style={[s.fieldInput, bankLinkError && s.fieldInputError]}
+                    value={bankAccountNum}
+                    onChangeText={(v) => { setBankAccountNum(v); setBankLinkError(null); }}
+                    placeholder="000123456789"
+                    placeholderTextColor={C.muted}
+                    keyboardType="number-pad"
+                    maxLength={17}
+                    secureTextEntry
+                  />
+                </View>
+                {bankLinkError ? <Text style={s.errorTxt}>{bankLinkError}</Text> : null}
+                <Text style={s.legalNote}>
+                  Your details are encrypted and never stored on our servers.
+                </Text>
+              </View>
+            )}
+
           </ScrollView>
         </KeyboardAvoidingView>
 
         {/* ── Footer CTA ── */}
         <View style={s.footer}>
           <TouchableOpacity
-            style={[s.nextBtn, (!canProceed() || saving) && s.nextBtnDisabled]}
+            style={[s.nextBtn, (!canProceed() || saving || bankLinkLoading) && s.nextBtnDisabled]}
             onPress={handleNext}
-            disabled={!canProceed() || saving}
+            disabled={!canProceed() || saving || bankLinkLoading}
             activeOpacity={0.85}
           >
-            {saving
+            {saving || bankLinkLoading
               ? <ActivityIndicator color="#FFF" />
-              : <Text style={s.nextBtnTxt}>{isLast ? 'Start investing →' : 'Next →'}</Text>
+              : <Text style={s.nextBtnTxt}>{step === TOTAL_STEPS ? 'Link bank →' : isLast ? 'Start investing →' : 'Next →'}</Text>
             }
           </TouchableOpacity>
+          {step === TOTAL_STEPS && (
+            <TouchableOpacity
+              onPress={handleFinish}
+              disabled={saving || bankLinkLoading}
+              activeOpacity={0.7}
+              style={s.skipLink}
+            >
+              <Text style={s.skipLinkTxt}>Skip for now</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
       </SafeAreaView>
@@ -603,7 +703,9 @@ const s = StyleSheet.create({
   },
 
   // ── Footer ──
-  footer: { paddingHorizontal: 24, paddingBottom: 16, paddingTop: 8 },
+  footer: { paddingHorizontal: 24, paddingBottom: 16, paddingTop: 8, gap: 12 },
+  skipLink: { alignItems: 'center' },
+  skipLinkTxt: { fontSize: 14, color: C.muted, fontFamily: F.medium },
   nextBtn: {
     backgroundColor: C.orange, borderRadius: 18, paddingVertical: 18,
     alignItems: 'center',
