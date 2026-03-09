@@ -101,10 +101,23 @@ export function AuthProvider({ children }) {
   const signInWithEmail   = (email, password) => signInWithEmailAndPassword(auth, email, password).then(r => r.user);
   const registerWithEmail = async (email, password) => {
     const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
-    await sendEmailVerification(newUser);
+    try {
+      await sendEmailVerification(newUser);
+      console.log('Verification email sent to:', newUser.email);
+    } catch (error) {
+      console.error('sendEmailVerification error:', error.code, error.message);
+    }
     return newUser;
   };
-  const resendVerification = () => sendEmailVerification(auth.currentUser);
+  const resendVerification = async () => {
+    try {
+      await sendEmailVerification(auth.currentUser);
+      console.log('Verification email sent to:', auth.currentUser?.email);
+    } catch (error) {
+      console.error('sendEmailVerification error:', error.code, error.message);
+      throw error;
+    }
+  };
   const reloadUser = async () => {
     await auth.currentUser?.reload();
     // Clone the user object so React detects the state change
