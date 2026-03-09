@@ -10,6 +10,10 @@ import { F } from '../constants/fonts';
 
 const ANTHROPIC_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
 
+const API_BASE =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
+
 const STARTER_ID = 'starter';
 const STARTER_TEXT =
   "Hey 👋 I'm Loopi. Ask me anything about the market, your portfolio, or a specific stock. I'll give you the real picture — no jargon, no fluff.";
@@ -29,6 +33,28 @@ export default function ChatScreen() {
   const [typing, setTyping] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const flatRef = useRef(null);
+
+  // Market data for system prompt
+  const [marketVibe,   setMarketVibe]   = useState('');
+  const [topMovers,    setTopMovers]    = useState('');
+  const [marketLoaded, setMarketLoaded] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${API_BASE}/api/market-vibe`).then((r) => r.json()).catch(() => ({})),
+      fetch(`${API_BASE}/api/market-feed`).then((r) => r.json()).catch(() => ({})),
+    ]).then(([vibeData, feedData]) => {
+      if (vibeData.vibe) setMarketVibe(vibeData.vibe);
+      const items = feedData.items ?? (Array.isArray(feedData) ? feedData : []);
+      if (items.length > 0) {
+        const movers = items.slice(0, 12).map((s) => {
+          const chg = Number(s.changesPercentage);
+          return `${s.symbol} ${chg >= 0 ? '+' : ''}${chg.toFixed(1)}%`;
+        }).join(', ');
+        setTopMovers(movers);
+      }
+    }).finally(() => setMarketLoaded(true));
+  }, []);
 
   // Animated dots for typing indicator
   const dot1 = useRef(new Animated.Value(0.3)).current;
@@ -56,25 +82,24 @@ export default function ChatScreen() {
   const buildSystem = () => {
     const positions =
       alpacaPositions.length > 0
-        ? alpacaPositions
-            .map((p) => `${p.symbol} ($${Number(p.market_value).toFixed(2)})`)
-            .join(', ')
+        ? alpacaPositions.map((p) => `${p.symbol} ($${Number(p.market_value).toFixed(2)})`).join(', ')
         : 'none';
+    const portfolioValue = Number(alpacaPortfolioValue).toFixed(2);
     return (
-      `You are Loopi, a personal wealth manager for Gen Z investors. ` +
-      `You have access to the user's context: risk profile is ${riskProfile}, ` +
-      `portfolio value is $${Number(alpacaPortfolioValue).toFixed(2)}, positions are ${positions}.\n\n` +
-      `Your personality: sharp, warm, direct. Like a brilliant friend who happens to know finance ` +
-      `inside out. Never say 'I cannot provide financial advice' — you give real, specific, actionable ` +
-      `takes. No disclaimers. No fluff. Max 3 sentences per response unless the user asks for more ` +
-      `detail. Use plain language. Occasional dry humor is fine. Never use bullet points unless ` +
-      `explicitly asked.`
+      `You are Loopi, a personal wealth manager for Gen Z. You have access to real-time market data.\n\n` +
+      `TODAY'S MARKET: ${marketVibe || 'Market data loading.'}\n\n` +
+      `TODAY'S TOP MOVERS: ${topMovers || 'Data loading.'}\n\n` +
+      `USER CONTEXT: Risk profile: ${riskProfile}. Portfolio value: $${portfolioValue}. Positions: ${positions}.\n\n` +
+      `Your personality: sharp, warm, direct. You're the brilliant friend who actually knows finance. ` +
+      `Give specific, actionable takes based on the real data above. Never say you don't have market data — ` +
+      `you do, it's injected above. Never give generic advice. Max 3 sentences unless asked for more. ` +
+      `No disclaimers. No bullet points unless asked. Occasional dry humor is fine.`
     );
   };
 
   const send = async (overrideText) => {
     const text = (overrideText ?? input).trim();
-    if (!text || typing) return;
+    if (!text || typing || !marketLoaded) return;
     setInput('');
     setShowSuggestions(false);
 
@@ -178,17 +203,17 @@ export default function ChatScreen() {
             style={s.input}
             value={input}
             onChangeText={setInput}
-            placeholder="Ask anything…"
+            placeholder={marketLoaded ? 'Ask anything…' : 'Loading market data…'}
             placeholderTextColor={C.muted}
             onSubmitEditing={() => send()}
             returnKeyType="send"
-            editable={!typing}
+            editable={!typing && marketLoaded}
             multiline
           />
           <TouchableOpacity
-            style={[s.sendBtn, (typing || !input.trim()) && { opacity: 0.4 }]}
+            style={[s.sendBtn, (typing || !input.trim() || !marketLoaded) && { opacity: 0.4 }]}
             onPress={() => send()}
-            disabled={typing || !input.trim()}
+            disabled={typing || !input.trim() || !marketLoaded}
           >
             <Text style={s.sendTxt}>→</Text>
           </TouchableOpacity>

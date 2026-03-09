@@ -42,16 +42,14 @@ export default async function handler(req, res) {
 
   const today = todayString();
 
-  // 1. Check Firestore cache (skip if db unavailable)
+  // 1. Check Firestore cache — keyed by date so each day gets one fresh call
   if (db) {
     try {
-      const snap = await db.collection('cache').doc('market-vibe').get();
+      const snap = await db.collection('cache').doc(`market-vibe-${today}`).get();
       if (snap.exists) {
         const cached = snap.data();
-        if (cached.date === today) {
-          console.log('[market-vibe] Returning cached vibe for', today);
-          return res.status(200).json({ vibe: cached.vibe, date: cached.date });
-        }
+        console.log('[market-vibe] Returning cached vibe for', today);
+        return res.status(200).json({ vibe: cached.vibe, date: today });
       }
     } catch (err) {
       console.warn('[market-vibe] Cache read failed:', err.message);
@@ -69,55 +67,42 @@ export default async function handler(req, res) {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': apiKey,
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01',
         'anthropic-beta': 'web-search-2025-03-05',
-        'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-6',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1024,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        system: "You are Loopi's market pulse writer. Write a single short paragraph (3-4 sentences) covering what happened in the US stock market today AND this week. Be specific: name actual indexes (S&P 500, Nasdaq, Dow), sectors, or major individual stocks. Whether markets are open or closed, always write something useful — if closed, recap today and flag what to watch next. Write like a sharp, plugged-in 22-year-old who actually follows markets. No financial advisor voice, no disclaimers, no emojis. Just the vibe.",
-        messages: [
-          {
-            role: 'user',
-            content: "Search for the latest US stock market news. Summarize what happened in the market today and this week in 3-4 sentences. Be specific — mention actual indexes (S&P 500, Nasdaq, Dow), sectors, and any major moves or events. Write like a sharp 22-year-old who actually follows markets.",
-          },
-        ],
+        system: "You are a seasoned Wall Street insider writing to your kid who just started investing. You've seen bull markets, crashes, recessions, and bubbles. You know how the game really works. Write 3-4 sentences about what's actually happening in the market right now — not just the numbers, but the why behind them. What's the macro story? What's being driven by geopolitics, earnings, Fed policy, sector rotation? What should a young investor actually pay attention to this week? Be specific with names — stocks, sectors, indexes, world events. Write like you're texting your kid, not filing a report. No disclaimers. No fluff. Just the real picture from someone who's been in the room.",
+        messages: [{
+          role: 'user',
+          content: 'Search for the latest US stock market news today and this week. Give me the market pulse in 3-4 sentences.',
+        }],
       }),
     });
 
-    if (!response.ok) {
-      const errBody = await response.json().catch(() => ({}));
-      console.error('[market-vibe] Anthropic HTTP error:', response.status, JSON.stringify(errBody));
-      throw new Error(errBody.error?.message || `HTTP ${response.status}`);
-    }
-
     const data = await response.json();
-    console.log('[market-vibe] Anthropic response stop_reason:', data.stop_reason, 'content blocks:', data.content?.length);
+    console.log('market-vibe full response:', JSON.stringify(data, null, 2));
 
-    // 3. Extract text blocks from the response
-    const text = (data.content ?? [])
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text)
-      .join(' ')
-      .trim();
+    const textBlocks = (data.content || []).filter(b => b.type === 'text');
+    const vibeText = textBlocks.map(b => b.text).join(' ').trim();
 
-    if (text) {
-      vibe = text;
-      console.log('[market-vibe] Generated vibe, length:', vibe.length, '— preview:', vibe.slice(0, 80));
-    } else {
-      console.error('[market-vibe] Empty text extracted — full response:', JSON.stringify(data));
+    if (!vibeText) {
+      console.log('No text blocks found. Full content:', JSON.stringify(data.content));
     }
+
+    if (vibeText) vibe = vibeText;
   } catch (err) {
     console.error('[market-vibe] Anthropic call failed:', err);
   }
 
-  // 4. Save to Firestore cache (skip if db unavailable)
+  // 4. Save to Firestore cache under the date key
   if (db) {
     try {
-      await db.collection('cache').doc('market-vibe').set({
+      await db.collection('cache').doc(`market-vibe-${today}`).set({
         vibe,
         date: today,
         generatedAt: new Date().toISOString(),

@@ -111,9 +111,9 @@ export default function DashboardScreen({ navigation }) {
             <Text style={s.greeting}>{greeting} ☀️</Text>
             <Text style={s.name}>{firstName}</Text>
           </View>
-          <View style={s.avatar}>
+          <TouchableOpacity style={s.avatar} onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
             <Text style={s.avatarText}>{(user?.displayName?.[0] || 'L').toUpperCase()}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
