@@ -51,7 +51,10 @@ export default function VerifyEmailScreen() {
         <Text style={s.body}>
           We sent a verification link to{' '}
           <Text style={s.email}>{user?.email}</Text>.
-          {'\n'}Tap it to activate your account.
+          {'\n'}Check your inbox — and your spam folder just in case.
+        </Text>
+        <Text style={s.spamHint}>
+          Can't find it? Check your spam or junk folder. Sometimes it hides there.
         </Text>
 
         {error  && <Text style={s.error}>{error}</Text>}
@@ -94,9 +97,10 @@ const s = StyleSheet.create({
   },
   icon:  { fontSize: 56, marginBottom: 20 },
   title: { fontSize: 26, fontFamily: F.xbold, color: C.text, marginBottom: 12, textAlign: 'center' },
-  body:  { fontSize: 15, fontFamily: F.regular, color: C.sub, lineHeight: 24, textAlign: 'center', marginBottom: 32 },
+  body:  { fontSize: 15, fontFamily: F.regular, color: C.sub, lineHeight: 24, textAlign: 'center', marginBottom: 10 },
   email: { fontFamily: F.bold, color: C.text },
 
+  spamHint: { fontSize: 12, fontFamily: F.regular, color: '#999', textAlign: 'center', marginBottom: 28, lineHeight: 18 },
   error:   { color: C.red, fontFamily: F.medium, fontSize: 13, textAlign: 'center', marginBottom: 12 },
   success: { color: C.green, fontFamily: F.medium, fontSize: 13, textAlign: 'center', marginBottom: 12 },
 
