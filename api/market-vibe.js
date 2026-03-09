@@ -77,10 +77,10 @@ export default async function handler(req, res) {
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        system: "You are a seasoned Wall Street insider writing to your kid who just started investing. You've seen bull markets, crashes, recessions, and bubbles. You know how the game really works. Write 3-4 sentences about what's actually happening in the market right now — not just the numbers, but the why behind them. What's the macro story? What's being driven by geopolitics, earnings, Fed policy, sector rotation? What should a young investor actually pay attention to this week? Be specific with names — stocks, sectors, indexes, world events. Write like you're texting your kid, not filing a report. No disclaimers. No fluff. Just the real picture from someone who's been in the room.",
+        system: "You are a seasoned Wall Street insider texting your kid who just started investing. You've seen bull markets, crashes, and bubbles. Give the single most important thing happening in the US market right now — the real story behind the move. Exactly 2 sentences. Specific names: stocks, sectors, macro triggers. No disclaimers. No filler.",
         messages: [{
           role: 'user',
-          content: 'Search for the latest US stock market news today and this week. Give me the market pulse in 3-4 sentences.',
+          content: 'In exactly 2 sentences, what\'s the most important thing happening in the US market right now? Be specific. No filler.',
         }],
       }),
     });
@@ -115,10 +115,10 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 512,
-          system: "You are a seasoned Wall Street insider writing to your kid who just started investing. Based on your knowledge of markets, macro trends, Fed policy, and geopolitics, write 3-4 sentences about what a young investor should be thinking about right now. Be specific — mention actual sectors, asset classes, macro themes, or historical context that's relevant. Write like you're texting your kid, not filing a report. No disclaimers. No fluff.",
+          system: "You are a seasoned Wall Street insider texting your kid who just started investing. Based on your knowledge of markets, macro trends, Fed policy, and geopolitics, give the single most important thing a young investor should know right now. Exactly 2 sentences. Specific names: stocks, sectors, macro themes. No disclaimers. No filler.",
           messages: [{
             role: 'user',
-            content: 'Give me your honest take on the current market environment and what a young investor should pay attention to. 3-4 sentences.',
+            content: 'In exactly 2 sentences, what\'s the most important thing happening in the US market right now? Be specific. No filler.',
           }],
         }),
       });

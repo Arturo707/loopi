@@ -222,51 +222,6 @@ function ChatModal({ visible, stock, tip, onClose }) {
   );
 }
 
-// ─── Market Pulse Card ────────────────────────────────────────────────────────
-
-function MarketPulseCard({ vibe, loading }) {
-  const anim = useRef(new Animated.Value(0.35)).current;
-  useEffect(() => {
-    if (!loading) return;
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(anim, { toValue: 0.9, duration: 850, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0.35, duration: 850, useNativeDriver: true }),
-      ])
-    ).start();
-  }, [loading]);
-
-  const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-  if (loading) {
-    return (
-      <Animated.View style={[pulse.card, { opacity: anim }]}>
-        <View style={pulse.skRow}>
-          <View style={pulse.skLabel} />
-          <View style={pulse.skDate} />
-        </View>
-        <View style={pulse.skLine1} />
-        <View style={pulse.skLine2} />
-      </Animated.View>
-    );
-  }
-
-  if (!vibe) return null;
-
-  return (
-    <View style={pulse.card}>
-      <View style={pulse.accent} />
-      <View style={pulse.content}>
-        <View style={pulse.labelRow}>
-          <Text style={pulse.label}>MARKET PULSE</Text>
-          <Text style={pulse.date}>{todayStr}</Text>
-        </View>
-        <Text style={pulse.text}>{vibe}</Text>
-      </View>
-    </View>
-  );
-}
-
 // ─── Stock Card ───────────────────────────────────────────────────────────────
 
 function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
@@ -485,29 +440,6 @@ export default function DiscoverScreen() {
   // ── AI tips (pre-populated from rank-feed for top items) ──
   const [tips, setTips] = useState({});
 
-  // ── Market Pulse ──
-  const [marketVibe,  setMarketVibe]  = useState(null);
-  const [vibeLoading, setVibeLoading] = useState(true);
-
-  useEffect(() => {
-    const url = `${API_BASE}/api/market-vibe`;
-    console.log('[MarketPulse] fetching from:', url);
-    fetch(url)
-      .then((r) => {
-        console.log('[MarketPulse] response status:', r.status);
-        return r.json();
-      })
-      .then((data) => {
-        console.log('[MarketPulse] data:', JSON.stringify(data).slice(0, 120));
-        setMarketVibe(data.vibe || "Markets are open. Check the feed for today's biggest movers.");
-      })
-      .catch((err) => {
-        console.warn('[MarketPulse] fetch failed:', err.message);
-        setMarketVibe("Markets are open. Check the feed for today's biggest movers.");
-      })
-      .finally(() => setVibeLoading(false));
-  }, []);
-
   // ── Modals & toasts ──
   const [chatStock,   setChatStock]  = useState(null);
   const [investStock, setInvestStock] = useState(null);
@@ -561,8 +493,6 @@ export default function DiscoverScreen() {
 
         {/* Toast */}
         {toast && <View style={s.toast}><Text style={s.toastTxt}>{toast}</Text></View>}
-
-        {!isSearching && <MarketPulseCard vibe={marketVibe} loading={vibeLoading} />}
 
         {isSearching ? (
           /* ── Search results ── */
@@ -845,26 +775,3 @@ const s = StyleSheet.create({
   retryTxt: { fontSize: 15, fontFamily: F.bold, color: '#FFF' },
 });
 
-const pulse = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    marginHorizontal: 20, marginBottom: 8,
-    backgroundColor: C.card, borderRadius: 16,
-    borderWidth: 1, borderColor: C.border,
-    overflow: 'hidden',
-    shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
-  },
-  accent: { width: 4, backgroundColor: C.orange },
-  content: { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
-  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  label: { fontSize: 10, fontFamily: F.semibold, color: C.orange, letterSpacing: 1.5 },
-  date: { fontSize: 10, fontFamily: F.regular, color: C.muted },
-  text: { fontSize: 13, fontFamily: F.regular, color: C.sub, lineHeight: 20 },
-  // skeleton
-  skRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  skLabel: { height: 10, width: 90, backgroundColor: C.border, borderRadius: 4 },
-  skDate:  { height: 10, width: 40, backgroundColor: C.border, borderRadius: 4 },
-  skLine1: { height: 12, backgroundColor: C.border, borderRadius: 4, marginBottom: 6 },
-  skLine2: { height: 12, width: '70%', backgroundColor: C.border, borderRadius: 4 },
-});
