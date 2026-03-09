@@ -62,15 +62,15 @@ export function AuthProvider({ children }) {
           }
           const profileComplete =
             data.onboardingDone === true &&
-            !!data.liquidNetWorth &&
-            !!data.employmentStatus &&
-            !!data.achRelationshipId;
+            !!data.dateOfBirth &&
+            !!data.riskProfile &&
+            !!data.firstName;
           console.log('[Auth] Navigation decision:', {
             isAuthenticated: true,
             onboardingComplete: profileComplete,
-            hasLiquidNetWorth: !!data.liquidNetWorth,
-            hasEmploymentStatus: !!data.employmentStatus,
-            hasAchRelationshipId: !!data.achRelationshipId,
+            hasDateOfBirth: !!data.dateOfBirth,
+            hasRiskProfile: !!data.riskProfile,
+            hasFirstName: !!data.firstName,
           });
           if (profileComplete) {
             setOnboardingDoneState(true);

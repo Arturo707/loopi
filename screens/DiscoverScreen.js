@@ -1,15 +1,15 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Modal, KeyboardAvoidingView, Platform,
-  useWindowDimensions, ScrollView, Animated,
+  ActivityIndicator, KeyboardAvoidingView, Platform,
+  useWindowDimensions, ScrollView, Animated, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { useApp } from '../context/AppContext';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
+import InvestScreen from './InvestScreen';
 
 // ─── API endpoints ────────────────────────────────────────────────────────────
 
@@ -267,57 +267,6 @@ function MarketPulseCard({ vibe, loading }) {
   );
 }
 
-// ─── Invest Modal ─────────────────────────────────────────────────────────────
-
-const AMOUNTS = [25, 50, 100, 200, 500];
-
-function InvestModal({ visible, stock, onClose, onConfirm, loading, error, hasAccount }) {
-  const [amount, setAmount] = useState(100);
-  if (!stock) return null;
-  const up = stock.changesPercentage >= 0;
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={im.overlay}>
-        <View style={im.sheet}>
-          <View style={im.handle} />
-          <Text style={im.ticker}>{stock.symbol}</Text>
-          <Text style={im.stockName} numberOfLines={1}>{stock.name}</Text>
-          <View style={im.priceRow}>
-            <Text style={im.price}>{fmtPrice(stock.price)}</Text>
-            <View style={[im.pill, { backgroundColor: up ? C.greenBg : C.redBg }]}>
-              <Text style={[im.pillTxt, { color: up ? C.green : C.red }]}>{up ? '▲' : '▼'} {fmtChange(stock.changesPercentage)}</Text>
-            </View>
-          </View>
-          <Text style={im.label}>How much do you want to invest?</Text>
-          <View style={im.amounts}>
-            {AMOUNTS.map((a) => (
-              <TouchableOpacity key={a} style={[im.amountBtn, amount === a && im.amountBtnActive]} onPress={() => setAmount(a)} activeOpacity={0.7} disabled={loading}>
-                <Text style={[im.amountTxt, amount === a && im.amountTxtActive]}>${a}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          {!hasAccount ? (
-            <View style={im.noAccountBox}>
-              <Text style={im.noAccountTxt}>Connect your account first</Text>
-            </View>
-          ) : (
-            <TouchableOpacity style={[im.confirmBtn, loading && { opacity: 0.7 }]} onPress={() => onConfirm(amount)} activeOpacity={0.85} disabled={loading}>
-              {loading
-                ? <ActivityIndicator color="#FFF" />
-                : <Text style={im.confirmTxt}>⚡ Invest ${amount} in {stock.symbol}</Text>
-              }
-            </TouchableOpacity>
-          )}
-          {error ? <Text style={im.errorTxt}>{error}</Text> : null}
-          <TouchableOpacity style={im.cancelBtn} onPress={onClose} disabled={loading}>
-            <Text style={im.cancelTxt}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
 // ─── Stock Card ───────────────────────────────────────────────────────────────
 
 function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
@@ -381,7 +330,7 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function DiscoverScreen() {
-  const { balance, investedAmount, addToPortfolio, riskProfile, age, incomeRange, experience, alpacaAccountId, achRelationshipId, refreshAlpacaPortfolio } = useApp();
+  const { balance, investedAmount, addToPortfolio, riskProfile, age, incomeRange, experience } = useApp();
   const { height: windowHeight } = useWindowDimensions();
 
   // ── Live feed state ──
@@ -560,60 +509,9 @@ export default function DiscoverScreen() {
   }, []);
 
   // ── Modals & toasts ──
-  const [chatStock,    setChatStock]   = useState(null);
-  const [investStock,  setInvestStock] = useState(null);
-  const [tradeLoading, setTradeLoading] = useState(false);
-  const [tradeError,   setTradeError]   = useState(null);
-  const [toast, setToast]              = useState(null);
-
-  const closeInvestModal = () => {
-    setInvestStock(null);
-    setTradeLoading(false);
-    setTradeError(null);
-  };
-
-  const handleInvest = async (amount) => {
-    if (!alpacaAccountId) return;
-    setTradeLoading(true);
-    setTradeError(null);
-    try {
-      // Biometric auth — graceful fallback if hardware unavailable
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled  = await LocalAuthentication.isEnrolledAsync();
-      if (hasHardware && isEnrolled) {
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: `Confirm $${amount} investment in ${investStock.symbol}`,
-          fallbackLabel: 'Use passcode',
-          cancelLabel: 'Cancel',
-        });
-        if (!result.success) {
-          setTradeLoading(false);
-          return;
-        }
-      }
-
-      const res = await fetch(`${API_BASE}/api/alpaca-trade`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accountId: alpacaAccountId,
-          symbol: investStock.symbol,
-          side: 'buy',
-          amount,
-          achRelationshipId: achRelationshipId ?? undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Order failed');
-      closeInvestModal();
-      setToast('✅ Order placed');
-      setTimeout(() => setToast(null), 3000);
-      refreshAlpacaPortfolio();
-    } catch (err) {
-      setTradeLoading(false);
-      setTradeError(err.message);
-    }
-  };
+  const [chatStock,   setChatStock]  = useState(null);
+  const [investStock, setInvestStock] = useState(null);
+  const [toast,       setToast]      = useState(null);
 
   const isSearching = query.trim().length > 0;
 
@@ -759,14 +657,11 @@ export default function DiscoverScreen() {
       </SafeAreaView>
 
       <ChatModal visible={!!chatStock} stock={chatStock} tip={chatStock ? tips[chatStock.symbol] : null} onClose={() => setChatStock(null)} />
-      <InvestModal
+      <InvestScreen
         visible={!!investStock}
         stock={investStock}
-        onClose={closeInvestModal}
-        onConfirm={handleInvest}
-        loading={tradeLoading}
-        error={tradeError}
-        hasAccount={!!alpacaAccountId}
+        onClose={() => setInvestStock(null)}
+        onSuccess={(msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); }}
       />
     </View>
   );
@@ -883,43 +778,6 @@ const cm = StyleSheet.create({
   sendTxt: { fontSize: 18, color: '#FFF', fontFamily: F.bold },
 });
 
-const im = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
-  sheet: {
-    backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    padding: 28, paddingBottom: 40,
-  },
-  handle:    { width: 40, height: 4, backgroundColor: C.border, borderRadius: 2, alignSelf: 'center', marginBottom: 24 },
-  ticker:    { fontSize: 36, fontFamily: F.xbold, color: C.text, letterSpacing: -1 },
-  stockName: { fontSize: 15, fontFamily: F.regular, color: C.muted, marginTop: 4, marginBottom: 16 },
-  priceRow:  { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 28 },
-  price:     { fontSize: 26, fontFamily: F.bold, color: C.text },
-  pill:      { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 20 },
-  pillTxt:   { fontSize: 14, fontFamily: F.bold },
-  label:     { fontSize: 13, fontFamily: F.semibold, color: C.muted, marginBottom: 12, letterSpacing: 0.3 },
-  amounts:   { flexDirection: 'row', gap: 8, marginBottom: 24, flexWrap: 'wrap' },
-  amountBtn: {
-    paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12,
-    borderWidth: 1.5, borderColor: C.border, backgroundColor: C.bg,
-  },
-  amountBtnActive: { borderColor: C.orange, backgroundColor: C.orangeLight },
-  amountTxt:       { fontSize: 15, fontFamily: F.semibold, color: C.sub },
-  amountTxtActive: { color: C.orange },
-  confirmBtn: {
-    backgroundColor: C.orange, borderRadius: 16, paddingVertical: 17, alignItems: 'center',
-    shadowColor: C.orange, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 5,
-    marginBottom: 12,
-  },
-  confirmTxt: { fontSize: 16, fontFamily: F.semibold, color: '#FFF' },
-  cancelBtn:  { alignItems: 'center', paddingVertical: 10 },
-  cancelTxt:  { fontSize: 14, fontFamily: F.medium, color: C.muted },
-  noAccountBox: {
-    borderRadius: 14, borderWidth: 1, borderColor: C.border,
-    paddingVertical: 16, paddingHorizontal: 20, alignItems: 'center', marginBottom: 12,
-  },
-  noAccountTxt: { fontSize: 14, fontFamily: F.medium, color: C.muted, textAlign: 'center' },
-  errorTxt: { fontSize: 13, fontFamily: F.medium, color: C.red ?? '#DC2626', textAlign: 'center', marginBottom: 8 },
-});
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
