@@ -81,7 +81,7 @@ export default function LoginScreen() {
             <View style={s.logoMark}>
               <Text style={s.logoMarkText}>∞</Text>
             </View>
-            <Text style={s.logo}>loopi</Text>
+            <Text style={s.logo}>Loopi</Text>
             <Text style={s.tagline}>Invest in what you believe in.</Text>
           </View>
 
@@ -193,7 +193,7 @@ const s = StyleSheet.create({
     shadowOpacity: 0.35, shadowRadius: 20, elevation: 8,
   },
   logoMarkText: { fontSize: 32, color: '#FFF', fontFamily: F.xbold },
-  logo: { fontSize: 42, color: C.orange, fontFamily: F.xbold, letterSpacing: -2, marginBottom: 4 },
+  logo: { fontSize: 42, color: '#FF6B35', fontFamily: 'Pacifico_400Regular', letterSpacing: 0, marginBottom: 4, paddingHorizontal: 8 },
   tagline: { fontSize: 15, color: C.sub, fontFamily: F.medium },
 
   // Form

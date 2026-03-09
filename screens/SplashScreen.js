@@ -29,7 +29,7 @@ export default function SplashScreen({ authLoading, onDone }) {
         <View style={s.logoMark}>
           <Text style={s.logoMarkText}>∞</Text>
         </View>
-        <Text style={s.logo}>loopi</Text>
+        <Text style={s.logo}>Loopi</Text>
         <Text style={s.tagline}>Invest in what you believe in.</Text>
       </Animated.View>
     </View>
@@ -47,6 +47,6 @@ const s = StyleSheet.create({
     shadowOpacity: 0.4, shadowRadius: 24, elevation: 10,
   },
   logoMarkText: { fontSize: 40, color: '#FFF', fontFamily: F.xbold },
-  logo: { fontSize: 52, color: C.orange, fontFamily: F.xbold, letterSpacing: -2, marginBottom: 8 },
+  logo: { fontSize: 52, color: '#FF6B35', fontFamily: 'Pacifico_400Regular', letterSpacing: 0, marginBottom: 8, paddingHorizontal: 8 },
   tagline: { fontSize: 16, color: C.muted, fontFamily: F.medium },
 });

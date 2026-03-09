@@ -12,6 +12,7 @@ import {
   PlusJakartaSans_700Bold,
   PlusJakartaSans_800ExtraBold,
 } from '@expo-google-fonts/plus-jakarta-sans';
+import { Pacifico_400Regular } from '@expo-google-fonts/pacifico';
 import { StatusBar } from 'expo-status-bar';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -126,6 +127,7 @@ export default function App() {
     PlusJakartaSans_600SemiBold,
     PlusJakartaSans_700Bold,
     PlusJakartaSans_800ExtraBold,
+    Pacifico_400Regular,
   });
 
   if (!fontsLoaded) return null;
