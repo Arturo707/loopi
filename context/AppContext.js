@@ -16,6 +16,10 @@ export function AppProvider({ children }) {
   const [incomeRange, setIncomeRange] = useState(null);
   const [experience,  setExperience]  = useState(null);
 
+  // Alpaca brokerage
+  const [alpacaAccountId,     setAlpacaAccountId]     = useState(null);
+  const [alpacaAccountStatus, setAlpacaAccountStatus] = useState(null);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
@@ -24,17 +28,21 @@ export function AppProvider({ children }) {
         setAge(null);
         setIncomeRange(null);
         setExperience(null);
+        setAlpacaAccountId(null);
+        setAlpacaAccountStatus(null);
         return;
       }
       try {
         const snap = await getDoc(doc(db, 'users', firebaseUser.uid));
         if (snap.exists()) {
           const d = snap.data();
-          if (d.riskProfile)  setRiskProfileState(d.riskProfile);
-          if (d.bankAccount)  setBankAccount(d.bankAccount);
-          if (d.age != null)  setAge(d.age);
-          if (d.incomeRange)  setIncomeRange(d.incomeRange);
-          if (d.experience)   setExperience(d.experience);
+          if (d.riskProfile)          setRiskProfileState(d.riskProfile);
+          if (d.bankAccount)          setBankAccount(d.bankAccount);
+          if (d.age != null)          setAge(d.age);
+          if (d.incomeRange)          setIncomeRange(d.incomeRange);
+          if (d.experience)           setExperience(d.experience);
+          if (d.alpacaAccountId)      setAlpacaAccountId(d.alpacaAccountId);
+          if (d.alpacaAccountStatus)  setAlpacaAccountStatus(d.alpacaAccountStatus);
         }
       } catch (err) {
         console.warn('[App] Failed to load user data:', err.message);
@@ -67,6 +75,26 @@ export function AppProvider({ children }) {
     catch (err) { console.warn('[App] Failed to save risk profile:', err.message); }
   };
 
+  const createAlpacaAccount = async (profileData) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error('Not authenticated');
+    const response = await fetch('/api/alpaca-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profileData),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to create account');
+    setAlpacaAccountId(data.alpacaAccountId);
+    setAlpacaAccountStatus(data.status);
+    await setDoc(
+      doc(db, 'users', uid),
+      { alpacaAccountId: data.alpacaAccountId, alpacaAccountStatus: data.status },
+      { merge: true }
+    );
+    return data;
+  };
+
   const addToPortfolio = (stock) => {
     setPortfolio((prev) => [...prev, { ...stock, amount: stock.recommended }]);
     setInvestedAmount((prev) => prev + stock.recommended);
@@ -81,6 +109,7 @@ export function AppProvider({ children }) {
       riskProfile, setRiskProfile,
       age, incomeRange, experience,
       saveProfile,
+      alpacaAccountId, alpacaAccountStatus, createAlpacaAccount,
     }}>
       {children}
     </AppContext.Provider>
