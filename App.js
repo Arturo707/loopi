@@ -26,6 +26,7 @@ import OnboardingScreen from './screens/OnboardingScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import DiscoverScreen from './screens/DiscoverScreen';
 import PortfolioScreen from './screens/PortfolioScreen';
+import ProfileScreen from './screens/ProfileScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -83,6 +84,14 @@ function MainTabs() {
         options={{
           tabBarLabel: 'Portfolio',
           tabBarIcon: ({ focused }) => <TabIcon emoji="📈" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          tabBarLabel: 'Profile',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
         }}
       />
     </Tab.Navigator>

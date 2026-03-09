@@ -14,7 +14,7 @@ const API_BASE = process.env.EXPO_PUBLIC_API_URL || '';
 
 export default function DashboardScreen({ navigation }) {
   const { balance, bankAccount, investedAmount, riskProfile, setRiskProfile } = useApp();
-  const { user, signOutUser } = useAuth();
+  const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState(null);
 
@@ -73,11 +73,11 @@ export default function DashboardScreen({ navigation }) {
             <Text style={s.greeting}>{greeting} ☀️</Text>
             <Text style={s.name}>{firstName}</Text>
           </View>
-          <TouchableOpacity style={s.avatar} onPress={signOutUser} activeOpacity={0.8}>
+          <View style={s.avatar}>
             <Text style={s.avatarText}>
               {(user?.displayName?.[0] || 'L').toUpperCase()}
             </Text>
-          </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
