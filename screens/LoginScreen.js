@@ -78,10 +78,7 @@ export default function LoginScreen() {
 
           {/* Logo */}
           <View style={s.logoArea}>
-            <View style={s.logoMark}>
-              <Text style={s.logoMarkText}>∞</Text>
-            </View>
-            <Text style={s.logo}>Loopi</Text>
+              <Text style={s.logo}>Loopi</Text>
             <Text style={s.tagline}>Inflation's winning. Start playing.</Text>
           </View>
 
@@ -185,14 +182,6 @@ const s = StyleSheet.create({
 
   // Logo
   logoArea: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 24 },
-  logoMark: {
-    width: 64, height: 64, borderRadius: 20,
-    backgroundColor: C.orange, alignItems: 'center', justifyContent: 'center',
-    marginBottom: 16,
-    shadowColor: C.orange, shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35, shadowRadius: 20, elevation: 8,
-  },
-  logoMarkText: { fontSize: 32, color: '#FFF', fontFamily: F.xbold },
   logo: { fontSize: 42, color: '#FF6B35', fontFamily: 'Pacifico_400Regular', letterSpacing: 0, marginBottom: 4, paddingHorizontal: 8 },
   tagline: { fontSize: 15, color: C.sub, fontFamily: F.medium },
 
