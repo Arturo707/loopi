@@ -62,8 +62,9 @@ export default async function handler(req, res) {
     console.error('[market-vibe] No ANTHROPIC_API_KEY — skipping Claude call, returning fallback');
     return res.status(200).json({ vibe, date: today });
   }
+  // 2a. Primary call — Claude with web_search
   try {
-    console.log('[market-vibe] Calling Anthropic API for', today);
+    console.log('[market-vibe] Primary call (web_search) for', today);
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -84,6 +85,7 @@ export default async function handler(req, res) {
       }),
     });
 
+    console.log('[market-vibe] Primary response status:', response.status);
     const data = await response.json();
     console.log('market-vibe full response:', JSON.stringify(data, null, 2));
 
@@ -91,12 +93,56 @@ export default async function handler(req, res) {
     const vibeText = textBlocks.map(b => b.text).join(' ').trim();
 
     if (!vibeText) {
-      console.log('No text blocks found. Full content:', JSON.stringify(data.content));
+      console.log('[market-vibe] No text blocks found in primary call. Full content:', JSON.stringify(data.content));
     }
 
     if (vibeText) vibe = vibeText;
   } catch (err) {
-    console.error('[market-vibe] Anthropic call failed:', err);
+    console.error('[market-vibe] Primary call failed:', err);
+  }
+
+  // 2b. Fallback call — plain Claude with no web_search, based on training knowledge
+  if (vibe === FALLBACK_VIBE) {
+    console.log('[market-vibe] Primary returned no text — trying fallback (no web_search)');
+    try {
+      const fallbackResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 512,
+          system: "You are a seasoned Wall Street insider writing to your kid who just started investing. Based on your knowledge of markets, macro trends, Fed policy, and geopolitics, write 3-4 sentences about what a young investor should be thinking about right now. Be specific — mention actual sectors, asset classes, macro themes, or historical context that's relevant. Write like you're texting your kid, not filing a report. No disclaimers. No fluff.",
+          messages: [{
+            role: 'user',
+            content: 'Give me your honest take on the current market environment and what a young investor should pay attention to. 3-4 sentences.',
+          }],
+        }),
+      });
+
+      console.log('[market-vibe] Fallback response status:', fallbackResponse.status);
+      const fallbackData = await fallbackResponse.json();
+      if (!fallbackResponse.ok) {
+        console.error('[market-vibe] Fallback HTTP error:', fallbackResponse.status, JSON.stringify(fallbackData));
+      } else {
+        const fallbackText = (fallbackData.content || [])
+          .filter(b => b.type === 'text')
+          .map(b => b.text)
+          .join(' ')
+          .trim();
+        if (fallbackText) {
+          vibe = fallbackText;
+          console.log('[market-vibe] Fallback vibe generated, length:', vibe.length);
+        } else {
+          console.error('[market-vibe] Fallback also returned no text:', JSON.stringify(fallbackData));
+        }
+      }
+    } catch (err) {
+      console.error('[market-vibe] Fallback call failed:', err);
+    }
   }
 
   // 4. Save to Firestore cache under the date key
