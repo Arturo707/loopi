@@ -33,16 +33,20 @@ const renderBoldText = (text) => {
 
 const parseVibe = (vibe) => {
   const lines = vibe.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('---'));
-  const bullets = [];
+  const groups = [];
   const intro = [];
+  let current = null;
   for (const line of lines) {
-    if (line.startsWith('•') || line.startsWith('-')) {
-      bullets.push(line.replace(/^[•\-]\s*/, ''));
+    if (line.startsWith('•') || line.startsWith('- ') || line.startsWith('-\t')) {
+      current = { main: line.replace(/^[•\-]\s*/, ''), subs: [] };
+      groups.push(current);
+    } else if (line.startsWith('↳')) {
+      if (current) current.subs.push(line.replace(/^↳\s*/, ''));
     } else {
-      if (bullets.length === 0) intro.push(line);
+      if (!current) intro.push(line);
     }
   }
-  return { intro: intro.join(' '), bullets };
+  return { intro: intro.join(' '), groups };
 };
 
 function MarketPulseCard({ vibe, loading }) {
@@ -75,7 +79,7 @@ function MarketPulseCard({ vibe, loading }) {
 
   if (!vibe) return null;
 
-  const { intro, bullets } = parseVibe(vibe);
+  const { intro, groups } = parseVibe(vibe);
 
   return (
     <View style={pulse.card}>
@@ -84,10 +88,18 @@ function MarketPulseCard({ vibe, loading }) {
         <Text style={pulse.date}>{todayStr}</Text>
       </View>
       {intro ? <Text style={pulse.intro}>{intro}</Text> : null}
-      {bullets.map((b, i) => (
-        <View key={i} style={pulse.bulletRow}>
-          <Text style={pulse.bulletDot}>•</Text>
-          <Text style={pulse.bulletText}>{renderBoldText(b)}</Text>
+      {groups.map((g, i) => (
+        <View key={i} style={[pulse.group, i < groups.length - 1 && { marginBottom: 14 }]}>
+          <View style={pulse.bulletRow}>
+            <Text style={pulse.bulletDot}>•</Text>
+            <Text style={pulse.bulletText}>{renderBoldText(g.main)}</Text>
+          </View>
+          {g.subs.map((sub, j) => (
+            <View key={j} style={[pulse.subRow, j > 0 && { marginTop: 6 }]}>
+              <Text style={pulse.subArrow}>↳</Text>
+              <Text style={pulse.subText}>{sub}</Text>
+            </View>
+          ))}
         </View>
       ))}
     </View>
@@ -370,10 +382,14 @@ const pulse = StyleSheet.create({
   label:     { fontSize: 10, fontFamily: F.semibold, color: C.orange, letterSpacing: 1.5 },
   date:      { fontSize: 10, fontFamily: F.regular, color: C.muted },
   intro:     { fontSize: 14, fontFamily: F.regular, color: C.sub, lineHeight: 22, marginBottom: 8 },
-  bulletRow: { flexDirection: 'row', marginBottom: 8 },
+  group:     {},
+  bulletRow: { flexDirection: 'row' },
   bulletDot: { fontSize: 14, color: C.orange, marginRight: 8, lineHeight: 22 },
   bulletText:{ flex: 1, fontSize: 14, fontFamily: F.regular, color: C.sub, lineHeight: 22 },
   bold:      { fontFamily: F.bold, color: C.text },
+  subRow:    { flexDirection: 'row', paddingLeft: 16, marginTop: 6 },
+  subArrow:  { fontSize: 13, color: '#FF6B35', marginRight: 6, lineHeight: 20 },
+  subText:   { flex: 1, fontSize: 13, fontFamily: F.regular, color: '#666', lineHeight: 20 },
   // skeleton
   skRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   skLabel: { height: 10, width: 90, backgroundColor: C.border, borderRadius: 4 },
