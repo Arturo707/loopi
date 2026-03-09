@@ -38,6 +38,7 @@ export default function LoginScreen() {
       await signInWithGoogle();
       // AuthContext.user updates → RootNavigator renders correct screen automatically
     } catch (err) {
+      console.log('[Google Sign-In] error:', err);
       setError(ERROR_MESSAGES[err.code] ?? 'Google sign-in failed. Try again.');
     } finally {
       setGoogleLoading(false);

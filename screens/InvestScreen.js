@@ -1,12 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Modal,
   ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { db } from '../config/firebase';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 
@@ -74,16 +76,14 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
 
   const isVerified = !!alpacaAccountId;
 
-  // Pre-fill from onboarding — parse "YYYY-MM-DD" into parts
+  // Parse ctx DOB for initial state pre-fill
   const [ctxDobYear, ctxDobMonth, ctxDobDay] = (ctxDob || '').split('-');
-  const hasPrefill = !!(ctxFirstName && ctxLastName && ctxDob);
-  const startStep  = hasPrefill ? 2 : 1;
 
   // ── Amount (both modes) ──
   const [amount, setAmount] = useState(100);
 
-  // ── KYC step ──
-  const [step, setStep] = useState(startStep);
+  // ── KYC step — always starts at 1 (SSN is required and never stored) ──
+  const [step, setStep] = useState(1);
 
   // Step 1 — Identity (pre-filled from onboarding if available)
   const [firstName,  setFirstName]  = useState(ctxFirstName || '');
@@ -127,7 +127,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
   const [error,   setError]   = useState(null);
 
   const reset = () => {
-    setStep(startStep); setError(null); setAmount(100);
+    setStep(1); setError(null); setAmount(100);
     setFirstName(ctxFirstName || ''); setMiddleName(''); setLastName(ctxLastName || '');
     setDobMonth(ctxDobMonth || ''); setDobDay(ctxDobDay || ''); setDobYear(ctxDobYear || '');
     setSsn(''); setStreet(''); setUnit(''); setCity('');
@@ -139,6 +139,52 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
   };
 
   const handleClose = () => { reset(); onClose(); };
+
+  // ── Prefill from Firestore when modal opens ──
+  useEffect(() => {
+    if (!visible || !user) return;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'users', user.uid));
+        if (!snap.exists()) return;
+        const d = snap.data();
+        // Step 1: identity (from onboarding)
+        if (d.firstName)   setFirstName(d.firstName);
+        if (d.lastName)    setLastName(d.lastName);
+        if (d.dateOfBirth) {
+          const [y, m, day] = d.dateOfBirth.split('-');
+          if (y)   setDobYear(y);
+          if (m)   setDobMonth(m);
+          if (day) setDobDay(day);
+        }
+        // Step 2: address (saved on previous KYC attempt)
+        if (d.kycStreet) setStreet(d.kycStreet);
+        if (d.kycUnit)   setUnit(d.kycUnit);
+        if (d.kycCity)   setCity(d.kycCity);
+        if (d.kycState)  setAddrState(d.kycState);
+        if (d.kycZip)    setZip(d.kycZip);
+        // Step 3: financial profile (saved on previous KYC attempt)
+        if (d.kycEmployment) setEmployment(d.kycEmployment);
+        if (d.kycIncome)     setIncome(d.kycIncome);
+        if (d.kycNetWorth)   setNetWorth(d.kycNetWorth);
+      } catch (err) {
+        console.warn('[KYC] Failed to load prefill data:', err.message);
+      }
+    })();
+  }, [visible]);
+
+  // ── Derived: which steps are fully pre-filled and can be skipped ──
+  const step2Prefilled = (
+    street.trim().length > 0 && city.trim().length > 0 &&
+    addrState.length === 2 && /^\d{5}$/.test(zip)
+  );
+  const step3Prefilled = !!employment && !!income && !!netWorth;
+
+  // ── Display step / total (excluding skipped steps) ──
+  const skippedCount  = (step2Prefilled ? 1 : 0) + (step3Prefilled ? 1 : 0);
+  const displayTotal  = TOTAL_KYC_STEPS - skippedCount;
+  const skippedBefore = (step > 2 && step2Prefilled ? 1 : 0) + (step > 3 && step3Prefilled ? 1 : 0);
+  const displayStep   = step - skippedBefore;
 
   // ── Can proceed per KYC step ──
   const canProceedKyc = () => {
@@ -163,7 +209,26 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
   // ── KYC continue / final submit ──
   const handleNextKyc = async () => {
     setError(null);
-    if (step < TOTAL_KYC_STEPS) { setStep((s) => s + 1); return; }
+    if (step < TOTAL_KYC_STEPS) {
+      // Persist non-sensitive step data so future attempts can skip it
+      if (step === 2) {
+        setDoc(doc(db, 'users', user.uid), {
+          kycStreet: street.trim(), kycUnit: unit.trim(),
+          kycCity: city.trim(), kycState: addrState.trim(), kycZip: zip.trim(),
+        }, { merge: true }).catch(() => {});
+      }
+      if (step === 3) {
+        setDoc(doc(db, 'users', user.uid), {
+          kycEmployment: employment, kycIncome: income, kycNetWorth: netWorth,
+        }, { merge: true }).catch(() => {});
+      }
+      // Advance past any prefilled steps
+      let next = step + 1;
+      if (next === 2 && step2Prefilled) next++;
+      if (next === 3 && step3Prefilled) next++;
+      setStep(next);
+      return;
+    }
 
     // Step 6 submit: create account → link bank → place trade
     setLoading(true);
@@ -339,15 +404,22 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
         {/* Header */}
         <View style={s.header}>
           <TouchableOpacity
-            onPress={() => (step > 1 ? setStep((s) => s - 1) : handleClose())}
+            onPress={() => {
+              if (step <= 1) { handleClose(); return; }
+              let prev = step - 1;
+              if (prev === 3 && step3Prefilled) prev--;
+              if (prev === 2 && step2Prefilled) prev--;
+              if (prev < 1) { handleClose(); return; }
+              setStep(prev);
+            }}
             style={s.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <Text style={s.backTxt}>←</Text>
           </TouchableOpacity>
           <View style={s.progressTrack}>
-            <View style={[s.progressFill, { width: `${(step / TOTAL_KYC_STEPS) * 100}%` }]} />
+            <View style={[s.progressFill, { width: `${(displayStep / displayTotal) * 100}%` }]} />
           </View>
-          <Text style={s.stepCount}>{step}/{TOTAL_KYC_STEPS}</Text>
+          <Text style={s.stepCount}>{displayStep}/{displayTotal}</Text>
         </View>
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
