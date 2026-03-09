@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -7,11 +7,30 @@ import { useApp } from '../context/AppContext';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 
+const fmtMoney = (n) =>
+  `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const fmtPct = (n) => {
+  const v = Number(n) * 100;
+  return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+};
+
 export default function PortfolioScreen() {
-  const { investedAmount, portfolio } = useApp();
   const navigation = useNavigation();
-  const returns = (investedAmount * 0.042).toFixed(0);
-  const returnsPct = investedAmount > 0 ? '+4.2%' : '—';
+  const {
+    alpacaAccountId,
+    alpacaPositions,
+    alpacaCash,
+    alpacaPortfolioValue,
+    refreshAlpacaPortfolio,
+  } = useApp();
+
+  useEffect(() => {
+    if (alpacaAccountId) refreshAlpacaPortfolio();
+  }, [alpacaAccountId]);
+
+  const totalPL = alpacaPositions.reduce((sum, p) => sum + p.unrealizedPL, 0);
+  const invested = alpacaPortfolioValue - alpacaCash;
 
   return (
     <View style={s.container}>
@@ -30,19 +49,26 @@ export default function PortfolioScreen() {
           >
             <View style={s.summaryRow}>
               <View>
-                <Text style={s.summaryLabel}>TOTAL INVERTIDO</Text>
-                <Text style={s.summaryValue}>{investedAmount.toLocaleString('es-ES')}€</Text>
+                <Text style={s.summaryLabel}>VALOR TOTAL</Text>
+                <Text style={s.summaryValue}>{fmtMoney(alpacaPortfolioValue)}</Text>
+                <Text style={s.cashLabel}>Efectivo: {fmtMoney(alpacaCash)}</Text>
               </View>
               <View style={s.divider} />
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={s.summaryLabel}>RENTABILIDAD</Text>
-                <Text style={[s.summaryValue, { color: C.green }]}>+{returns}€</Text>
-                <Text style={s.returnsPct}>{returnsPct} anual</Text>
+                <Text style={s.summaryLabel}>GANANCIA/PÉRDIDA</Text>
+                <Text style={[s.summaryValue, { color: totalPL >= 0 ? C.green : C.red }]}>
+                  {totalPL >= 0 ? '+' : ''}{fmtMoney(totalPL)}
+                </Text>
+                {invested > 0 && (
+                  <Text style={[s.returnsPct, { color: totalPL >= 0 ? C.green : C.red }]}>
+                    {totalPL >= 0 ? '+' : ''}{((totalPL / invested) * 100).toFixed(2)}%
+                  </Text>
+                )}
               </View>
             </View>
           </LinearGradient>
 
-          {portfolio.length === 0 ? (
+          {!alpacaAccountId ? (
             <View style={s.emptyState}>
               <View style={s.emptyIcon}>
                 <Text style={{ fontSize: 40 }}>📭</Text>
@@ -57,24 +83,45 @@ export default function PortfolioScreen() {
                 <Text style={s.exploreBtnText}>Explorar inversiones →</Text>
               </TouchableOpacity>
             </View>
+          ) : alpacaPositions.length === 0 ? (
+            <View style={s.emptyState}>
+              <View style={s.emptyIcon}>
+                <Text style={{ fontSize: 40 }}>📈</Text>
+              </View>
+              <Text style={s.emptyTitle}>Sin posiciones aún</Text>
+              <Text style={s.emptySub}>Tu cuenta está lista. Compra tu primera acción desde Descubrir.</Text>
+              <TouchableOpacity
+                style={s.exploreBtn}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('Discover')}
+              >
+                <Text style={s.exploreBtnText}>Explorar inversiones →</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={{ paddingHorizontal: 24 }}>
               <Text style={s.sectionLabel}>TUS POSICIONES</Text>
-              {portfolio.map((pos, i) => (
-                <View key={i} style={s.positionCard}>
-                  <View style={s.positionLeft}>
-                    <Text style={s.posTag}>{pos.tag}</Text>
-                    <Text style={s.posTicker}>{pos.ticker}</Text>
-                    <Text style={s.posName}>{pos.name}</Text>
-                  </View>
-                  <View style={s.positionRight}>
-                    <Text style={s.posAmount}>{pos.amount}€</Text>
-                    <View style={s.returnBadge}>
-                      <Text style={s.returnBadgeText}>+{(pos.amount * 0.042).toFixed(1)}€</Text>
+              {alpacaPositions.map((pos) => {
+                const pl = pos.unrealizedPL;
+                const plPct = pos.unrealizedPLPC;
+                const positive = pl >= 0;
+                return (
+                  <View key={pos.symbol} style={s.positionCard}>
+                    <View style={s.positionLeft}>
+                      <Text style={s.posTicker}>{pos.symbol}</Text>
+                      <Text style={s.posDetail}>{pos.qty} acciones · {fmtMoney(pos.currentPrice)}</Text>
+                    </View>
+                    <View style={s.positionRight}>
+                      <Text style={s.posAmount}>{fmtMoney(pos.marketValue)}</Text>
+                      <View style={[s.returnBadge, { backgroundColor: positive ? C.greenBg : C.redBg, borderColor: positive ? C.greenBorder : C.redBorder }]}>
+                        <Text style={[s.returnBadgeText, { color: positive ? C.green : C.red }]}>
+                          {positive ? '+' : ''}{fmtMoney(pl)} ({fmtPct(plPct)})
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
 
@@ -103,8 +150,9 @@ const s = StyleSheet.create({
   summaryRow: { flexDirection: 'row', alignItems: 'center' },
   summaryLabel: { fontSize: 10, color: C.muted, fontFamily: F.semibold, letterSpacing: 2, marginBottom: 6 },
   summaryValue: { fontSize: 30, color: C.text, fontFamily: F.xbold, letterSpacing: -1 },
+  cashLabel: { fontSize: 12, color: C.muted, fontFamily: F.regular, marginTop: 4 },
   divider: { width: 1, height: 48, backgroundColor: C.border, marginHorizontal: 24 },
-  returnsPct: { fontSize: 12, color: C.green, fontFamily: F.medium, marginTop: 2 },
+  returnsPct: { fontSize: 12, fontFamily: F.medium, marginTop: 2 },
 
   emptyState: { alignItems: 'center', paddingVertical: 60, paddingHorizontal: 32 },
   emptyIcon: {
@@ -127,14 +175,12 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: C.border, ...cardShadow,
   },
   positionLeft: { flex: 1 },
-  posTag: { fontSize: 11, color: C.muted, fontFamily: F.regular, marginBottom: 4 },
-  posTicker: { fontSize: 20, color: C.text, fontFamily: F.xbold, marginBottom: 2 },
-  posName: { fontSize: 12, color: C.muted, fontFamily: F.regular },
+  posTicker: { fontSize: 20, color: C.text, fontFamily: F.xbold, marginBottom: 4 },
+  posDetail: { fontSize: 12, color: C.muted, fontFamily: F.regular },
   positionRight: { alignItems: 'flex-end', gap: 6 },
   posAmount: { fontSize: 20, color: C.text, fontFamily: F.bold },
   returnBadge: {
-    backgroundColor: C.greenBg, borderRadius: 8,
-    paddingVertical: 3, paddingHorizontal: 8, borderWidth: 1, borderColor: C.greenBorder,
+    borderRadius: 8, paddingVertical: 3, paddingHorizontal: 8, borderWidth: 1,
   },
-  returnBadgeText: { fontSize: 12, color: C.green, fontFamily: F.semibold },
+  returnBadgeText: { fontSize: 12, fontFamily: F.semibold },
 });

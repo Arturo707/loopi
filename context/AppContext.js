@@ -3,6 +3,10 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
 
+const API_BASE =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
+
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
@@ -16,9 +20,28 @@ export function AppProvider({ children }) {
   const [incomeRange, setIncomeRange] = useState(null);
   const [experience,  setExperience]  = useState(null);
 
-  // Alpaca brokerage
+  // Alpaca brokerage account
   const [alpacaAccountId,     setAlpacaAccountId]     = useState(null);
   const [alpacaAccountStatus, setAlpacaAccountStatus] = useState(null);
+
+  // Alpaca portfolio (live data)
+  const [alpacaPositions,      setAlpacaPositions]      = useState([]);
+  const [alpacaCash,           setAlpacaCash]            = useState(0);
+  const [alpacaPortfolioValue, setAlpacaPortfolioValue]  = useState(0);
+
+  const fetchAlpacaPortfolio = async (accountId) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/alpaca-portfolio?accountId=${accountId}`);
+      const data = await res.json();
+      if (res.ok) {
+        setAlpacaPositions(data.positions ?? []);
+        setAlpacaCash(data.cash ?? 0);
+        setAlpacaPortfolioValue(data.portfolioValue ?? 0);
+      }
+    } catch (err) {
+      console.warn('[App] Failed to load portfolio:', err.message);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -30,6 +53,9 @@ export function AppProvider({ children }) {
         setExperience(null);
         setAlpacaAccountId(null);
         setAlpacaAccountStatus(null);
+        setAlpacaPositions([]);
+        setAlpacaCash(0);
+        setAlpacaPortfolioValue(0);
         return;
       }
       try {
@@ -43,6 +69,7 @@ export function AppProvider({ children }) {
           if (d.experience)           setExperience(d.experience);
           if (d.alpacaAccountId)      setAlpacaAccountId(d.alpacaAccountId);
           if (d.alpacaAccountStatus)  setAlpacaAccountStatus(d.alpacaAccountStatus);
+          if (d.alpacaAccountId)      fetchAlpacaPortfolio(d.alpacaAccountId);
         }
       } catch (err) {
         console.warn('[App] Failed to load user data:', err.message);
@@ -78,7 +105,7 @@ export function AppProvider({ children }) {
   const createAlpacaAccount = async (profileData) => {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error('Not authenticated');
-    const response = await fetch('/api/alpaca-account', {
+    const response = await fetch(`${API_BASE}/api/alpaca-account`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(profileData),
@@ -93,6 +120,10 @@ export function AppProvider({ children }) {
       { merge: true }
     );
     return data;
+  };
+
+  const refreshAlpacaPortfolio = () => {
+    if (alpacaAccountId) fetchAlpacaPortfolio(alpacaAccountId);
   };
 
   const addToPortfolio = (stock) => {
@@ -110,6 +141,7 @@ export function AppProvider({ children }) {
       age, incomeRange, experience,
       saveProfile,
       alpacaAccountId, alpacaAccountStatus, createAlpacaAccount,
+      alpacaPositions, alpacaCash, alpacaPortfolioValue, refreshAlpacaPortfolio,
     }}>
       {children}
     </AppContext.Provider>

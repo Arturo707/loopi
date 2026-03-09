@@ -170,7 +170,7 @@ function ChatModal({ visible, stock, onClose }) {
 
 const AMOUNTS = [25, 50, 100, 200, 500];
 
-function InvestModal({ visible, stock, onClose, onConfirm }) {
+function InvestModal({ visible, stock, onClose, onConfirm, loading, error, hasAccount }) {
   const [amount, setAmount] = useState(100);
   if (!stock) return null;
   const up = stock.changesPercentage >= 0;
@@ -190,15 +190,25 @@ function InvestModal({ visible, stock, onClose, onConfirm }) {
           <Text style={im.label}>¿Cuánto quieres invertir?</Text>
           <View style={im.amounts}>
             {AMOUNTS.map((a) => (
-              <TouchableOpacity key={a} style={[im.amountBtn, amount === a && im.amountBtnActive]} onPress={() => setAmount(a)} activeOpacity={0.7}>
+              <TouchableOpacity key={a} style={[im.amountBtn, amount === a && im.amountBtnActive]} onPress={() => setAmount(a)} activeOpacity={0.7} disabled={loading}>
                 <Text style={[im.amountTxt, amount === a && im.amountTxtActive]}>{a}€</Text>
               </TouchableOpacity>
             ))}
           </View>
-          <TouchableOpacity style={im.confirmBtn} onPress={() => onConfirm(amount)} activeOpacity={0.85}>
-            <Text style={im.confirmTxt}>⚡ Invertir {amount}€ en {stock.symbol}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={im.cancelBtn} onPress={onClose}>
+          {!hasAccount ? (
+            <View style={im.noAccountBox}>
+              <Text style={im.noAccountTxt}>Necesitas conectar tu cuenta primero</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={[im.confirmBtn, loading && { opacity: 0.7 }]} onPress={() => onConfirm(amount)} activeOpacity={0.85} disabled={loading}>
+              {loading
+                ? <ActivityIndicator color="#FFF" />
+                : <Text style={im.confirmTxt}>⚡ Invertir {amount}€ en {stock.symbol}</Text>
+              }
+            </TouchableOpacity>
+          )}
+          {error ? <Text style={im.errorTxt}>{error}</Text> : null}
+          <TouchableOpacity style={im.cancelBtn} onPress={onClose} disabled={loading}>
             <Text style={im.cancelTxt}>Cancelar</Text>
           </TouchableOpacity>
         </View>
@@ -275,7 +285,7 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function DiscoverScreen() {
-  const { balance, investedAmount, addToPortfolio, riskProfile, age, incomeRange, experience } = useApp();
+  const { balance, investedAmount, addToPortfolio, riskProfile, age, incomeRange, experience, alpacaAccountId, refreshAlpacaPortfolio } = useApp();
   const { height: windowHeight } = useWindowDimensions();
 
   // ── Live feed state ──
@@ -435,16 +445,38 @@ export default function DiscoverScreen() {
   const [tips, setTips] = useState({});
 
   // ── Modals & toasts ──
-  const [chatStock,   setChatStock]   = useState(null);
-  const [investStock, setInvestStock] = useState(null);
-  const [toast, setToast]             = useState(null);
+  const [chatStock,    setChatStock]   = useState(null);
+  const [investStock,  setInvestStock] = useState(null);
+  const [tradeLoading, setTradeLoading] = useState(false);
+  const [tradeError,   setTradeError]   = useState(null);
+  const [toast, setToast]              = useState(null);
 
-  const handleInvest = (amount) => {
-    addToPortfolio({ ...investStock, recommended: amount });
-    const sym = investStock.symbol;
+  const closeInvestModal = () => {
     setInvestStock(null);
-    setToast(`✅ ${amount}€ invertidos en ${sym}`);
-    setTimeout(() => setToast(null), 3000);
+    setTradeLoading(false);
+    setTradeError(null);
+  };
+
+  const handleInvest = async (amount) => {
+    if (!alpacaAccountId) return;
+    setTradeLoading(true);
+    setTradeError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/alpaca-trade`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId: alpacaAccountId, symbol: investStock.symbol, side: 'buy', amount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al enviar la orden');
+      closeInvestModal();
+      setToast('✅ Orden enviada');
+      setTimeout(() => setToast(null), 3000);
+      refreshAlpacaPortfolio();
+    } catch (err) {
+      setTradeLoading(false);
+      setTradeError(err.message);
+    }
   };
 
   const isSearching = query.trim().length > 0;
@@ -580,7 +612,15 @@ export default function DiscoverScreen() {
       </SafeAreaView>
 
       <ChatModal visible={!!chatStock} stock={chatStock} onClose={() => setChatStock(null)} />
-      <InvestModal visible={!!investStock} stock={investStock} onClose={() => setInvestStock(null)} onConfirm={handleInvest} />
+      <InvestModal
+        visible={!!investStock}
+        stock={investStock}
+        onClose={closeInvestModal}
+        onConfirm={handleInvest}
+        loading={tradeLoading}
+        error={tradeError}
+        hasAccount={!!alpacaAccountId}
+      />
     </View>
   );
 }
@@ -707,6 +747,12 @@ const im = StyleSheet.create({
   confirmTxt: { fontSize: 16, fontFamily: F.semibold, color: '#FFF' },
   cancelBtn:  { alignItems: 'center', paddingVertical: 10 },
   cancelTxt:  { fontSize: 14, fontFamily: F.medium, color: C.muted },
+  noAccountBox: {
+    borderRadius: 14, borderWidth: 1, borderColor: C.border,
+    paddingVertical: 16, paddingHorizontal: 20, alignItems: 'center', marginBottom: 12,
+  },
+  noAccountTxt: { fontSize: 14, fontFamily: F.medium, color: C.muted, textAlign: 'center' },
+  errorTxt: { fontSize: 13, fontFamily: F.medium, color: C.red ?? '#DC2626', textAlign: 'center', marginBottom: 8 },
 });
 
 const s = StyleSheet.create({
