@@ -17,7 +17,7 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 if (Platform.OS !== 'web') {
   GoogleSignin.configure({
-    webClientId: '160199820801-YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+    webClientId: '951562367501-g8s43mcsqtk0ns3lfa2kf1dn6brtljo7.apps.googleusercontent.com',
     offlineAccess: true,
   });
 }
