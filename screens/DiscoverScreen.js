@@ -295,12 +295,12 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
           {tipLoading ? (
             <View style={card.tipRow}>
               <ActivityIndicator color={C.orange} size="small" />
-              <Text style={card.tipLoading}>loopi AI analyzing…</Text>
+              <Text style={card.tipLoading}>Vibe check analyzing…</Text>
             </View>
           ) : tip ? (
             <>
               <View style={card.tipHeader}>
-                <Text style={card.tipLabel}>💡 loopi AI</Text>
+                <Text style={card.tipLabel}>💡 Vibe check</Text>
                 <View style={[card.indicatorPill, { backgroundColor: indStyle.bg, borderColor: indStyle.border }]}>
                   <Text style={[card.indicatorTxt, { color: indStyle.text }]}>{tip.indicator} {indLabel}</Text>
                 </View>
@@ -308,7 +308,7 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
               <Text style={card.tipText}>{tip.text}</Text>
             </>
           ) : (
-            <Text style={card.tipEmpty}>Tap "Learn more" to chat with loopi AI about this stock.</Text>
+            <Text style={card.tipEmpty}>Tap "Learn more" to get the vibe on this stock.</Text>
           )}
         </View>
 
@@ -490,14 +490,25 @@ export default function DiscoverScreen() {
   const [tips, setTips] = useState({});
 
   // ── Market Pulse ──
-  const [marketVibe,    setMarketVibe]    = useState(null);
-  const [vibeLoading,   setVibeLoading]   = useState(true);
+  const [marketVibe,  setMarketVibe]  = useState(null);
+  const [vibeLoading, setVibeLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/market-vibe`)
-      .then((r) => r.json())
-      .then((data) => { if (data.vibe) setMarketVibe(data.vibe); })
-      .catch(() => {})
+    const url = `${API_BASE}/api/market-vibe`;
+    console.log('[MarketPulse] fetching from:', url);
+    fetch(url)
+      .then((r) => {
+        console.log('[MarketPulse] response status:', r.status);
+        return r.json();
+      })
+      .then((data) => {
+        console.log('[MarketPulse] data:', JSON.stringify(data).slice(0, 120));
+        setMarketVibe(data.vibe || "Markets are open. Check the feed for today's biggest movers.");
+      })
+      .catch((err) => {
+        console.warn('[MarketPulse] fetch failed:', err.message);
+        setMarketVibe("Markets are open. Check the feed for today's biggest movers.");
+      })
       .finally(() => setVibeLoading(false));
   }, []);
 
@@ -643,7 +654,7 @@ export default function DiscoverScreen() {
                 ListFooterComponent={loadingMore ? (
                   <View style={s.loadingMoreRow}>
                     <ActivityIndicator size="small" color={C.orange} />
-                    <Text style={s.loadingMoreTxt}>loopi AI looking for more...</Text>
+                    <Text style={s.loadingMoreTxt}>Vibe check... loading more</Text>
                   </View>
                 ) : null}
                 renderItem={({ item }) => (

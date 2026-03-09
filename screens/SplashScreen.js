@@ -30,7 +30,7 @@ export default function SplashScreen({ authLoading, onDone }) {
           <Text style={s.logoMarkText}>∞</Text>
         </View>
         <Text style={s.logo}>Loopi</Text>
-        <Text style={s.tagline}>Invest in what you believe in.</Text>
+        <Text style={s.tagline}>Inflation's winning. Start playing.</Text>
       </Animated.View>
     </View>
   );

@@ -118,7 +118,7 @@ export default function DashboardScreen({ navigation }) {
           <View style={s.insightCard}>
             <View style={s.insightHeader}>
               <View style={s.insightDot} />
-              <Text style={s.insightLabel}>loopi AI</Text>
+              <Text style={s.insightLabel}>Vibe check</Text>
             </View>
             <Text style={s.insightText}>
               You have{' '}
