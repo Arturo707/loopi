@@ -1,12 +1,71 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { stocks } from '../constants/data';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
+
+const API_BASE =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
+
+const fmtPrice = (n) =>
+  `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtChange = (n) => { const v = Number(n); return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`; };
+
+function getEmojiTag(stock) {
+  if (stock.type === 'etf') return '📊';
+  return stock.changesPercentage >= 0 ? '🔥' : '📉';
+}
+
+// ─── Market Pulse Card ────────────────────────────────────────────────────────
+
+function MarketPulseCard({ vibe, loading }) {
+  const anim = useRef(new Animated.Value(0.35)).current;
+  useEffect(() => {
+    if (!loading) return;
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 0.9, duration: 850, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0.35, duration: 850, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [loading]);
+
+  const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  if (loading) {
+    return (
+      <Animated.View style={[pulse.card, { opacity: anim }]}>
+        <View style={pulse.skRow}>
+          <View style={pulse.skLabel} />
+          <View style={pulse.skDate} />
+        </View>
+        <View style={pulse.skLine1} />
+        <View style={pulse.skLine2} />
+      </Animated.View>
+    );
+  }
+
+  if (!vibe) return null;
+
+  return (
+    <View style={pulse.card}>
+      <View style={pulse.accent} />
+      <View style={pulse.content}>
+        <View style={pulse.labelRow}>
+          <Text style={pulse.label}>MARKET PULSE</Text>
+          <Text style={pulse.date}>{todayStr}</Text>
+        </View>
+        <Text style={pulse.text}>{vibe}</Text>
+      </View>
+    </View>
+  );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function DashboardScreen({ navigation }) {
   const { balance, bankAccount, investedAmount, riskProfile, setRiskProfile } = useApp();
@@ -14,12 +73,34 @@ export default function DashboardScreen({ navigation }) {
 
   const freeBalance = balance - investedAmount;
   const firstName = user?.displayName?.split(' ')[0] || 'there';
-  const ibanDisplay = bankAccount?.iban
-    ? `···· ${bankAccount.iban.slice(-4)}`
-    : null;
+  const ibanDisplay = bankAccount?.iban ? `···· ${bankAccount.iban.slice(-4)}` : null;
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  const [marketVibe,  setMarketVibe]  = useState(null);
+  const [vibeLoading, setVibeLoading] = useState(true);
+  const [forYouItems, setForYouItems] = useState([]);
+  const [feedLoaded,  setFeedLoaded]  = useState(false);
+
+  useEffect(() => {
+    // Market Pulse
+    fetch(`${API_BASE}/api/market-vibe`)
+      .then((r) => r.json())
+      .then((data) => { if (data.vibe) setMarketVibe(data.vibe); })
+      .catch(() => {})
+      .finally(() => setVibeLoading(false));
+
+    // For You Today — live top 5
+    fetch(`${API_BASE}/api/market-feed`)
+      .then((r) => r.json())
+      .then((data) => {
+        const items = data.items ?? data;
+        if (Array.isArray(items)) setForYouItems(items.slice(0, 5));
+      })
+      .catch(() => {})
+      .finally(() => setFeedLoaded(true));
+  }, []);
 
   return (
     <View style={s.container}>
@@ -31,9 +112,7 @@ export default function DashboardScreen({ navigation }) {
             <Text style={s.name}>{firstName}</Text>
           </View>
           <View style={s.avatar}>
-            <Text style={s.avatarText}>
-              {(user?.displayName?.[0] || 'L').toUpperCase()}
-            </Text>
+            <Text style={s.avatarText}>{(user?.displayName?.[0] || 'L').toUpperCase()}</Text>
           </View>
         </View>
 
@@ -77,26 +156,38 @@ export default function DashboardScreen({ navigation }) {
             </Text>
           </View>
 
-          {/* Quick picks */}
+          {/* Market Pulse */}
+          <View style={s.section}>
+            <MarketPulseCard vibe={marketVibe} loading={vibeLoading} />
+          </View>
+
+          {/* For You Today */}
           <View style={s.section}>
             <Text style={s.sectionLabel}>FOR YOU TODAY</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.hScroll}>
-              {stocks.slice(0, 4).map((stock, i) => (
-                <TouchableOpacity
-                  key={stock.ticker}
-                  style={s.miniCard}
-                  onPress={() => navigation.navigate('Discover', { cardIndex: i })}
-                  activeOpacity={0.75}
-                >
-                  <Text style={s.miniTag}>{stock.tag}</Text>
-                  <Text style={s.miniTicker}>{stock.ticker}</Text>
-                  <Text style={s.miniPrice}>{stock.price}</Text>
-                  <Text style={[s.miniChange, { color: stock.up ? C.green : C.red }]}>
-                    {stock.change}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            {forYouItems.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.hScroll}>
+                {forYouItems.map((stock) => {
+                  const up = stock.changesPercentage >= 0;
+                  return (
+                    <TouchableOpacity
+                      key={stock.symbol}
+                      style={s.miniCard}
+                      onPress={() => navigation.navigate('Discover')}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={s.miniTag}>{getEmojiTag(stock)}</Text>
+                      <Text style={s.miniTicker}>{stock.symbol}</Text>
+                      <Text style={s.miniPrice}>{fmtPrice(stock.price)}</Text>
+                      <Text style={[s.miniChange, { color: up ? C.green : C.red }]}>
+                        {fmtChange(stock.changesPercentage)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            ) : feedLoaded ? (
+              <Text style={s.feedUnavailable}>Market data unavailable</Text>
+            ) : null}
           </View>
 
           {/* Risk profile */}
@@ -133,6 +224,8 @@ export default function DashboardScreen({ navigation }) {
     </View>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const cardShadow = {
   shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 },
@@ -174,7 +267,7 @@ const s = StyleSheet.create({
   balanceHint: { fontSize: 12, color: C.muted, fontFamily: F.regular },
 
   insightCard: {
-    marginHorizontal: 24, marginBottom: 24,
+    marginHorizontal: 24, marginBottom: 16,
     backgroundColor: C.card, borderRadius: 20, padding: 18,
     borderWidth: 1, borderColor: C.border, ...cardShadow,
   },
@@ -196,19 +289,21 @@ const s = StyleSheet.create({
     marginRight: 12, width: 130, borderWidth: 1, borderColor: C.border,
     ...cardShadow,
   },
-  miniTag: { fontSize: 11, color: C.muted, fontFamily: F.regular, marginBottom: 6 },
+  miniTag:    { fontSize: 18, marginBottom: 6 },
   miniTicker: { fontSize: 18, color: C.text, fontFamily: F.xbold, marginBottom: 4 },
-  miniPrice: { fontSize: 12, color: C.sub, fontFamily: F.medium, marginBottom: 4 },
+  miniPrice:  { fontSize: 12, color: C.sub, fontFamily: F.medium, marginBottom: 4 },
   miniChange: { fontSize: 13, fontFamily: F.bold },
+
+  feedUnavailable: {
+    fontSize: 13, fontFamily: F.regular, color: C.muted,
+    paddingHorizontal: 24,
+  },
 
   riskCard: {
     marginHorizontal: 24, backgroundColor: C.card,
     borderRadius: 20, padding: 8, borderWidth: 1, borderColor: C.border, ...cardShadow,
   },
-  riskRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    padding: 14, borderRadius: 14,
-  },
+  riskRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 14 },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2 },
   radioActive: { backgroundColor: C.orange, borderColor: C.orange },
   radioInactive: { backgroundColor: 'transparent', borderColor: C.border },
@@ -220,4 +315,28 @@ const s = StyleSheet.create({
     paddingVertical: 3, paddingHorizontal: 8, borderWidth: 1, borderColor: C.orangeBorder,
   },
   riskBadgeText: { fontSize: 10, color: C.orange, fontFamily: F.semibold },
+});
+
+const pulse = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    marginHorizontal: 24,
+    backgroundColor: C.card, borderRadius: 16,
+    borderWidth: 1, borderColor: C.border,
+    overflow: 'hidden',
+    shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+  },
+  accent:   { width: 4, backgroundColor: C.orange },
+  content:  { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  label:    { fontSize: 10, fontFamily: F.semibold, color: C.orange, letterSpacing: 1.5 },
+  date:     { fontSize: 10, fontFamily: F.regular, color: C.muted },
+  text:     { fontSize: 13, fontFamily: F.regular, color: C.sub, lineHeight: 20 },
+  // skeleton
+  skRow:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, padding: 12 },
+  skLabel: { height: 10, width: 90, backgroundColor: C.border, borderRadius: 4 },
+  skDate:  { height: 10, width: 40, backgroundColor: C.border, borderRadius: 4 },
+  skLine1: { height: 12, marginHorizontal: 12, backgroundColor: C.border, borderRadius: 4, marginBottom: 6 },
+  skLine2: { height: 12, width: '70%', marginHorizontal: 12, backgroundColor: C.border, borderRadius: 4, marginBottom: 12 },
 });

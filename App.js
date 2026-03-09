@@ -1,6 +1,7 @@
 import "./global.css";
 import React, { useState } from 'react';
 import { Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -25,6 +26,7 @@ import ConnectBankScreen from './screens/ConnectBankScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import DiscoverScreen from './screens/DiscoverScreen';
+import ChatScreen from './screens/ChatScreen';
 import PortfolioScreen from './screens/PortfolioScreen';
 import ProfileScreen from './screens/ProfileScreen';
 
@@ -76,6 +78,20 @@ function MainTabs() {
         options={{
           tabBarLabel: 'Discover',
           tabBarIcon: ({ focused }) => <TabIcon emoji="✦" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Ask"
+        component={ChatScreen}
+        options={{
+          tabBarLabel: 'Ask',
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
+              size={22}
+              color={color}
+            />
+          ),
         }}
       />
       <Tab.Screen
