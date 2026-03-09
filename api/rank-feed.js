@@ -75,7 +75,7 @@ FORMAT — respond ONLY with valid JSON:
 
   try {
     const controller = new AbortController();
-    const timeoutId  = setTimeout(() => controller.abort(), 10_000);
+    const timeoutId  = setTimeout(() => controller.abort(), 25_000);
 
     let apiRes;
     try {
@@ -124,7 +124,13 @@ FORMAT — respond ONLY with valid JSON:
     }
 
     if (parsed?.top?.length) {
-      console.log('[RankFeed] top:', parsed.top.map(i => i.symbol).join(','));
+      const tipsPopulated = parsed.top.filter(i => i.tip && i.tip.length > 0).length;
+      console.log('[RankFeed] top symbols:', parsed.top.map(i => i.symbol).join(','));
+      console.log('[RankFeed] tips populated:', tipsPopulated, '/', parsed.top.length);
+      if (tipsPopulated < parsed.top.length) {
+        console.warn('[RankFeed] Some items missing tips:', parsed.top.filter(i => !i.tip).map(i => i.symbol).join(','));
+      }
+      console.log('[RankFeed] full tips object:', JSON.stringify(parsed.top.map(i => ({ symbol: i.symbol, indicator: i.indicator, tip: i.tip?.slice(0, 40) }))));
       console.log('[RankFeed] rest:', parsed.rest?.join(','));
       return res.json(parsed);
     }

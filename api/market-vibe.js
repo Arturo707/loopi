@@ -37,6 +37,9 @@ const todayString = () => new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  console.log('[market-vibe] ANTHROPIC_API_KEY present:', !!apiKey, '— prefix:', apiKey ? apiKey.slice(0, 8) : 'MISSING');
+
   const today = todayString();
 
   // 1. Check Firestore cache (skip if db unavailable)
@@ -57,12 +60,16 @@ export default async function handler(req, res) {
 
   // 2. Call Anthropic API with web_search tool
   let vibe = FALLBACK_VIBE;
+  if (!apiKey) {
+    console.error('[market-vibe] No ANTHROPIC_API_KEY — skipping Claude call, returning fallback');
+    return res.status(200).json({ vibe, date: today });
+  }
   try {
     console.log('[market-vibe] Calling Anthropic API for', today);
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },

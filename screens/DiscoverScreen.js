@@ -89,9 +89,30 @@ function SkeletonCard({ height }) {
   );
 }
 
-// ─── Chat Modal ───────────────────────────────────────────────────────────────
+// ─── Tip skeleton (phase 1 placeholder inside a card) ────────────────────────
 
-function ChatModal({ visible, stock, onClose }) {
+function TipSkeleton() {
+  const anim = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 0.75, duration: 900, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0.3,  duration: 900, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return (
+    <Animated.View style={{ opacity: anim }}>
+      <View style={{ height: 10, width: 80,  backgroundColor: C.border, borderRadius: 5, marginBottom: 10 }} />
+      <View style={{ height: 12, width: '100%', backgroundColor: C.border, borderRadius: 5, marginBottom: 6 }} />
+      <View style={{ height: 12, width: '85%',  backgroundColor: C.border, borderRadius: 5 }} />
+    </Animated.View>
+  );
+}
+
+// ─── Learn More Modal ─────────────────────────────────────────────────────────
+
+function ChatModal({ visible, stock, tip, onClose }) {
   const [msgs, setMsgs]     = useState([]);
   const [input, setInput]   = useState('');
   const [typing, setTyping] = useState(false);
@@ -101,7 +122,7 @@ function ChatModal({ visible, stock, onClose }) {
     if (visible && stock) {
       setMsgs([{
         id: 0, role: 'assistant',
-        text: `Hey 👋 I'm looking at ${stock.symbol} with you. It's ${stock.changesPercentage >= 0 ? 'up' : 'down'} ${Math.abs(stock.changesPercentage).toFixed(1)}% today. What do you want to know?`,
+        text: `Hey 👋 Ask me anything about ${stock.symbol}. It's ${stock.changesPercentage >= 0 ? 'up' : 'down'} ${Math.abs(stock.changesPercentage).toFixed(1)}% today.`,
       }]);
       setInput('');
     }
@@ -130,22 +151,55 @@ function ChatModal({ visible, stock, onClose }) {
 
   if (!stock) return null;
 
+  const up = stock.changesPercentage >= 0;
+  const indStyle = tip ? (INDICATOR_STYLES[tip.indicator] ?? INDICATOR_STYLES['🟡']) : null;
+  const indLabel = tip ? (INDICATOR_LABELS[tip.indicator] ?? 'Neutral') : null;
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={cm.container}>
+
+        {/* Header */}
         <View style={cm.header}>
-          <View style={{ flex: 1 }}>
+          <TouchableOpacity onPress={onClose} style={cm.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Text style={cm.backTxt}>←</Text>
+          </TouchableOpacity>
+          <View style={cm.headerInfo}>
             <Text style={cm.symbol}>{stock.symbol}</Text>
             <Text style={cm.stockName} numberOfLines={1}>{stock.name}</Text>
           </View>
-          <TouchableOpacity onPress={onClose} style={cm.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={cm.closeTxt}>✕</Text>
-          </TouchableOpacity>
         </View>
 
-        <ScrollView ref={scrollRef} style={cm.msgs} contentContainerStyle={{ paddingVertical: 16 }} showsVerticalScrollIndicator={false}>
+        {/* Price row */}
+        <View style={cm.priceRow}>
+          <Text style={cm.price}>{fmtPrice(stock.price)}</Text>
+          <View style={[cm.changePill, { backgroundColor: up ? C.greenBg : C.redBg }]}>
+            <Text style={[cm.changeTxt, { color: up ? C.green : C.red }]}>
+              {up ? '▲' : '▼'} {fmtChange(stock.changesPercentage)}
+            </Text>
+          </View>
+          <View style={cm.typeBadge}>
+            <Text style={cm.typeBadgeTxt}>{stock.type === 'etf' ? 'ETF' : 'STOCK'}</Text>
+          </View>
+        </View>
+
+        {/* Vibe check tip card */}
+        {tip && (
+          <View style={cm.tipCard}>
+            <View style={cm.tipHeader}>
+              <Text style={cm.tipLabel}>💡 Vibe check</Text>
+              <View style={[cm.indicatorPill, { backgroundColor: indStyle.bg, borderColor: indStyle.border }]}>
+                <Text style={[cm.indicatorTxt, { color: indStyle.text }]}>{tip.indicator} {indLabel}</Text>
+              </View>
+            </View>
+            <Text style={cm.tipText}>{tip.text}</Text>
+          </View>
+        )}
+
+        {/* Chat messages */}
+        <ScrollView ref={scrollRef} style={cm.msgs} contentContainerStyle={{ paddingVertical: 16, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
           {msgs.map((m) => (
-            <View key={m.id} style={[cm.bubble, m.role === 'user' ? cm.bubbleUser : cm.bubbleBot]}>
+            <View key={m.id} style={m.role === 'user' ? cm.bubbleUser : cm.bubbleBot}>
               <Text style={[cm.bubbleTxt, m.role === 'user' ? cm.bubbleTxtUser : cm.bubbleTxtBot]}>{m.text}</Text>
             </View>
           ))}
@@ -162,6 +216,7 @@ function ChatModal({ visible, stock, onClose }) {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+
       </SafeAreaView>
     </Modal>
   );
@@ -294,10 +349,7 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
 
         <View style={card.tipCard}>
           {tipLoading ? (
-            <View style={card.tipRow}>
-              <ActivityIndicator color={C.orange} size="small" />
-              <Text style={card.tipLoading}>Vibe check analyzing…</Text>
-            </View>
+            <TipSkeleton />
           ) : tip ? (
             <>
               <View style={card.tipHeader}>
@@ -306,11 +358,9 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
                   <Text style={[card.indicatorTxt, { color: indStyle.text }]}>{tip.indicator} {indLabel}</Text>
                 </View>
               </View>
-              <Text style={card.tipText}>{tip.text}</Text>
+              <Text style={card.tipText} numberOfLines={3}>{tip.text}</Text>
             </>
-          ) : (
-            <Text style={card.tipEmpty}>Tap "Learn more" to get the vibe on this stock.</Text>
-          )}
+          ) : null}
         </View>
 
         <Text style={card.swipeHint}>↕ swipe for more</Text>
@@ -708,7 +758,7 @@ export default function DiscoverScreen() {
 
       </SafeAreaView>
 
-      <ChatModal visible={!!chatStock} stock={chatStock} onClose={() => setChatStock(null)} />
+      <ChatModal visible={!!chatStock} stock={chatStock} tip={chatStock ? tips[chatStock.symbol] : null} onClose={() => setChatStock(null)} />
       <InvestModal
         visible={!!investStock}
         stock={investStock}
@@ -789,10 +839,29 @@ const cm = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24,
     paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: C.border,
   },
+  backBtn:    { paddingRight: 16, paddingVertical: 4 },
+  backTxt:    { fontSize: 22, color: C.text, fontFamily: F.bold },
+  headerInfo: { flex: 1 },
   symbol:    { fontSize: 22, fontFamily: F.xbold, color: C.text },
   stockName: { fontSize: 13, fontFamily: F.regular, color: C.muted, marginTop: 2 },
   closeBtn:  { padding: 8, marginLeft: 12 },
   closeTxt:  { fontSize: 16, color: C.muted },
+  priceRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 24, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.border },
+  price:     { fontSize: 26, fontFamily: F.bold, color: C.text, letterSpacing: -0.5 },
+  changePill: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 20 },
+  changeTxt:  { fontSize: 14, fontFamily: F.bold },
+  typeBadge:  { marginLeft: 'auto', backgroundColor: C.border, borderRadius: 6, paddingVertical: 3, paddingHorizontal: 8 },
+  typeBadgeTxt: { fontSize: 11, fontFamily: F.semibold, color: C.muted, letterSpacing: 0.5 },
+  tipCard: {
+    marginHorizontal: 20, marginBottom: 4, marginTop: 12,
+    backgroundColor: C.card, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: C.border,
+  },
+  tipHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  tipLabel:      { fontSize: 11, fontFamily: F.semibold, color: C.orange, letterSpacing: 0.5 },
+  indicatorPill: { borderRadius: 20, paddingVertical: 3, paddingHorizontal: 10, borderWidth: 1 },
+  indicatorTxt:  { fontSize: 12, fontFamily: F.semibold },
+  tipText:       { fontSize: 14, fontFamily: F.regular, color: C.text, lineHeight: 22 },
   msgs:      { flex: 1, paddingHorizontal: 20 },
   bubble:    { borderRadius: 16, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 8, maxWidth: '82%' },
   bubbleBot: { alignSelf: 'flex-start', backgroundColor: C.bgAlt ?? C.card, borderRadius: 16, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: C.border, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 8, maxWidth: '82%' },
