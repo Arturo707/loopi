@@ -282,7 +282,7 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir, loo
             <>
               <View style={card.tipHeader}>
                 <Text style={[card.tipLabel, { color: scoreColor }]}>
-                  LOOPI · {scoreData.band.toUpperCase()} · {scoreData.score}
+                  LOOPI · {(scoreData.band ?? '').toUpperCase()} · {scoreData.score ?? '—'}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setVibeExpanded(false)}
@@ -490,9 +490,10 @@ export default function DiscoverScreen() {
 
   // Seed scores from a feed payload — skips symbols already known to avoid overwriting.
   const seedScores = useCallback((incoming) => {
-    if (!incoming) return;
+    if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return;
     const patch = {};
     Object.entries(incoming).forEach(([sym, val]) => {
+      if (!val || typeof val !== 'object') return; // skip null/malformed entries
       if (loopiScoresRef.current[sym] === undefined) {
         loopiScoresRef.current[sym] = val;
         patch[sym] = val;

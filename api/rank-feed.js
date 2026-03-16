@@ -98,7 +98,7 @@ export default async function handler(req, res) {
         if (age_ms < CACHE_TTL_MS) {
           console.log('[RankFeed] Returning cached result for', cacheProfile, '— age:', Math.round(age_ms / 60000), 'min');
           const allSymbols = [...(cached.top || []).map((t) => t.symbol), ...(cached.rest || [])];
-          const scores = await batchReadScores(allSymbols, db);
+          const scores = (await batchReadScores(allSymbols, db)) ?? {};
           return res.json({ top: cached.top, rest: cached.rest, scores, fromCache: true });
         }
       }
@@ -199,7 +199,7 @@ FORMAT — respond ONLY with valid JSON:
         const timeoutTop  = poolItems.slice(0, 12).map((s) => ({ symbol: s.symbol, indicator: '🟡', tip: '' }));
         const timeoutRest = poolItems.slice(12, 25).map((s) => s.symbol);
         const timeoutSyms = [...timeoutTop.map((t) => t.symbol), ...timeoutRest];
-        const timeoutScores = await batchReadScores(timeoutSyms, db);
+        const timeoutScores = (await batchReadScores(timeoutSyms, db)) ?? {};
         return res.json({ top: timeoutTop, rest: timeoutRest, scores: timeoutScores });
       }
       throw fetchErr;
@@ -247,7 +247,7 @@ FORMAT — respond ONLY with valid JSON:
       }
 
       const allSymbols = [...(parsed.top || []).map((t) => t.symbol), ...(parsed.rest || [])];
-      const scores = await batchReadScores(allSymbols, db);
+      const scores = (await batchReadScores(allSymbols, db)) ?? {};
       return res.json({ ...parsed, scores });
     }
 
@@ -256,11 +256,11 @@ FORMAT — respond ONLY with valid JSON:
     const fallbackTop  = poolItems.slice(0, 12).map((s) => ({ symbol: s.symbol, indicator: '🟡', tip: '' }));
     const fallbackRest = poolItems.slice(12, 25).map((s) => s.symbol);
     const fallbackSyms = [...fallbackTop.map((t) => t.symbol), ...fallbackRest];
-    const fallbackScores = await batchReadScores(fallbackSyms, db);
+    const fallbackScores = (await batchReadScores(fallbackSyms, db)) ?? {};
     return res.json({ top: fallbackTop, rest: fallbackRest, scores: fallbackScores });
 
   } catch (err) {
     console.error('[RankFeed] error:', err.message);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message, scores: {} });
   }
 }

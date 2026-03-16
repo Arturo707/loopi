@@ -121,12 +121,12 @@ export default async function handler(req, res) {
     console.log('[market-feed] after quality filter:', items.length, 'stocks:', items.map(s => s.symbol).join(','));
     console.log(`[market-feed] marketOpen=${marketOpen} total=${items.length}`);
 
-    const scores = await batchReadScores(items.map((s) => s.symbol));
+    const scores = (await batchReadScores(items.map((s) => s.symbol))) ?? {};
     console.log(`[market-feed] scores attached: ${Object.keys(scores).length}`);
     return res.status(200).json({ items, marketOpen, scores });
 
   } catch (err) {
     console.error('[market-feed] Error:', err.message);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message, scores: {} });
   }
 }
