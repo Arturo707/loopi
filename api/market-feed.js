@@ -1,4 +1,47 @@
-// v8 - FMP Starter: gainers + losers + most-actives + must-have quotes
+// v9 - FMP feed + Loopi Scores attached from Firestore cache
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+
+const SCORE_TTL_MS = 15 * 60 * 1000;
+
+let db = null;
+try {
+  if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+    if (!getApps().length) {
+      initializeApp({
+        credential: cert({
+          projectId:   process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey:  process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        }),
+      });
+    }
+    db = getFirestore();
+  }
+} catch (err) {
+  console.warn('[market-feed] Firebase init failed — scores will be omitted:', err.message);
+}
+
+async function batchReadScores(symbols) {
+  if (!db || !symbols.length) return {};
+  try {
+    const docRefs = symbols.map((sym) => db.collection('scores').doc(sym));
+    const snaps   = await db.getAll(...docRefs);
+    const scores  = {};
+    const now     = Date.now();
+    snaps.forEach((snap) => {
+      if (!snap.exists) return;
+      const d   = snap.data();
+      const age = now - new Date(d.cachedAt || 0).getTime();
+      if (age < SCORE_TTL_MS) scores[snap.id] = d;
+    });
+    return scores;
+  } catch (err) {
+    console.warn('[market-feed] Score batch-read failed:', err.message);
+    return {};
+  }
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -77,7 +120,10 @@ export default async function handler(req, res) {
 
     console.log('[market-feed] after quality filter:', items.length, 'stocks:', items.map(s => s.symbol).join(','));
     console.log(`[market-feed] marketOpen=${marketOpen} total=${items.length}`);
-    return res.status(200).json({ items, marketOpen });
+
+    const scores = await batchReadScores(items.map((s) => s.symbol));
+    console.log(`[market-feed] scores attached: ${Object.keys(scores).length}`);
+    return res.status(200).json({ items, marketOpen, scores });
 
   } catch (err) {
     console.error('[market-feed] Error:', err.message);

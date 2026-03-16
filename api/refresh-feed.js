@@ -1,10 +1,11 @@
 // api/refresh-feed.js
 // Cron job: runs every 30 min via Vercel cron.
-// Fetches live market data and pre-generates ranked feeds for Moderate
-// and Aggressive profiles, saving results to Firestore feed-cache.
+// Fetches live market data, pre-generates ranked feeds for Moderate + Aggressive,
+// and pre-computes Loopi Scores for all GEN_Z_SYMBOLS — all cached in Firestore.
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { computeScore, SCORE_TTL_MS } from '../lib/loopi-score-core.js';
 
 let db = null;
 try {
@@ -155,6 +156,42 @@ async function rankForProfile(items, profile, anthropicKey) {
   return parsed;
 }
 
+// Pre-compute Loopi Scores for a list of tickers, skipping any cached within TTL.
+// Runs in batches of 5 to avoid rate-limiting FMP / Reddit / Anthropic.
+async function computeAndCacheScores(symbols, fmpKey, anthropicKey) {
+  if (!db) return;
+
+  // Batch-read existing cached scores in one Firestore RPC
+  const docRefs = symbols.map((sym) => db.collection('scores').doc(sym));
+  let snaps;
+  try { snaps = await db.getAll(...docRefs); }
+  catch (err) { console.warn('[refresh-feed] Score batch-read failed:', err.message); return; }
+
+  const now = Date.now();
+  const toCompute = symbols.filter((sym, i) => {
+    const snap = snaps[i];
+    if (!snap.exists) return true;
+    return now - new Date(snap.data().cachedAt || 0).getTime() >= SCORE_TTL_MS;
+  });
+
+  console.log(`[refresh-feed] Scores to compute: ${toCompute.length} / ${symbols.length}`);
+
+  const BATCH = 5;
+  for (let i = 0; i < toCompute.length; i += BATCH) {
+    await Promise.all(
+      toCompute.slice(i, i + BATCH).map(async (ticker) => {
+        try {
+          const result = await computeScore(ticker, fmpKey, anthropicKey);
+          await db.collection('scores').doc(ticker).set({ ...result, cachedAt: new Date().toISOString() });
+          console.log(`[refresh-feed] Score cached: ${ticker} ${result.score} (${result.band})`);
+        } catch (err) {
+          console.error(`[refresh-feed] Score failed for ${ticker}:`, err.message);
+        }
+      })
+    );
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -190,6 +227,13 @@ export default async function handler(req, res) {
         console.error('[refresh-feed] Failed for', profile, ':', err.message);
         results[profile] = `error: ${err.message}`;
       }
+    }
+
+    // Pre-compute Loopi Scores for the full symbol pool (fire-and-forget if it errors)
+    try {
+      await computeAndCacheScores(GEN_Z_SYMBOLS, process.env.FMP_API_KEY, anthropicKey);
+    } catch (err) {
+      console.error('[refresh-feed] Score computation failed:', err.message);
     }
 
     return res.status(200).json({ ok: true, results, generatedAt });

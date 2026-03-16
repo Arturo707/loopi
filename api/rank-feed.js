@@ -29,7 +29,28 @@ const GEN_Z_SYMBOLS = new Set([
   'COIN', 'BRK-B', 'XLE', 'IWM', 'TLT',
 ]);
 
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const CACHE_TTL_MS  = 30 * 60 * 1000; // 30 minutes
+const SCORE_TTL_MS  = 15 * 60 * 1000; // must match loopi-score-core
+
+async function batchReadScores(symbols, db) {
+  if (!db || !symbols.length) return {};
+  try {
+    const docRefs = symbols.map((sym) => db.collection('scores').doc(sym));
+    const snaps   = await db.getAll(...docRefs);
+    const scores  = {};
+    const now     = Date.now();
+    snaps.forEach((snap) => {
+      if (!snap.exists) return;
+      const d   = snap.data();
+      const age = now - new Date(d.cachedAt || 0).getTime();
+      if (age < SCORE_TTL_MS) scores[snap.id] = d;
+    });
+    return scores;
+  } catch (err) {
+    console.warn('[RankFeed] Score batch-read failed:', err.message);
+    return {};
+  }
+}
 
 const normalizeIncomeRange = (range) => {
   const legacyMap = {
@@ -76,7 +97,9 @@ export default async function handler(req, res) {
         const age_ms = Date.now() - new Date(cached.generatedAt).getTime();
         if (age_ms < CACHE_TTL_MS) {
           console.log('[RankFeed] Returning cached result for', cacheProfile, '— age:', Math.round(age_ms / 60000), 'min');
-          return res.json({ top: cached.top, rest: cached.rest, fromCache: true });
+          const allSymbols = [...(cached.top || []).map((t) => t.symbol), ...(cached.rest || [])];
+          const scores = await batchReadScores(allSymbols, db);
+          return res.json({ top: cached.top, rest: cached.rest, scores, fromCache: true });
         }
       }
     } catch (err) {
@@ -173,10 +196,11 @@ FORMAT — respond ONLY with valid JSON:
       clearTimeout(timeoutId);
       if (fetchErr.name === 'AbortError') {
         console.warn('[RankFeed] Claude timed out after 10s — returning unranked fallback');
-        return res.json({
-          top: poolItems.slice(0, 12).map(s => ({ symbol: s.symbol, indicator: "🟡", tip: "" })),
-          rest: poolItems.slice(12, 25).map(s => s.symbol),
-        });
+        const timeoutTop  = poolItems.slice(0, 12).map((s) => ({ symbol: s.symbol, indicator: '🟡', tip: '' }));
+        const timeoutRest = poolItems.slice(12, 25).map((s) => s.symbol);
+        const timeoutSyms = [...timeoutTop.map((t) => t.symbol), ...timeoutRest];
+        const timeoutScores = await batchReadScores(timeoutSyms, db);
+        return res.json({ top: timeoutTop, rest: timeoutRest, scores: timeoutScores });
       }
       throw fetchErr;
     }
@@ -222,15 +246,18 @@ FORMAT — respond ONLY with valid JSON:
         }
       }
 
-      return res.json(parsed);
+      const allSymbols = [...(parsed.top || []).map((t) => t.symbol), ...(parsed.rest || [])];
+      const scores = await batchReadScores(allSymbols, db);
+      return res.json({ ...parsed, scores });
     }
 
     // Fallback
     console.warn('[RankFeed] JSON parse failed, using fallback');
-    return res.json({
-      top: poolItems.slice(0, 12).map(s => ({ symbol: s.symbol, indicator: "🟡", tip: "" })),
-      rest: poolItems.slice(12, 25).map(s => s.symbol),
-    });
+    const fallbackTop  = poolItems.slice(0, 12).map((s) => ({ symbol: s.symbol, indicator: '🟡', tip: '' }));
+    const fallbackRest = poolItems.slice(12, 25).map((s) => s.symbol);
+    const fallbackSyms = [...fallbackTop.map((t) => t.symbol), ...fallbackRest];
+    const fallbackScores = await batchReadScores(fallbackSyms, db);
+    return res.json({ top: fallbackTop, rest: fallbackRest, scores: fallbackScores });
 
   } catch (err) {
     console.error('[RankFeed] error:', err.message);

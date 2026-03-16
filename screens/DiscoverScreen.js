@@ -368,12 +368,13 @@ export default function DiscoverScreen() {
       seenSymbols.current = new Set(merged.map((s) => s.symbol));
       setTips((prev) => ({ ...prev, ...newTips }));
       setAllStocks(merged);
+      seedScores(rankData.scores);
     } catch {
       // ranking failed — keep raw order that's already showing
     } finally {
       setRankingStatus('done');
     }
-  }, [riskProfile, age, incomeRange, experience]);
+  }, [riskProfile, age, incomeRange, experience, seedScores]);
 
   const fetchFeed = useCallback(async () => {
     try {
@@ -383,11 +384,12 @@ export default function DiscoverScreen() {
       const items = data.items ?? data;
       setMarketOpen(data.marketOpen ?? true);
 
-      // Phase 1: show raw stocks immediately
+      // Phase 1: show raw stocks immediately + seed any pre-loaded scores
       seenSymbols.current = new Set(items.map((s) => s.symbol));
       setAllStocks(items);
       setLastUpdated(new Date());
       setFeedStatus('ready');
+      seedScores(data.scores);
 
       // Phase 2: rank in background (non-blocking)
       rankItems(items);
@@ -395,7 +397,7 @@ export default function DiscoverScreen() {
       console.error('[Feed] Error:', err.message);
       setFeedStatus((prev) => (prev === 'loading' ? 'error' : prev));
     }
-  }, [rankItems]);
+  }, [rankItems, seedScores]);
 
   // Initial fetch + 60s refresh interval; re-run when risk profile changes
   useEffect(() => {
@@ -446,12 +448,13 @@ export default function DiscoverScreen() {
 
       setTips((prev) => ({ ...prev, ...newTips }));
       setAllStocks((prev) => [...prev, ...newItems]);
+      seedScores(rankData.scores);
     } catch (err) {
       console.error('[FetchMore] Error:', err.message);
     } finally {
       setLoadingMore(false);
     }
-  }, [riskProfile, age, incomeRange, experience]);
+  }, [riskProfile, age, incomeRange, experience, seedScores]);
 
   // Elapsed-seconds ticker
   useEffect(() => {
@@ -485,6 +488,20 @@ export default function DiscoverScreen() {
   const loopiScoresRef = useRef({});
   const [loopiScores, setLoopiScores] = useState({});
 
+  // Seed scores from a feed payload — skips symbols already known to avoid overwriting.
+  const seedScores = useCallback((incoming) => {
+    if (!incoming) return;
+    const patch = {};
+    Object.entries(incoming).forEach(([sym, val]) => {
+      if (loopiScoresRef.current[sym] === undefined) {
+        loopiScoresRef.current[sym] = val;
+        patch[sym] = val;
+      }
+    });
+    if (Object.keys(patch).length > 0) setLoopiScores((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  // Fallback: on-demand fetch for tickers not pre-loaded by the feed payload
   const fetchLoopiScore = useCallback(async (symbol) => {
     if (loopiScoresRef.current[symbol] !== undefined) return;
     loopiScoresRef.current[symbol] = 'loading';
@@ -501,6 +518,7 @@ export default function DiscoverScreen() {
     }
   }, []);
 
+  // Fires for any card not already scored (will mostly be a no-op once pre-loaded)
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 });
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }) => { viewableItems.forEach(({ item }) => fetchLoopiScore(item.symbol)); },
