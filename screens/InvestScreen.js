@@ -258,6 +258,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
     try {
       const kycData = {
         uid: user.uid,
+        email: user.email,
         firstName: firstName.trim(),
         middleName: middleName.trim() || undefined,
         lastName: lastName.trim(),
