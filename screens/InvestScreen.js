@@ -281,6 +281,10 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
       };
 
       // 1. Create Alpaca brokerage account
+      console.log('[KYC] kycData being sent:', {
+        ...kycData,
+        taxId: kycData.taxId ? `***${kycData.taxId.slice(-4)}` : '(empty)',
+      });
       const accountData = await createAlpacaAccount(kycData);
       const newAccountId = accountData.alpacaAccountId;
 
