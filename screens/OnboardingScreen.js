@@ -47,7 +47,7 @@ function ChoiceCard({ label, sub, emoji, selected, onPress }) {
 
 export default function OnboardingScreen() {
   const { setOnboardingDone } = useAuth();
-  const { setRiskProfile } = useApp();
+  const { setRiskProfile, updateProfile } = useApp();
 
   const [step, setStepp]  = useState(1);
   const [saving, setSaving] = useState(false);
@@ -132,6 +132,7 @@ export default function OnboardingScreen() {
           { merge: true }
         );
       }
+      updateProfile({ firstName: firstName.trim(), lastName: lastName.trim(), dateOfBirth });
       setRiskProfile(riskProfile);
       setOnboardingDone(true);
     } catch (err) {

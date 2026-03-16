@@ -138,6 +138,12 @@ export function AppProvider({ children }) {
     if (alpacaAccountId) fetchAlpacaPortfolio(alpacaAccountId);
   };
 
+  const updateProfile = ({ firstName: fn, lastName: ln, dateOfBirth: dob }) => {
+    if (fn)  setFirstName(fn);
+    if (ln)  setLastName(ln);
+    if (dob) setDateOfBirth(dob);
+  };
+
   const addToPortfolio = (stock) => {
     setPortfolio((prev) => [...prev, { ...stock, amount: stock.recommended }]);
     setInvestedAmount((prev) => prev + stock.recommended);
@@ -155,6 +161,7 @@ export function AppProvider({ children }) {
       alpacaAccountId, alpacaAccountStatus, createAlpacaAccount,
       achRelationshipId, setAchRelationshipId,
       alpacaPositions, alpacaCash, alpacaPortfolioValue, refreshAlpacaPortfolio,
+      updateProfile,
     }}>
       {children}
     </AppContext.Provider>

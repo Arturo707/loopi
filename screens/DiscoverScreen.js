@@ -18,8 +18,17 @@ const API_BASE =
   (typeof window !== 'undefined' && window.location?.origin
     ? window.location.origin
     : '');
-const FEED_API = `${API_BASE}/api/market-feed`;
-const RANK_API = `${API_BASE}/api/rank-feed`;
+const FEED_API  = `${API_BASE}/api/market-feed`;
+const RANK_API  = `${API_BASE}/api/rank-feed`;
+const SCORE_API = `${API_BASE}/api/loopi-score`;
+
+// Band → indicator color
+const BAND_COLORS = {
+  fafo:     '#EF4444', // red
+  watching: '#F59E0B', // amber
+  mid:      '#9CA3AF', // grey
+  cooked:   '#374151', // dark
+};
 
 // ─── Anthropic chat (in-app) ──────────────────────────────────────────────────
 
@@ -224,10 +233,14 @@ function ChatModal({ visible, stock, tip, onClose }) {
 
 // ─── Stock Card ───────────────────────────────────────────────────────────────
 
-function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
+function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir, loopiScore }) {
+  const [vibeExpanded, setVibeExpanded] = useState(false);
   const up = stock.changesPercentage >= 0;
   const indStyle = tip ? (INDICATOR_STYLES[tip.indicator] ?? INDICATOR_STYLES['🟡']) : null;
   const indLabel = tip ? (INDICATOR_LABELS[tip.indicator] ?? 'Neutral') : null;
+  const scoreData  = loopiScore && loopiScore !== 'loading' ? loopiScore : null;
+  const scoreColor = scoreData ? (BAND_COLORS[scoreData.band] ?? '#9CA3AF') : null;
+
   return (
     <View style={{ height }}>
       <LinearGradient
@@ -235,7 +248,20 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
         style={card.container}
       >
         <View style={card.top}>
-          <Text style={card.ticker}>{stock.symbol}</Text>
+          <View style={card.tickerRow}>
+            <Text style={card.ticker}>{stock.symbol}</Text>
+            {loopiScore === 'loading' && <View style={card.scoreBadgeSkeleton} />}
+            {scoreData && (
+              <TouchableOpacity
+                style={[card.scoreBadge, { backgroundColor: scoreColor + '20', borderColor: scoreColor + '55' }]}
+                onPress={() => setVibeExpanded((v) => !v)}
+                activeOpacity={0.75}
+              >
+                <View style={[card.scoreDot, { backgroundColor: scoreColor }]} />
+                <Text style={[card.scoreNum, { color: scoreColor }]}>{scoreData.score}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <Text style={card.name} numberOfLines={2}>{stock.name}</Text>
           <View style={card.badge}>
             <Text style={card.badgeTxt}>{stock.type === 'etf' ? 'ETF' : 'STOCK'}</Text>
@@ -252,7 +278,22 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir }) {
         </View>
 
         <View style={card.tipCard}>
-          {tipLoading ? (
+          {vibeExpanded && scoreData?.vibeCheck ? (
+            <>
+              <View style={card.tipHeader}>
+                <Text style={[card.tipLabel, { color: scoreColor }]}>
+                  LOOPI · {scoreData.band.toUpperCase()} · {scoreData.score}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setVibeExpanded(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={card.vibeCloseBtn}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={card.tipText} numberOfLines={3}>{scoreData.vibeCheck}</Text>
+            </>
+          ) : tipLoading ? (
             <TipSkeleton />
           ) : tip ? (
             <>
@@ -440,6 +481,32 @@ export default function DiscoverScreen() {
   // ── AI tips (pre-populated from rank-feed for top items) ──
   const [tips, setTips] = useState({});
 
+  // ── Loopi Scores ──
+  const loopiScoresRef = useRef({});
+  const [loopiScores, setLoopiScores] = useState({});
+
+  const fetchLoopiScore = useCallback(async (symbol) => {
+    if (loopiScoresRef.current[symbol] !== undefined) return;
+    loopiScoresRef.current[symbol] = 'loading';
+    setLoopiScores((prev) => ({ ...prev, [symbol]: 'loading' }));
+    try {
+      const res  = await fetch(`${SCORE_API}?ticker=${symbol}`);
+      const data = await res.json();
+      const result = res.ok ? data : null;
+      loopiScoresRef.current[symbol] = result;
+      setLoopiScores((prev) => ({ ...prev, [symbol]: result }));
+    } catch {
+      loopiScoresRef.current[symbol] = null;
+      setLoopiScores((prev) => ({ ...prev, [symbol]: null }));
+    }
+  }, []);
+
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 });
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }) => { viewableItems.forEach(({ item }) => fetchLoopiScore(item.symbol)); },
+    [fetchLoopiScore]
+  );
+
   // ── Modals & toasts ──
   const [chatStock,   setChatStock]  = useState(null);
   const [investStock, setInvestStock] = useState(null);
@@ -552,10 +619,12 @@ export default function DiscoverScreen() {
                 decelerationRate="fast"
                 snapToInterval={cardHeight}
                 snapToAlignment="start"
-                extraData={tips}
+                extraData={{ tips, loopiScores }}
                 getItemLayout={(_, index) => ({ length: cardHeight, offset: cardHeight * index, index })}
                 onEndReached={() => { if (!loadingMore) fetchMore(); }}
                 onEndReachedThreshold={0.3}
+                onViewableItemsChanged={onViewableItemsChanged}
+                viewabilityConfig={viewabilityConfig.current}
                 ListFooterComponent={loadingMore ? (
                   <View style={s.loadingMoreRow}>
                     <ActivityIndicator size="small" color={C.orange} />
@@ -570,6 +639,7 @@ export default function DiscoverScreen() {
                     tipLoading={rankingStatus === 'ranking' && !tips[item.symbol]}
                     onSaberMas={() => setChatStock(item)}
                     onInvertir={() => setInvestStock(item)}
+                    loopiScore={loopiScores[item.symbol]}
                   />
                 )}
               />
@@ -622,6 +692,16 @@ const card = StyleSheet.create({
     justifyContent: 'space-between',
   },
   top: { gap: 6 },
+  tickerRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  scoreBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderRadius: 12, borderWidth: 1, paddingVertical: 5, paddingHorizontal: 10,
+    alignSelf: 'flex-start',
+  },
+  scoreBadgeSkeleton: { width: 52, height: 28, borderRadius: 12, backgroundColor: C.border },
+  scoreDot:   { width: 7, height: 7, borderRadius: 3.5 },
+  scoreNum:   { fontSize: 14, fontFamily: F.bold },
+  vibeCloseBtn: { fontSize: 11, color: C.muted, fontFamily: F.medium },
   ticker:   { fontSize: 60, fontFamily: F.xbold, color: C.text, letterSpacing: -3, lineHeight: 64 },
   name:     { fontSize: 17, fontFamily: F.medium, color: C.sub },
   badge:    { alignSelf: 'flex-start', backgroundColor: C.border, borderRadius: 6, paddingVertical: 3, paddingHorizontal: 8 },

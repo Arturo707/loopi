@@ -171,7 +171,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
         console.warn('[KYC] Failed to load prefill data:', err.message);
       }
     })();
-  }, [visible]);
+  }, [visible, user]);
 
   // ── Derived: which steps are fully pre-filled and can be skipped ──
   const step2Prefilled = (
