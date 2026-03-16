@@ -526,51 +526,6 @@ export default function DiscoverScreen() {
       })
     : [];
 
-  // ── AI tips (pre-populated from rank-feed for top items) ──
-  const [tips, setTips] = useState({});
-
-  // ── Loopi Scores ──
-  const loopiScoresRef = useRef({});
-  const [loopiScores, setLoopiScores] = useState({});
-
-  // Seed scores from a feed payload — skips symbols already known to avoid overwriting.
-  const seedScores = useCallback((incoming) => {
-    if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return;
-    const patch = {};
-    Object.entries(incoming).forEach(([sym, val]) => {
-      if (!val || typeof val !== 'object') return; // skip null/malformed entries
-      if (loopiScoresRef.current[sym] === undefined) {
-        loopiScoresRef.current[sym] = val;
-        patch[sym] = val;
-      }
-    });
-    if (Object.keys(patch).length > 0) setLoopiScores((prev) => ({ ...prev, ...patch }));
-  }, []);
-
-  // Fallback: on-demand fetch for tickers not pre-loaded by the feed payload
-  const fetchLoopiScore = useCallback(async (symbol) => {
-    if (loopiScoresRef.current[symbol] !== undefined) return;
-    loopiScoresRef.current[symbol] = 'loading';
-    setLoopiScores((prev) => ({ ...prev, [symbol]: 'loading' }));
-    try {
-      const res  = await fetch(`${SCORE_API}?ticker=${symbol}`);
-      const data = await res.json();
-      const result = res.ok ? data : null;
-      loopiScoresRef.current[symbol] = result;
-      setLoopiScores((prev) => ({ ...prev, [symbol]: result }));
-    } catch {
-      loopiScoresRef.current[symbol] = null;
-      setLoopiScores((prev) => ({ ...prev, [symbol]: null }));
-    }
-  }, []);
-
-  // Fires for any card not already scored (will mostly be a no-op once pre-loaded)
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 });
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }) => { viewableItems.forEach(({ item }) => fetchLoopiScore(item.symbol)); },
-    [fetchLoopiScore]
-  );
-
   // ── Modals & toasts ──
   const [chatStock,   setChatStock]  = useState(null);
   const [investStock, setInvestStock] = useState(null);
