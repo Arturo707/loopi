@@ -140,22 +140,35 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
 
   const handleClose = () => { reset(); onClose(); };
 
-  // ── Prefill from Firestore when modal opens ──
+  // ── Prefill when modal opens: context first (instant), Firestore fallback ──
   useEffect(() => {
     if (!visible || !user) return;
+
+    // 1. Apply AppContext values synchronously — works even if modal was mounted early
+    if (ctxFirstName) setFirstName(ctxFirstName);
+    if (ctxLastName)  setLastName(ctxLastName);
+    const [cy, cm, cd] = (ctxDob || '').split('-');
+    if (cy) setDobYear(cy);
+    if (cm) setDobMonth(cm);
+    if (cd) setDobDay(cd);
+
+    // 2. Only hit Firestore if identity is still incomplete after context
+    const needsIdentity = !ctxFirstName || !ctxLastName || !ctxDob;
     (async () => {
       try {
         const snap = await getDoc(doc(db, 'users', user.uid));
         if (!snap.exists()) return;
         const d = snap.data();
-        // Step 1: identity (from onboarding)
-        if (d.firstName)   setFirstName(d.firstName);
-        if (d.lastName)    setLastName(d.lastName);
-        if (d.dateOfBirth) {
-          const [y, m, day] = d.dateOfBirth.split('-');
-          if (y)   setDobYear(y);
-          if (m)   setDobMonth(m);
-          if (day) setDobDay(day);
+        // Step 1: identity — only if context didn't have it
+        if (needsIdentity) {
+          if (d.firstName)   setFirstName(d.firstName);
+          if (d.lastName)    setLastName(d.lastName);
+          if (d.dateOfBirth) {
+            const [y, m, day] = d.dateOfBirth.split('-');
+            if (y)   setDobYear(y);
+            if (m)   setDobMonth(m);
+            if (day) setDobDay(day);
+          }
         }
         // Step 2: address (saved on previous KYC attempt)
         if (d.kycStreet) setStreet(d.kycStreet);
@@ -174,16 +187,25 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
   }, [visible, user]);
 
   // ── Derived: which steps are fully pre-filled and can be skipped ──
+  const step1Prefilled = (
+    firstName.trim().length >= 2 && lastName.trim().length >= 2 &&
+    dobYear.length === 4 && dobMonth.length === 2 && dobDay.length === 2
+  );
   const step2Prefilled = (
     street.trim().length > 0 && city.trim().length > 0 &&
     addrState.length === 2 && /^\d{5}$/.test(zip)
   );
   const step3Prefilled = !!employment && !!income && !!netWorth;
 
+  // ── If step 1 becomes prefilled while we're still on step 1, advance past it ──
+  useEffect(() => {
+    if (step === 1 && step1Prefilled) setStep(2);
+  }, [step, step1Prefilled]);
+
   // ── Display step / total (excluding skipped steps) ──
-  const skippedCount  = (step2Prefilled ? 1 : 0) + (step3Prefilled ? 1 : 0);
+  const skippedCount  = (step1Prefilled ? 1 : 0) + (step2Prefilled ? 1 : 0) + (step3Prefilled ? 1 : 0);
   const displayTotal  = TOTAL_KYC_STEPS - skippedCount;
-  const skippedBefore = (step > 2 && step2Prefilled ? 1 : 0) + (step > 3 && step3Prefilled ? 1 : 0);
+  const skippedBefore = (step > 1 && step1Prefilled ? 1 : 0) + (step > 2 && step2Prefilled ? 1 : 0) + (step > 3 && step3Prefilled ? 1 : 0);
   const displayStep   = step - skippedBefore;
 
   // ── Can proceed per KYC step ──
@@ -224,6 +246,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
       }
       // Advance past any prefilled steps
       let next = step + 1;
+      if (next === 1 && step1Prefilled) next++;
       if (next === 2 && step2Prefilled) next++;
       if (next === 3 && step3Prefilled) next++;
       setStep(next);
@@ -409,6 +432,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
               let prev = step - 1;
               if (prev === 3 && step3Prefilled) prev--;
               if (prev === 2 && step2Prefilled) prev--;
+              if (prev === 1 && step1Prefilled) prev--;
               if (prev < 1) { handleClose(); return; }
               setStep(prev);
             }}
