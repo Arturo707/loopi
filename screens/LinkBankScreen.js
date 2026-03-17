@@ -92,6 +92,11 @@ export default function LinkBankScreen({ navigation }) {
       );
       setAchRelationshipId(data.ach_relationship_id);
       setSucceeded(true);
+      try {
+        navigation.goBack();
+      } catch (_) {
+        navigation.navigate('Main');
+      }
     } catch (err) {
       setError('Could not link your bank account. Please try again.');
     } finally {
