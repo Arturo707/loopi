@@ -238,7 +238,11 @@ async function trade(body) {
     return { status: 400, body: { error: 'side must be buy or sell' } };
   }
 
-  if (side === 'buy' && achRelationshipId && amount) {
+  console.log('[alpaca] achRelationshipId received:', achRelationshipId, '| type:', typeof achRelationshipId);
+
+  const hasAch = achRelationshipId != null && achRelationshipId !== '';
+
+  if (side === 'buy' && hasAch && amount) {
     const transferRes = await fetch(`${ALPACA_BASE}/v1/accounts/${accountId}/transfers`, {
       method: 'POST',
       headers: alpacaHeaders(),
