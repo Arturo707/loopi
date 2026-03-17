@@ -10,12 +10,14 @@ import { db } from '../config/firebase';
 
 // Safe require — native SDK is unavailable on web; catch prevents bundler crash
 let plaidCreate = null;
+let plaidOpen = null;
 if (Platform.OS !== 'web') {
   try {
     const plaidModule = require('react-native-plaid-link-sdk');
     console.log('[LinkBank] plaid module keys:', Object.keys(plaidModule));
     plaidCreate = plaidModule.create || null;
-    console.log('[LinkBank] plaidCreate:', plaidCreate);
+    plaidOpen   = plaidModule.open   || null;
+    console.log('[LinkBank] plaidCreate:', plaidCreate, '| plaidOpen:', plaidOpen);
   } catch (e) {
     console.log('[LinkBank] PlaidLink load error:', e.message);
   }
@@ -114,22 +116,22 @@ export default function LinkBankScreen({ navigation }) {
   // ── 3a. Native: use create/open SDK API ───────────────────────────────────
 
   const openNativePlaid = async () => {
-    if (!linkToken || !plaidCreate) return;
+    if (!linkToken || !plaidCreate || !plaidOpen) return;
     try {
-      const plaidHandler = await plaidCreate({ token: linkToken });
-      plaidHandler.open({
+      await plaidCreate({ token: linkToken });
+      plaidOpen({
         onSuccess: (success) => {
           handleSuccess(success.publicToken, success.metadata?.accounts?.[0]?.id);
         },
         onExit: (exit) => {
           if (exit?.error) {
-            console.log('[LinkBank] Plaid exit error:', exit.error);
+            console.log('[LinkBank] exit error:', exit.error);
             setError('Bank linking was cancelled or failed. Please try again.');
           }
         },
       });
-    } catch (err) {
-      console.error('[LinkBank] plaidCreate error:', err.message);
+    } catch (e) {
+      console.log('[LinkBank] plaid open error:', e.message);
       setError('Could not open bank linking. Please try again.');
     }
   };
@@ -176,7 +178,7 @@ export default function LinkBankScreen({ navigation }) {
     );
   }
 
-  console.log('[LinkBank] render — Platform.OS:', Platform.OS, '| plaidCreate:', plaidCreate, '| linkToken:', linkToken ? 'present' : 'null');
+  console.log('[LinkBank] render — Platform.OS:', Platform.OS, '| plaidCreate:', plaidCreate, '| plaidOpen:', plaidOpen, '| linkToken:', linkToken ? 'present' : 'null');
 
   return (
     <View style={s.container}>
@@ -191,7 +193,7 @@ export default function LinkBankScreen({ navigation }) {
 
       {Platform.OS !== 'web' ? (
         /* Native: use create/open SDK API */
-        <TouchableOpacity style={s.btn} onPress={openNativePlaid} disabled={!linkToken || !plaidCreate}>
+        <TouchableOpacity style={s.btn} onPress={openNativePlaid} disabled={!linkToken || !plaidCreate || !plaidOpen}>
           <Text style={s.btnTxt}>🔗 Connect Bank Account</Text>
         </TouchableOpacity>
       ) : (
