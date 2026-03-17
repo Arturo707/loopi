@@ -12,7 +12,10 @@ import { db } from '../config/firebase';
 let PlaidLink = null;
 try {
   PlaidLink = require('react-native-plaid-link-sdk').PlaidLink;
-} catch (_) {}
+  console.log('[LinkBank] PlaidLink loaded successfully:', PlaidLink);
+} catch (err) {
+  console.log('[LinkBank] PlaidLink failed to load:', err.message);
+}
 
 const API_BASE = 'https://loopi-teal.vercel.app';
 
@@ -145,6 +148,8 @@ export default function LinkBankScreen({ navigation }) {
       </View>
     );
   }
+
+  console.log('[LinkBank] render — Platform.OS:', Platform.OS, '| PlaidLink:', PlaidLink, '| linkToken:', linkToken ? 'present' : 'null');
 
   return (
     <View style={s.container}>
