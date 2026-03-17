@@ -116,6 +116,7 @@ export default function LinkBankScreen({ navigation }) {
   // ── 3a. Native: use create/open SDK API ───────────────────────────────────
 
   const openNativePlaid = async () => {
+    console.log('[LinkBank] button tapped');
     if (!linkToken || !plaidCreate || !plaidOpen) return;
     try {
       await plaidCreate({ token: linkToken });
