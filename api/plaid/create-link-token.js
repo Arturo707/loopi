@@ -18,10 +18,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { user_id } = req.body;
+    console.log('[create-link-token] req.body:', JSON.stringify(req.body));
+    const { userId, user_id } = req.body;
+    const clientUserId = userId || user_id;
 
     const response = await plaidClient.linkTokenCreate({
-      user: { client_user_id: user_id },
+      user: { client_user_id: clientUserId },
       client_name: 'Loopi',
       products: [Products.Auth],
       country_codes: [CountryCode.Us],

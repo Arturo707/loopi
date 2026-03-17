@@ -26,25 +26,41 @@ export default function LinkBankScreen({ navigation }) {
   const [succeeded,   setSucceeded]   = useState(false);
   const [error,       setError]       = useState(null);
 
+  // Wait until user.uid is available before fetching
   useEffect(() => {
-    fetchLinkToken();
-  }, []);
+    if (user?.uid) {
+      fetchLinkToken();
+    }
+  }, [user?.uid]);
 
   // ── 1. Fetch link token ───────────────────────────────────────────────────
 
   const fetchLinkToken = async () => {
+    if (!user?.uid) {
+      console.warn('[LinkBank] fetchLinkToken called but user.uid is', user?.uid);
+      setError('Not signed in. Please go back and try again.');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
+
+    const requestBody = { userId: user.uid };
+    console.log('[LinkBank] create-link-token request:', JSON.stringify(requestBody));
+
     try {
       const res = await fetch(`${API_BASE}/api/plaid/create-link-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid }),
+        body: JSON.stringify(requestBody),
       });
       const data = await res.json();
-      if (!data.link_token) throw new Error('No link token returned');
+      console.log('[LinkBank] create-link-token response:', JSON.stringify(data));
+      if (!data.link_token) throw new Error(data.error || 'No link token returned');
       setLinkToken(data.link_token);
     } catch (err) {
+      console.error('[LinkBank] create-link-token error:', err.message);
       setError('Could not initialise bank linking. Please try again.');
     } finally {
       setLoading(false);
