@@ -116,23 +116,23 @@ export default function LinkBankScreen({ navigation }) {
   // ── 3a. Native: use create/open SDK API ───────────────────────────────────
 
   const openNativePlaid = async () => {
-    console.log('[LinkBank] button tapped');
-    if (!linkToken || !plaidCreate || !plaidOpen) return;
+    console.log('[LinkBank] openNativePlaid called, token:', linkToken?.slice(0, 20));
     try {
+      console.log('[LinkBank] calling create...');
       await plaidCreate({ token: linkToken });
+      console.log('[LinkBank] create done, calling open...');
       plaidOpen({
         onSuccess: (success) => {
-          handleSuccess(success.publicToken, success.metadata?.accounts?.[0]?.id);
+          console.log('[LinkBank] plaid success:', success);
+          handleSuccess(success.publicToken, success.metadata.accounts[0].id);
         },
         onExit: (exit) => {
-          if (exit?.error) {
-            console.log('[LinkBank] exit error:', exit.error);
-            setError('Bank linking was cancelled or failed. Please try again.');
-          }
+          console.log('[LinkBank] plaid exit:', JSON.stringify(exit));
         },
       });
+      console.log('[LinkBank] open called');
     } catch (e) {
-      console.log('[LinkBank] plaid open error:', e.message);
+      console.log('[LinkBank] plaid open error:', e.message, e.stack);
       setError('Could not open bank linking. Please try again.');
     }
   };
