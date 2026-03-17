@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Modal,
-  ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform,
+  ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { useNavigation } from '@react-navigation/native';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -73,6 +74,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
     firstName: ctxFirstName, lastName: ctxLastName, dateOfBirth: ctxDob,
   } = useApp();
   const { user } = useAuth();
+  const navigation = useNavigation();
 
   const isVerified = !!alpacaAccountId;
 
@@ -333,6 +335,25 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
   // ── Mode B: invest with existing account ──
   const handleInvestB = async () => {
     if (!alpacaAccountId) return;
+
+    if (!achRelationshipId) {
+      Alert.alert(
+        'Connect your bank',
+        'Connect your bank to start investing. You\'ll only need to do this once.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Connect',
+            onPress: () => {
+              onClose();
+              navigation.navigate('LinkBank');
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {

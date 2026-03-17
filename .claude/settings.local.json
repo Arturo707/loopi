@@ -12,7 +12,9 @@
       "Bash(node:*)",
       "Bash(npx vercel:*)",
       "Bash(gh pr:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Skill(browse)",
+      "Bash(npx expo:*)"
     ]
   }
 }

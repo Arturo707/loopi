@@ -29,12 +29,27 @@ import DiscoverScreen from './screens/DiscoverScreen';
 import ChatScreen from './screens/ChatScreen';
 import PortfolioScreen from './screens/PortfolioScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import LinkBankScreen from './screens/LinkBankScreen';
 
 const Stack = createNativeStackNavigator();
+const AppStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabIcon({ emoji, focused }) {
   return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.45 }}>{emoji}</Text>;
+}
+
+function MainStack() {
+  return (
+    <AppStack.Navigator screenOptions={{ headerShown: false }}>
+      <AppStack.Screen name="Tabs" component={MainTabs} />
+      <AppStack.Screen
+        name="LinkBank"
+        component={LinkBankScreen}
+        options={{ presentation: 'modal' }}
+      />
+    </AppStack.Navigator>
+  );
 }
 
 function MainTabs() {
@@ -142,7 +157,7 @@ function RootNavigator() {
       ) : !bankConnected ? (
         <Stack.Screen name="ConnectBank" component={ConnectBankScreen} />
       ) : (
-        <Stack.Screen name="Main" component={MainTabs} />
+        <Stack.Screen name="Main" component={MainStack} />
       )}
     </Stack.Navigator>
   );
