@@ -11,10 +11,11 @@ import { db } from '../config/firebase';
 // Safe require — native SDK is unavailable on web; catch prevents bundler crash
 let PlaidLink = null;
 try {
-  PlaidLink = require('react-native-plaid-link-sdk').PlaidLink;
-  console.log('[LinkBank] PlaidLink loaded successfully:', PlaidLink);
-} catch (err) {
-  console.log('[LinkBank] PlaidLink failed to load:', err.message);
+  const plaidModule = require('react-native-plaid-link-sdk');
+  console.log('[LinkBank] plaid module keys:', Object.keys(plaidModule));
+  PlaidLink = plaidModule.PlaidLink || plaidModule.default || null;
+} catch (e) {
+  console.log('[LinkBank] PlaidLink load error:', e.message);
 }
 
 const API_BASE = 'https://loopi-teal.vercel.app';
