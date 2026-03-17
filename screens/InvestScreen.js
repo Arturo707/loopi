@@ -27,12 +27,58 @@ const INCOME_OPTIONS     = ['Under $30k', '$30k–$60k', '$60k–$100k', '$100k�
 const WORTH_OPTIONS      = ['Under $10k', '$10k–$50k', '$50k–$200k', 'Over $200k'];
 
 const US_STATES = [
-  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
-  'HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
-  'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
-  'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
-  'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
-  'DC','PR',
+  { code: 'AL', name: 'Alabama' },
+  { code: 'AK', name: 'Alaska' },
+  { code: 'AZ', name: 'Arizona' },
+  { code: 'AR', name: 'Arkansas' },
+  { code: 'CA', name: 'California' },
+  { code: 'CO', name: 'Colorado' },
+  { code: 'CT', name: 'Connecticut' },
+  { code: 'DE', name: 'Delaware' },
+  { code: 'FL', name: 'Florida' },
+  { code: 'GA', name: 'Georgia' },
+  { code: 'HI', name: 'Hawaii' },
+  { code: 'ID', name: 'Idaho' },
+  { code: 'IL', name: 'Illinois' },
+  { code: 'IN', name: 'Indiana' },
+  { code: 'IA', name: 'Iowa' },
+  { code: 'KS', name: 'Kansas' },
+  { code: 'KY', name: 'Kentucky' },
+  { code: 'LA', name: 'Louisiana' },
+  { code: 'ME', name: 'Maine' },
+  { code: 'MD', name: 'Maryland' },
+  { code: 'MA', name: 'Massachusetts' },
+  { code: 'MI', name: 'Michigan' },
+  { code: 'MN', name: 'Minnesota' },
+  { code: 'MS', name: 'Mississippi' },
+  { code: 'MO', name: 'Missouri' },
+  { code: 'MT', name: 'Montana' },
+  { code: 'NE', name: 'Nebraska' },
+  { code: 'NV', name: 'Nevada' },
+  { code: 'NH', name: 'New Hampshire' },
+  { code: 'NJ', name: 'New Jersey' },
+  { code: 'NM', name: 'New Mexico' },
+  { code: 'NY', name: 'New York' },
+  { code: 'NC', name: 'North Carolina' },
+  { code: 'ND', name: 'North Dakota' },
+  { code: 'OH', name: 'Ohio' },
+  { code: 'OK', name: 'Oklahoma' },
+  { code: 'OR', name: 'Oregon' },
+  { code: 'PA', name: 'Pennsylvania' },
+  { code: 'RI', name: 'Rhode Island' },
+  { code: 'SC', name: 'South Carolina' },
+  { code: 'SD', name: 'South Dakota' },
+  { code: 'TN', name: 'Tennessee' },
+  { code: 'TX', name: 'Texas' },
+  { code: 'UT', name: 'Utah' },
+  { code: 'VT', name: 'Vermont' },
+  { code: 'VA', name: 'Virginia' },
+  { code: 'WA', name: 'Washington' },
+  { code: 'WV', name: 'West Virginia' },
+  { code: 'WI', name: 'Wisconsin' },
+  { code: 'WY', name: 'Wyoming' },
+  { code: 'DC', name: 'District of Columbia' },
+  { code: 'PR', name: 'Puerto Rico' },
 ];
 
 const formatSsn = (raw) => {
@@ -87,7 +133,8 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
   const { user } = useAuth();
   const navigation = useNavigation();
 
-  const isVerified = !!alpacaAccountId;
+  const isFullySetup  = !!alpacaAccountId && !!achRelationshipId;
+  const hasAccountOnly = !!alpacaAccountId && !achRelationshipId;
 
   // Parse ctx DOB for initial state pre-fill
   const [ctxDobYear, ctxDobMonth, ctxDobDay] = (ctxDob || '').split('-');
@@ -333,25 +380,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
 
   // ── Mode B: invest with existing account ──
   const handleInvestB = async () => {
-    if (!alpacaAccountId) return;
-
-    if (!achRelationshipId) {
-      Alert.alert(
-        'Connect your bank',
-        'Connect your bank to start investing. You\'ll only need to do this once.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Connect',
-            onPress: () => {
-              onClose();
-              navigation.navigate('LinkBank');
-            },
-          },
-        ]
-      );
-      return;
-    }
+    if (!alpacaAccountId || !achRelationshipId) return;
 
     setLoading(true);
     setError(null);
@@ -396,7 +425,36 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
   // ════════════════════════════════════════════════════════════════
   // MODE B — already verified, show amount picker
   // ════════════════════════════════════════════════════════════════
-  if (isVerified) {
+  // ════════════════════════════════════════════════════════════════
+  // MODE C — has Alpaca account but no bank linked yet
+  // ════════════════════════════════════════════════════════════════
+  if (hasAccountOnly) {
+    return (
+      <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+        <View style={s.overlay}>
+          <View style={s.sheet}>
+            <View style={s.handle} />
+            <Text style={s.ticker}>{stock?.symbol}</Text>
+            <Text style={s.stockNameTxt} numberOfLines={1}>{stock?.name}</Text>
+            <View style={[s.bankConnectedBox, { borderColor: C.border, backgroundColor: C.card, marginBottom: 8 }]}>
+              <Text style={[s.bankLinkedTxt, { color: C.text }]}>Connect your bank to start investing</Text>
+            </View>
+            <Text style={[s.bankNotLinkedTxt, { marginBottom: 20 }]}>
+              You'll only need to do this once. Your bank details are never stored by Loopi.
+            </Text>
+            <TouchableOpacity style={s.plaidBtn} onPress={() => { onClose(); navigation.navigate('LinkBank'); }}>
+              <Text style={s.plaidBtnTxt}>🔗 Connect Bank with Plaid</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.cancelBtn} onPress={handleClose}>
+              <Text style={s.cancelTxt}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
+  if (isFullySetup) {
     return (
       <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
         <View style={s.overlay}>
@@ -597,7 +655,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
                   <Text style={s.label}>State</Text>
                   <TouchableOpacity style={s.statePickerBtn} onPress={() => setStatePickerOpen(true)}>
                     <Text style={addrState ? s.statePickerValue : s.statePickerPlaceholder}>
-                      {addrState || 'Select state'}
+                      {addrState ? US_STATES.find(s => s.code === addrState)?.name : 'Select state'}
                     </Text>
                     <Text style={s.statePickerCaret}>▾</Text>
                   </TouchableOpacity>
@@ -606,14 +664,14 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
                       <View style={s.stateModalSheet}>
                         <Text style={s.stateModalTitle}>Select State</Text>
                         <ScrollView showsVerticalScrollIndicator={false}>
-                          {US_STATES.map((st) => (
+                          {US_STATES.map(({ code, name }) => (
                             <TouchableOpacity
-                              key={st}
-                              style={[s.stateModalRow, addrState === st && s.stateModalRowActive]}
-                              onPress={() => { setAddrState(st); setStatePickerOpen(false); }}
+                              key={code}
+                              style={[s.stateModalRow, addrState === code && s.stateModalRowActive]}
+                              onPress={() => { setAddrState(code); setStatePickerOpen(false); }}
                             >
-                              <Text style={[s.stateModalRowTxt, addrState === st && s.stateModalRowTxtActive]}>{st}</Text>
-                              {addrState === st && <Text style={s.stateModalCheck}>✓</Text>}
+                              <Text style={[s.stateModalRowTxt, addrState === code && s.stateModalRowTxtActive]}>{name}</Text>
+                              {addrState === code && <Text style={s.stateModalCheck}>✓</Text>}
                             </TouchableOpacity>
                           ))}
                         </ScrollView>
@@ -701,13 +759,18 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
               <View style={s.fields}>
 
                 {/* Plaid connect */}
-                <TouchableOpacity style={s.plaidBtn} onPress={() => navigation.navigate('LinkBank')}>
-                  <Text style={s.plaidBtnTxt}>🔗 Connect Bank with Plaid</Text>
-                </TouchableOpacity>
-                {achRelationshipId
-                  ? <Text style={s.bankLinkedTxt}>✅ Bank connected</Text>
-                  : <Text style={s.bankNotLinkedTxt}>Connect your bank above to continue.</Text>
-                }
+                {achRelationshipId ? (
+                  <View style={s.bankConnectedBox}>
+                    <Text style={s.bankLinkedTxt}>✓ Bank connected</Text>
+                  </View>
+                ) : (
+                  <>
+                    <TouchableOpacity style={s.plaidBtn} onPress={() => navigation.navigate('LinkBank')}>
+                      <Text style={s.plaidBtnTxt}>🔗 Connect Bank with Plaid</Text>
+                    </TouchableOpacity>
+                    <Text style={s.bankNotLinkedTxt}>Connect your bank above to continue.</Text>
+                  </>
+                )}
 
                 {/* Amount */}
                 <View>
@@ -895,9 +958,10 @@ const s = StyleSheet.create({
   stateModalCheck:        { fontSize: 14, color: C.orange, fontFamily: F.bold },
 
   // Plaid connect
-  plaidBtn:        { backgroundColor: '#00C896', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  plaidBtnTxt:     { fontSize: 16, fontFamily: F.bold, color: '#000' },
-  bankLinkedTxt:   { fontSize: 13, fontFamily: F.medium, color: C.green, textAlign: 'center' },
+  plaidBtn:         { backgroundColor: '#00C896', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  plaidBtnTxt:      { fontSize: 16, fontFamily: F.bold, color: '#000' },
+  bankConnectedBox: { backgroundColor: '#F0FDF4', borderRadius: 14, paddingVertical: 14, alignItems: 'center', borderWidth: 1.5, borderColor: '#16A34A' },
+  bankLinkedTxt:    { fontSize: 15, fontFamily: F.semibold, color: '#16A34A' },
   bankNotLinkedTxt: { fontSize: 13, fontFamily: F.regular, color: C.muted, textAlign: 'center' },
 
   // ETF tip
