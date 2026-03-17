@@ -279,14 +279,14 @@ async function trade(body) {
       headers: alpacaHeaders(),
       body: JSON.stringify(orderBody),
     });
-    data = await response.json();
+    const rawText = await response.text();
+    console.log('[alpaca] trade response status:', response.status, response.statusText);
+    console.log('[alpaca] trade raw response:', rawText);
+    data = rawText ? JSON.parse(rawText) : {};
   } catch (fetchErr) {
     console.error('[alpaca] trade fetch error:', fetchErr.message);
     return { status: 500, body: { error: fetchErr.message } };
   }
-
-  console.log('[alpaca] trade response status:', response.status);
-  console.log('[alpaca] trade response body:', JSON.stringify(data, null, 2));
 
   if (!response.ok) {
     return { status: response.status, body: { error: data.message || 'Order failed', details: data } };
