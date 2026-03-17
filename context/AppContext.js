@@ -35,7 +35,11 @@ export function AppProvider({ children }) {
 
   const fetchAlpacaPortfolio = async (accountId) => {
     try {
-      const res = await fetch(`${API_BASE}/api/alpaca-portfolio?accountId=${accountId}`);
+      const res = await fetch(`${API_BASE}/api/alpaca`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'portfolio', accountId }),
+      });
       const data = await res.json();
       if (res.ok) {
         setAlpacaPositions(data.positions ?? []);
@@ -117,10 +121,10 @@ export function AppProvider({ children }) {
   const createAlpacaAccount = async (profileData) => {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error('Not authenticated');
-    const response = await fetch(`${API_BASE}/api/alpaca-account`, {
+    const response = await fetch(`${API_BASE}/api/alpaca`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(profileData),
+      body: JSON.stringify({ action: 'create-account', ...profileData }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to create account');

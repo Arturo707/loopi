@@ -292,10 +292,11 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
 
       // 2. Link bank via ACH
       const bankOwner = [firstName.trim(), lastName.trim()].join(' ');
-      const bankRes = await fetch(`${API_BASE}/api/alpaca-bank`, {
+      const bankRes = await fetch(`${API_BASE}/api/alpaca`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'link-bank',
           accountId: newAccountId,
           uid: user.uid,
           routingNumber: routing,
@@ -308,10 +309,11 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
       setAchRelationshipId(bankData.achRelationshipId);
 
       // 3. Place trade
-      const tradeRes = await fetch(`${API_BASE}/api/alpaca-trade`, {
+      const tradeRes = await fetch(`${API_BASE}/api/alpaca`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'trade',
           accountId: newAccountId,
           symbol: stock.symbol,
           side: 'buy',
@@ -367,10 +369,11 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
         });
         if (!result.success) { setLoading(false); return; }
       }
-      const res = await fetch(`${API_BASE}/api/alpaca-trade`, {
+      const res = await fetch(`${API_BASE}/api/alpaca`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'trade',
           accountId: alpacaAccountId,
           symbol: stock.symbol,
           side: 'buy',
