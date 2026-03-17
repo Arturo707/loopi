@@ -9,13 +9,16 @@ import { useApp } from '../context/AppContext';
 import { db } from '../config/firebase';
 
 // Safe require — native SDK is unavailable on web; catch prevents bundler crash
-let PlaidLink = null;
-try {
-  const plaidModule = require('react-native-plaid-link-sdk');
-  console.log('[LinkBank] plaid module keys:', Object.keys(plaidModule));
-  PlaidLink = plaidModule.PlaidLink || plaidModule.default || null;
-} catch (e) {
-  console.log('[LinkBank] PlaidLink load error:', e.message);
+let plaidCreate = null;
+if (Platform.OS !== 'web') {
+  try {
+    const plaidModule = require('react-native-plaid-link-sdk');
+    console.log('[LinkBank] plaid module keys:', Object.keys(plaidModule));
+    plaidCreate = plaidModule.create || null;
+    console.log('[LinkBank] plaidCreate:', plaidCreate);
+  } catch (e) {
+    console.log('[LinkBank] PlaidLink load error:', e.message);
+  }
 }
 
 const API_BASE = 'https://loopi-teal.vercel.app';
@@ -108,7 +111,30 @@ export default function LinkBankScreen({ navigation }) {
     }
   };
 
-  // ── 3. Web: open Plaid hosted link in browser ─────────────────────────────
+  // ── 3a. Native: use create/open SDK API ───────────────────────────────────
+
+  const openNativePlaid = async () => {
+    if (!linkToken || !plaidCreate) return;
+    try {
+      const plaidHandler = await plaidCreate({ token: linkToken });
+      plaidHandler.open({
+        onSuccess: (success) => {
+          handleSuccess(success.publicToken, success.metadata?.accounts?.[0]?.id);
+        },
+        onExit: (exit) => {
+          if (exit?.error) {
+            console.log('[LinkBank] Plaid exit error:', exit.error);
+            setError('Bank linking was cancelled or failed. Please try again.');
+          }
+        },
+      });
+    } catch (err) {
+      console.error('[LinkBank] plaidCreate error:', err.message);
+      setError('Could not open bank linking. Please try again.');
+    }
+  };
+
+  // ── 3b. Web: open Plaid hosted link in browser ────────────────────────────
 
   const openWebPlaid = () => {
     if (!linkToken) return;
@@ -150,7 +176,7 @@ export default function LinkBankScreen({ navigation }) {
     );
   }
 
-  console.log('[LinkBank] render — Platform.OS:', Platform.OS, '| PlaidLink:', PlaidLink, '| linkToken:', linkToken ? 'present' : 'null');
+  console.log('[LinkBank] render — Platform.OS:', Platform.OS, '| plaidCreate:', plaidCreate, '| linkToken:', linkToken ? 'present' : 'null');
 
   return (
     <View style={s.container}>
@@ -163,29 +189,9 @@ export default function LinkBankScreen({ navigation }) {
         <Text style={s.errorTxt}>{error}</Text>
       )}
 
-      {/* Native: use PlaidLink SDK component */}
-      {Platform.OS !== 'web' && PlaidLink && linkToken ? (
-        <PlaidLink
-          tokenConfig={{ token: linkToken }}
-          onSuccess={(success) => {
-            const publicToken = success.publicToken;
-            const accountId   = success.metadata?.accounts?.[0]?.id;
-            handleSuccess(publicToken, accountId);
-          }}
-          onExit={(exit) => {
-            if (exit?.error) {
-              console.error('[Plaid] exit error:', exit.error);
-              setError('Bank linking was cancelled or failed. Please try again.');
-            }
-          }}
-        >
-          <TouchableOpacity style={s.btn}>
-            <Text style={s.btnTxt}>🔗 Connect Bank Account</Text>
-          </TouchableOpacity>
-        </PlaidLink>
-      ) : Platform.OS !== 'web' && !PlaidLink ? (
-        /* Native but SDK unavailable — fallback */
-        <TouchableOpacity style={s.btn} onPress={openWebPlaid}>
+      {Platform.OS !== 'web' ? (
+        /* Native: use create/open SDK API */
+        <TouchableOpacity style={s.btn} onPress={openNativePlaid} disabled={!linkToken || !plaidCreate}>
           <Text style={s.btnTxt}>🔗 Connect Bank Account</Text>
         </TouchableOpacity>
       ) : (
