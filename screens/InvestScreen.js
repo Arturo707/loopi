@@ -20,9 +20,20 @@ const API_BASE =
 const INVEST_AMOUNTS = [25, 50, 100, 200, 500];
 const TOTAL_KYC_STEPS = 6;
 
+const WEALTH_BUILDING_ETFS = ['QQQ','SPY','VTI','VOO','IVV','VGT','SCHD','VYM','DIA','IWM','EFA','AGG','BND','GLD','VNQ'];
+
 const EMPLOYMENT_OPTIONS = ['Employed', 'Self-employed', 'Student', 'Unemployed', 'Retired'];
 const INCOME_OPTIONS     = ['Under $30k', '$30k–$60k', '$60k–$100k', '$100k–$300k', 'Over $300k'];
 const WORTH_OPTIONS      = ['Under $10k', '$10k–$50k', '$50k–$200k', 'Over $200k'];
+
+const US_STATES = [
+  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
+  'HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
+  'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
+  'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
+  'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
+  'DC','PR',
+];
 
 const formatSsn = (raw) => {
   const d = raw.replace(/\D/g, '').slice(0, 9);
@@ -120,9 +131,10 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
   const [agree1, setAgree1] = useState(false);
   const [agree2, setAgree2] = useState(false);
 
-  // Step 6 — Bank
-  const [routing,    setRouting]    = useState('');
-  const [accountNum, setAccountNum] = useState('');
+  // Step 6 — Amount / recurring
+  const [customAmount,   setCustomAmount]   = useState('');
+  const [recurring,      setRecurring]      = useState(false);
+  const [recurringFreq,  setRecurringFreq]  = useState(null);
 
   // Shared
   const [loading, setLoading] = useState(false);
@@ -137,7 +149,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
     setEmployment(null); setIncome(null); setNetWorth(null);
     setIsPep(false); setIsAffiliated(false); setIsShareholder(false); setIsFamilyExp(false);
     setAgree1(false); setAgree2(false);
-    setRouting(''); setAccountNum('');
+    setCustomAmount(''); setRecurring(false); setRecurringFreq(null);
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -225,7 +237,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
       case 3: return !!employment && !!income && !!netWorth;
       case 4: return true; // disclosures always valid (defaulted to No)
       case 5: return agree1 && agree2;
-      case 6: return /^\d{9}$/.test(routing) && /^\d{4,17}$/.test(accountNum);
+      case 6: return !!achRelationshipId && amount > 0;
       default: return false;
     }
   };
@@ -290,25 +302,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
       const accountData = await createAlpacaAccount(kycData);
       const newAccountId = accountData.alpacaAccountId;
 
-      // 2. Link bank via ACH
-      const bankOwner = [firstName.trim(), lastName.trim()].join(' ');
-      const bankRes = await fetch(`${API_BASE}/api/alpaca`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'link-bank',
-          accountId: newAccountId,
-          uid: user.uid,
-          routingNumber: routing,
-          accountNumber: accountNum,
-          bankAccountOwnerName: bankOwner,
-        }),
-      });
-      const bankData = await bankRes.json();
-      if (!bankRes.ok) throw new Error(bankData.error || 'Bank link failed');
-      setAchRelationshipId(bankData.achRelationshipId);
-
-      // 3. Place trade
+      // 2. Place trade (bank already linked via Plaid — achRelationshipId set in context)
       const tradeRes = await fetch(`${API_BASE}/api/alpaca`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -318,7 +312,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
           symbol: stock.symbol,
           side: 'buy',
           amount,
-          achRelationshipId: bankData.achRelationshipId,
+          achRelationshipId,
         }),
       });
       const tradeData = await tradeRes.json();
@@ -418,10 +412,60 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
             <Text style={s.amtLabel}>How much do you want to invest?</Text>
             <View style={s.amounts}>
               {INVEST_AMOUNTS.map((a) => (
-                <TouchableOpacity key={a} style={[s.amtBtn, amount === a && s.amtBtnActive]} onPress={() => setAmount(a)} disabled={loading}>
-                  <Text style={[s.amtTxt, amount === a && s.amtTxtActive]}>${a}</Text>
+                <TouchableOpacity key={a} style={[s.amtBtn, amount === a && !customAmount && s.amtBtnActive]} onPress={() => { setAmount(a); setCustomAmount(''); }} disabled={loading}>
+                  <Text style={[s.amtTxt, amount === a && !customAmount && s.amtTxtActive]}>${a}</Text>
                 </TouchableOpacity>
               ))}
+            </View>
+            <TextInput
+              style={[s.input, { marginTop: 10 }]}
+              value={customAmount}
+              onChangeText={(v) => {
+                const clean = v.replace(/[^0-9.]/g, '');
+                setCustomAmount(clean);
+                const parsed = parseFloat(clean);
+                if (!isNaN(parsed) && parsed > 0) setAmount(parsed);
+              }}
+              placeholder="Or enter a custom amount"
+              placeholderTextColor={C.muted}
+              keyboardType="decimal-pad"
+              editable={!loading}
+            />
+            {WEALTH_BUILDING_ETFS.includes(stock?.symbol) && (
+              <View style={[s.etfTip, { marginTop: 12 }]}>
+                <Text style={s.etfTipTxt}>
+                  💡 Real wealth is built by investing consistently in index ETFs — not timing the market. Consider making this recurring.
+                </Text>
+              </View>
+            )}
+            <View style={{ marginTop: 12 }}>
+              <View style={s.recurringRow}>
+                <Text style={s.amtLabel}>Recurring</Text>
+                <TouchableOpacity
+                  style={[s.recurringToggle, recurring && s.recurringToggleOn]}
+                  onPress={() => { setRecurring(!recurring); if (recurring) setRecurringFreq(null); }}
+                  disabled={loading}
+                >
+                  <Text style={[s.recurringToggleTxt, recurring && s.recurringToggleTxtOn]}>
+                    {recurring ? 'On' : 'Off'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {recurring && (
+                <View style={s.freqRow}>
+                  <TouchableOpacity style={[s.freqBtn, recurringFreq === 'weekly' && s.freqBtnActive]} onPress={() => setRecurringFreq('weekly')}>
+                    <Text style={[s.freqTxt, recurringFreq === 'weekly' && s.freqTxtActive]}>Weekly</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[s.freqBtn, recurringFreq === 'monthly' && s.freqBtnActive]} onPress={() => setRecurringFreq('monthly')}>
+                    <Text style={[s.freqTxt, recurringFreq === 'monthly' && s.freqTxtActive]}>Monthly</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {recurring && recurringFreq && (
+                <Text style={s.recurringNote}>
+                  We'll automatically invest ${amount} every {recurringFreq === 'weekly' ? 'week' : 'month'} in {stock?.symbol}.
+                </Text>
+              )}
             </View>
             {error ? <Text style={s.errorTxt}>{error}</Text> : null}
             <TouchableOpacity style={[s.confirmBtn, loading && { opacity: 0.7 }]} onPress={handleInvestB} disabled={loading}>
@@ -546,19 +590,27 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
                   <TextInput style={s.input} value={city} onChangeText={setCity}
                     placeholder="e.g. New York" placeholderTextColor={C.muted} autoCapitalize="words" />
                 </View>
-                <View style={s.twoCol}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.label}>State</Text>
-                    <TextInput style={s.input} value={addrState}
-                      onChangeText={(v) => setAddrState(v.toUpperCase().slice(0, 2))}
-                      placeholder="e.g. NY" placeholderTextColor={C.muted} autoCapitalize="characters" maxLength={2} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.label}>ZIP code</Text>
-                    <TextInput style={s.input} value={zip}
-                      onChangeText={(v) => setZip(v.replace(/\D/g, '').slice(0, 5))}
-                      placeholder="e.g. 10001" placeholderTextColor={C.muted} keyboardType="number-pad" maxLength={5} />
-                  </View>
+                <View>
+                  <Text style={s.label}>State</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.stateScroll}>
+                    <View style={s.stateList}>
+                      {US_STATES.map((st) => (
+                        <TouchableOpacity
+                          key={st}
+                          style={[s.stateChip, addrState === st && s.stateChipActive]}
+                          onPress={() => setAddrState(st)}
+                        >
+                          <Text style={[s.stateChipTxt, addrState === st && s.stateChipTxtActive]}>{st}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+                <View>
+                  <Text style={s.label}>ZIP code</Text>
+                  <TextInput style={s.input} value={zip}
+                    onChangeText={(v) => setZip(v.replace(/\D/g, '').slice(0, 5))}
+                    placeholder="e.g. 10001" placeholderTextColor={C.muted} keyboardType="number-pad" maxLength={5} />
                 </View>
               </View>
             )}
@@ -629,39 +681,93 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
               </View>
             )}
 
-            {/* ── Step 6: Bank ── */}
+            {/* ── Step 6: Bank + Amount ── */}
             {step === 6 && (
               <View style={s.fields}>
-                <View style={s.bankBanner}>
-                  <Text style={s.bankBannerTxt}>
-                    🔒 Your bank details are never stored by Loopi{'\n'}
-                    All information is encrypted and sent directly to Alpaca Securities, our SIPC-insured brokerage partner.
-                  </Text>
-                </View>
-                <View>
-                  <Text style={s.label}>Routing number</Text>
-                  <TextInput style={s.input} value={routing}
-                    onChangeText={(v) => setRouting(v.replace(/\D/g, '').slice(0, 9))}
-                    placeholder="e.g. 021000021" placeholderTextColor={C.muted}
-                    keyboardType="number-pad" maxLength={9} autoFocus />
-                </View>
-                <View>
-                  <Text style={s.label}>Account number</Text>
-                  <TextInput style={s.input} value={accountNum}
-                    onChangeText={(v) => setAccountNum(v.replace(/\D/g, '').slice(0, 17))}
-                    placeholder="e.g. 000123456789" placeholderTextColor={C.muted}
-                    keyboardType="number-pad" maxLength={17} secureTextEntry />
-                </View>
+
+                {/* Plaid connect */}
+                <TouchableOpacity style={s.plaidBtn} onPress={() => navigation.navigate('LinkBank')}>
+                  <Text style={s.plaidBtnTxt}>🔗 Connect Bank with Plaid</Text>
+                </TouchableOpacity>
+                {achRelationshipId
+                  ? <Text style={s.bankLinkedTxt}>✅ Bank connected</Text>
+                  : <Text style={s.bankNotLinkedTxt}>Connect your bank above to continue.</Text>
+                }
+
+                {/* Amount */}
                 <View>
                   <Text style={s.label}>How much to invest?</Text>
                   <View style={s.amounts}>
                     {INVEST_AMOUNTS.map((a) => (
-                      <TouchableOpacity key={a} style={[s.amtBtn, amount === a && s.amtBtnActive]} onPress={() => setAmount(a)}>
-                        <Text style={[s.amtTxt, amount === a && s.amtTxtActive]}>${a}</Text>
+                      <TouchableOpacity
+                        key={a}
+                        style={[s.amtBtn, amount === a && !customAmount && s.amtBtnActive]}
+                        onPress={() => { setAmount(a); setCustomAmount(''); }}
+                      >
+                        <Text style={[s.amtTxt, amount === a && !customAmount && s.amtTxtActive]}>${a}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
+                  <TextInput
+                    style={[s.input, { marginTop: 10 }]}
+                    value={customAmount}
+                    onChangeText={(v) => {
+                      const clean = v.replace(/[^0-9.]/g, '');
+                      setCustomAmount(clean);
+                      const parsed = parseFloat(clean);
+                      if (!isNaN(parsed) && parsed > 0) setAmount(parsed);
+                    }}
+                    placeholder="Or enter a custom amount"
+                    placeholderTextColor={C.muted}
+                    keyboardType="decimal-pad"
+                  />
                 </View>
+
+                {/* ETF recommendation */}
+                {WEALTH_BUILDING_ETFS.includes(stock?.symbol) && (
+                  <View style={s.etfTip}>
+                    <Text style={s.etfTipTxt}>
+                      💡 Real wealth is built by investing consistently in index ETFs — not timing the market. Consider making this recurring.
+                    </Text>
+                  </View>
+                )}
+
+                {/* Recurring toggle */}
+                <View>
+                  <View style={s.recurringRow}>
+                    <Text style={s.label}>Recurring investment</Text>
+                    <TouchableOpacity
+                      style={[s.recurringToggle, recurring && s.recurringToggleOn]}
+                      onPress={() => { setRecurring(!recurring); if (recurring) setRecurringFreq(null); }}
+                    >
+                      <Text style={[s.recurringToggleTxt, recurring && s.recurringToggleTxtOn]}>
+                        {recurring ? 'On' : 'Off'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  {recurring && (
+                    <View style={s.freqRow}>
+                      <TouchableOpacity
+                        style={[s.freqBtn, recurringFreq === 'weekly' && s.freqBtnActive]}
+                        onPress={() => setRecurringFreq('weekly')}
+                      >
+                        <Text style={[s.freqTxt, recurringFreq === 'weekly' && s.freqTxtActive]}>Weekly</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[s.freqBtn, recurringFreq === 'monthly' && s.freqBtnActive]}
+                        onPress={() => setRecurringFreq('monthly')}
+                      >
+                        <Text style={[s.freqTxt, recurringFreq === 'monthly' && s.freqTxtActive]}>Monthly</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  {recurring && recurringFreq && (
+                    <Text style={s.recurringNote}>
+                      We'll automatically invest ${amount} every {recurringFreq === 'weekly' ? 'week' : 'month'} in {stock?.symbol}.
+                    </Text>
+                  )}
+                </View>
+
                 {error ? <Text style={s.errorTxt}>{error}</Text> : null}
               </View>
             )}
@@ -758,6 +864,37 @@ const s = StyleSheet.create({
   amtBtnActive: { borderColor: C.orange, backgroundColor: C.orangeLight },
   amtTxt:       { fontSize: 15, fontFamily: F.semibold, color: C.sub },
   amtTxtActive: { color: C.orange },
+
+  // State selector
+  stateScroll: { marginTop: 4 },
+  stateList:   { flexDirection: 'row', gap: 8, paddingVertical: 4 },
+  stateChip:        { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.card },
+  stateChipActive:  { borderColor: C.orange, backgroundColor: C.orangeLight },
+  stateChipTxt:     { fontSize: 13, fontFamily: F.semibold, color: C.sub },
+  stateChipTxtActive: { color: C.orange },
+
+  // Plaid connect
+  plaidBtn:        { backgroundColor: '#00C896', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  plaidBtnTxt:     { fontSize: 16, fontFamily: F.bold, color: '#000' },
+  bankLinkedTxt:   { fontSize: 13, fontFamily: F.medium, color: C.green, textAlign: 'center' },
+  bankNotLinkedTxt: { fontSize: 13, fontFamily: F.regular, color: C.muted, textAlign: 'center' },
+
+  // ETF tip
+  etfTip:    { backgroundColor: '#052e16', borderRadius: 14, padding: 14 },
+  etfTipTxt: { fontSize: 13, fontFamily: F.regular, color: '#86efac', lineHeight: 20 },
+
+  // Recurring
+  recurringRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  recurringToggle:    { paddingVertical: 6, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.card },
+  recurringToggleOn:  { borderColor: C.orange, backgroundColor: C.orangeLight },
+  recurringToggleTxt: { fontSize: 13, fontFamily: F.semibold, color: C.muted },
+  recurringToggleTxtOn: { color: C.orange },
+  freqRow:     { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  freqBtn:     { flex: 1, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, alignItems: 'center', backgroundColor: C.card },
+  freqBtnActive: { borderColor: C.orange, backgroundColor: C.orangeLight },
+  freqTxt:     { fontSize: 14, fontFamily: F.semibold, color: C.sub },
+  freqTxtActive: { color: C.orange },
+  recurringNote: { fontSize: 12, fontFamily: F.regular, color: C.muted, lineHeight: 18 },
 
   errorTxt: { fontSize: 13, fontFamily: F.medium, color: C.red, textAlign: 'center' },
 
