@@ -131,6 +131,9 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
   const [agree1, setAgree1] = useState(false);
   const [agree2, setAgree2] = useState(false);
 
+  // Step 2 — State picker
+  const [statePickerOpen, setStatePickerOpen] = useState(false);
+
   // Step 6 — Amount / recurring
   const [customAmount,   setCustomAmount]   = useState('');
   const [recurring,      setRecurring]      = useState(false);
@@ -592,19 +595,31 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
                 </View>
                 <View>
                   <Text style={s.label}>State</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.stateScroll}>
-                    <View style={s.stateList}>
-                      {US_STATES.map((st) => (
-                        <TouchableOpacity
-                          key={st}
-                          style={[s.stateChip, addrState === st && s.stateChipActive]}
-                          onPress={() => setAddrState(st)}
-                        >
-                          <Text style={[s.stateChipTxt, addrState === st && s.stateChipTxtActive]}>{st}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </ScrollView>
+                  <TouchableOpacity style={s.statePickerBtn} onPress={() => setStatePickerOpen(true)}>
+                    <Text style={addrState ? s.statePickerValue : s.statePickerPlaceholder}>
+                      {addrState || 'Select state'}
+                    </Text>
+                    <Text style={s.statePickerCaret}>▾</Text>
+                  </TouchableOpacity>
+                  <Modal visible={statePickerOpen} transparent animationType="fade" onRequestClose={() => setStatePickerOpen(false)}>
+                    <TouchableOpacity style={s.stateModalOverlay} activeOpacity={1} onPress={() => setStatePickerOpen(false)}>
+                      <View style={s.stateModalSheet}>
+                        <Text style={s.stateModalTitle}>Select State</Text>
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                          {US_STATES.map((st) => (
+                            <TouchableOpacity
+                              key={st}
+                              style={[s.stateModalRow, addrState === st && s.stateModalRowActive]}
+                              onPress={() => { setAddrState(st); setStatePickerOpen(false); }}
+                            >
+                              <Text style={[s.stateModalRowTxt, addrState === st && s.stateModalRowTxtActive]}>{st}</Text>
+                              {addrState === st && <Text style={s.stateModalCheck}>✓</Text>}
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </TouchableOpacity>
+                  </Modal>
                 </View>
                 <View>
                   <Text style={s.label}>ZIP code</Text>
@@ -865,13 +880,19 @@ const s = StyleSheet.create({
   amtTxt:       { fontSize: 15, fontFamily: F.semibold, color: C.sub },
   amtTxtActive: { color: C.orange },
 
-  // State selector
-  stateScroll: { marginTop: 4 },
-  stateList:   { flexDirection: 'row', gap: 8, paddingVertical: 4 },
-  stateChip:        { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.card },
-  stateChipActive:  { borderColor: C.orange, backgroundColor: C.orangeLight },
-  stateChipTxt:     { fontSize: 13, fontFamily: F.semibold, color: C.sub },
-  stateChipTxtActive: { color: C.orange },
+  // State picker
+  statePickerBtn:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14 },
+  statePickerValue:       { fontSize: 16, fontFamily: F.regular, color: C.text },
+  statePickerPlaceholder: { fontSize: 16, fontFamily: F.regular, color: C.muted },
+  statePickerCaret:       { fontSize: 14, color: C.muted },
+  stateModalOverlay:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24 },
+  stateModalSheet:        { backgroundColor: C.card, borderRadius: 20, padding: 20, maxHeight: '70%' },
+  stateModalTitle:        { fontSize: 16, fontFamily: F.bold, color: C.text, marginBottom: 12, textAlign: 'center' },
+  stateModalRow:          { paddingVertical: 13, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: C.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  stateModalRowActive:    { backgroundColor: C.orangeLight, borderRadius: 10 },
+  stateModalRowTxt:       { fontSize: 15, fontFamily: F.regular, color: C.text },
+  stateModalRowTxtActive: { fontFamily: F.semibold, color: C.orange },
+  stateModalCheck:        { fontSize: 14, color: C.orange, fontFamily: F.bold },
 
   // Plaid connect
   plaidBtn:        { backgroundColor: '#00C896', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
