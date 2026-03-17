@@ -765,7 +765,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
                   </View>
                 ) : (
                   <>
-                    <TouchableOpacity style={s.plaidBtn} onPress={() => navigation.navigate('LinkBank')}>
+                    <TouchableOpacity style={s.plaidBtn} onPress={() => { onClose(); navigation.navigate('LinkBank'); }}>
                       <Text style={s.plaidBtnTxt}>🔗 Connect Bank with Plaid</Text>
                     </TouchableOpacity>
                     <Text style={s.bankNotLinkedTxt}>Connect your bank above to continue.</Text>
