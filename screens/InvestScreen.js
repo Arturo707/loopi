@@ -880,8 +880,8 @@ const s = StyleSheet.create({
   bankNotLinkedTxt: { fontSize: 13, fontFamily: F.regular, color: C.muted, textAlign: 'center' },
 
   // ETF tip
-  etfTip:    { backgroundColor: '#052e16', borderRadius: 14, padding: 14 },
-  etfTipTxt: { fontSize: 13, fontFamily: F.regular, color: '#86efac', lineHeight: 20 },
+  etfTip:    { backgroundColor: '#F0FDF4', borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12 },
+  etfTipTxt: { fontSize: 14, fontFamily: F.bold, color: '#16A34A' },
 
   // Recurring
   recurringRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },

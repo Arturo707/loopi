@@ -266,15 +266,25 @@ async function trade(body) {
     ),
   };
 
-  const response = await fetch(`${ALPACA_BASE}/v1/trading/accounts/${accountId}/orders`, {
-    method: 'POST',
-    headers: alpacaHeaders(),
-    body: JSON.stringify(orderBody),
-  });
-  const data = await response.json();
+  console.log('[alpaca] trade request body:', JSON.stringify(orderBody, null, 2));
+
+  let response, data;
+  try {
+    response = await fetch(`${ALPACA_BASE}/v1/trading/accounts/${accountId}/orders`, {
+      method: 'POST',
+      headers: alpacaHeaders(),
+      body: JSON.stringify(orderBody),
+    });
+    data = await response.json();
+  } catch (fetchErr) {
+    console.error('[alpaca] trade fetch error:', fetchErr.message);
+    return { status: 500, body: { error: fetchErr.message } };
+  }
+
+  console.log('[alpaca] trade response status:', response.status);
+  console.log('[alpaca] trade response body:', JSON.stringify(data, null, 2));
 
   if (!response.ok) {
-    console.error('[alpaca] trade failed:', data);
     return { status: response.status, body: { error: data.message || 'Order failed', details: data } };
   }
 
