@@ -137,7 +137,13 @@ export function AuthProvider({ children }) {
     const result = await signInWithCredential(auth, credential);
     return result.user;
   };
-  const resetPassword = (email) => sendPasswordResetEmail(auth, email);
+  // actionCodeSettings tells Firebase where to redirect after the user resets
+  // their password — without it, Firebase sends them to a generic Google page.
+  const resetPassword = (email) =>
+    sendPasswordResetEmail(auth, email, {
+      url: process.env.EXPO_PUBLIC_APP_URL || 'https://loopi-teal.vercel.app',
+      handleCodeInApp: false,
+    });
 
   const signOutUser = async () => {
     await signOut(auth);

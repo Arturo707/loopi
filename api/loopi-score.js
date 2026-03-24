@@ -5,7 +5,11 @@
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { computeScore, SCORE_TTL_MS } from '../lib/loopi-score-core.js';
+import { computeScore } from '../lib/loopi-score-core.js';
+
+// Serve cached scores for up to 24h — the cron job refreshes every 30min,
+// so this generous TTL avoids live Claude calls between cron runs.
+const SERVE_TTL_MS = 24 * 60 * 60 * 1000;
 
 let db = null;
 try {
@@ -40,7 +44,7 @@ export default async function handler(req, res) {
       if (snap.exists) {
         const cached = snap.data();
         const age = Date.now() - new Date(cached.cachedAt).getTime();
-        if (age < SCORE_TTL_MS) {
+        if (age < SERVE_TTL_MS) {
           console.log(`[loopi-score] Firestore cache hit for ${ticker} (${Math.round(age / 60000)}m old)`);
           return res.status(200).json(cached);
         }
