@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.loopi.app",
+      "bundleIdentifier": "com.arturocuesta.loopi",
       "buildNumber": "1",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
