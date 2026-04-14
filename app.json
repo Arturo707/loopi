@@ -16,6 +16,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.loopi.app",
       "buildNumber": "1",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSFaceIDUsageDescription": "Loopi uses Face ID to confirm your investments securely."
@@ -50,7 +51,7 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_REVERSED_IOS_CLIENT_ID"
+          "iosUrlScheme": "com.googleusercontent.apps.951562367501-a5ibql7l2o1ohqqtg8ecj63h2t59tq85"
         }
       ]
     ],
