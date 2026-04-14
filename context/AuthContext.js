@@ -134,9 +134,11 @@ export function AuthProvider({ children }) {
     await GoogleSignin.hasPlayServices();
     // v13+ returns { type, data } — idToken lives at data.idToken, not top-level
     const signInResult = await GoogleSignin.signIn();
+    console.log('[Google Sign-In] signInResult:', JSON.stringify(signInResult));
     if (signInResult.type === 'cancelled') return null;
     const idToken = signInResult.data?.idToken;
-    if (!idToken) throw new Error('Google Sign-In: no idToken returned');
+    console.log('[Google Sign-In] idToken present:', !!idToken);
+    if (!idToken) throw new Error('Google Sign-In: no idToken returned. Result type: ' + signInResult.type);
     const credential = GoogleAuthProvider.credential(idToken);
     const result = await signInWithCredential(auth, credential);
     return result.user;
