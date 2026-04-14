@@ -14,7 +14,15 @@
       "Bash(gh pr:*)",
       "Bash(gh api:*)",
       "Skill(browse)",
-      "Bash(npx expo:*)"
+      "Bash(npx expo:*)",
+      "Bash(eas login:*)",
+      "Bash(npm list:*)",
+      "Bash(magick --version)",
+      "Bash(pkill -f \"node.*7891\")",
+      "Bash(ls gen_icon*)",
+      "Bash(npm uninstall:*)",
+      "Bash(eas whoami:*)",
+      "Bash(eas build:*)"
     ]
   }
 }

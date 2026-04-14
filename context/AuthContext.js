@@ -130,9 +130,13 @@ export function AuthProvider({ children }) {
       const result = await signInWithPopup(auth, provider);
       return result.user;
     }
-    const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+    const { GoogleSignin, statusCodes } = require('@react-native-google-signin/google-signin');
     await GoogleSignin.hasPlayServices();
-    const { idToken } = await GoogleSignin.signIn();
+    // v13+ returns { type, data } — idToken lives at data.idToken, not top-level
+    const signInResult = await GoogleSignin.signIn();
+    if (signInResult.type === 'cancelled') return null;
+    const idToken = signInResult.data?.idToken;
+    if (!idToken) throw new Error('Google Sign-In: no idToken returned');
     const credential = GoogleAuthProvider.credential(idToken);
     const result = await signInWithCredential(auth, credential);
     return result.user;

@@ -13,10 +13,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.loopi.app",
+      "buildNumber": "1",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Loopi uses Face ID to confirm your investments securely."
       }
     },
     "android": {
@@ -39,7 +41,18 @@
     "plugins": [
       "expo-font",
       "expo-web-browser",
-      "@react-native-google-signin/google-signin"
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Loopi uses Face ID to confirm your investments securely."
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_REVERSED_IOS_CLIENT_ID"
+        }
+      ]
     ],
     "extra": {
       "eas": {
