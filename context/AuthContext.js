@@ -19,7 +19,8 @@ if (Platform.OS !== 'web') {
     const { GoogleSignin } = require('@react-native-google-signin/google-signin');
     GoogleSignin.configure({
       webClientId: '951562367501-g8s43mcsqtk0ns3lfa2kf1dn6brtljo7.apps.googleusercontent.com',
-      offlineAccess: true,
+      iosClientId: '951562367501-reja207jkir1hivac3j5divi6jepae9r.apps.googleusercontent.com',
+      offlineAccess: false,
     });
   } catch (e) {
     console.warn('[Auth] GoogleSignin configure failed:', e.message);
