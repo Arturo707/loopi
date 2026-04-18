@@ -140,17 +140,24 @@ export function AuthProvider({ children }) {
       return; // page navigates to Google — onAuthStateChanged fires when it returns
     }
     const { GoogleSignin, statusCodes } = require('@react-native-google-signin/google-signin');
-    await GoogleSignin.hasPlayServices();
-    // v13+ returns { type, data } — idToken lives at data.idToken, not top-level
-    const signInResult = await GoogleSignin.signIn();
-    console.log('[Google Sign-In] signInResult:', JSON.stringify(signInResult));
-    if (signInResult.type === 'cancelled') return null;
-    const idToken = signInResult.data?.idToken;
-    console.log('[Google Sign-In] idToken present:', !!idToken);
-    if (!idToken) throw new Error('Google Sign-In: no idToken returned. Result type: ' + signInResult.type);
-    const credential = GoogleAuthProvider.credential(idToken);
-    const result = await signInWithCredential(auth, credential);
-    return result.user;
+    try {
+      await GoogleSignin.hasPlayServices();
+      // v13+ returns { type, data }; v12 returns { idToken } directly
+      const signInResult = await GoogleSignin.signIn();
+      console.log('[Google Sign-In] signInResult:', JSON.stringify(signInResult));
+      if (signInResult.type === 'cancelled') return null;
+      const idToken = signInResult.data?.idToken ?? signInResult.idToken;
+      console.log('[Google Sign-In] idToken present:', !!idToken);
+      if (!idToken) throw new Error('No idToken returned (type=' + (signInResult.type ?? 'unknown') + ')');
+      const credential = GoogleAuthProvider.credential(idToken);
+      const result = await signInWithCredential(auth, credential);
+      return result.user;
+    } catch (err) {
+      // User dismissed the Google picker — treat as silent cancel
+      if (err.code === statusCodes.SIGN_IN_CANCELLED) return null;
+      // Normalize Google SDK errors (numeric code, no message) to a readable string
+      throw new Error(err.message || 'Google Sign-In error (code: ' + (err.code ?? JSON.stringify(err)) + ')');
+    }
   };
   // actionCodeSettings tells Firebase where to redirect after the user resets
   // their password — without it, Firebase sends them to a generic Google page.
