@@ -1,0 +1,1524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Loopi — know the vibe, then invest</title>
+<meta name="description" content="Loopi is investing for a generation that scrolls. A plain-english vibe check on every stock. Invest in seconds with Face ID — no broker account required." />
+
+<meta property="og:title" content="Loopi — know the vibe, then invest" />
+<meta property="og:description" content="A plain-english vibe check on every stock. Free to use. Flat fee only when you fund an investment." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://loopi.company" />
+<meta property="og:image" content="/og.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Loopi — know the vibe, then invest" />
+<meta name="twitter:description" content="A plain-english vibe check on every stock. Invest in seconds with Face ID." />
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F4EADA'/%3E%3Cpath d='M8 20 C8 12, 24 12, 24 20 C24 26, 14 26, 14 18 C14 10, 26 10, 26 18' stroke='%23F26A28' stroke-width='3.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Pacifico&display=swap" rel="stylesheet" />
+
+<script>
+window.__TWEAKS__ = /*EDITMODE-BEGIN*/{
+  "accent": "orange",
+  "headline": "Know the vibe. Buy the dip.",
+  "showTickerRail": true
+}/*EDITMODE-END*/;
+</script>
+
+<style>
+  :root{
+    /* Cream paper background like Anthropic/Claude */
+    --bg: #F4EADA;
+    --bg-soft: #EEDFC7;
+    --bg-deep: #E6D3B5;
+    --card: #FBF3E3;
+    --card-white: #FFFCF6;
+
+    --ink: #1C1612;     /* warm near-black for type */
+    --sub: #5C4A3A;
+    --muted: #9A8878;
+    --line: #1C1612;    /* pencil stroke color */
+    --border: #D8C5A8;
+    --border-strong: #C2AC8A;
+
+    /* Loopi orange */
+    --orange: #F26A28;
+    --orange-deep: #C2410C;
+    --orange-soft: #FBD9BB;
+    --orange-line: #E04F13;
+
+    --honey: #E9A84B;
+    --honey-soft: #F7E2B6;
+    --peach: #F9C9A0;
+
+    --red: #B91C1C;
+    --up: #B45309;
+
+    --radius-sm: 14px;
+    --radius: 20px;
+    --radius-lg: 28px;
+    --radius-pill: 999px;
+
+    --shadow-sm: 0 1px 0 rgba(28,22,18,0.08);
+    --shadow: 0 2px 0 rgba(28,22,18,0.10), 0 12px 28px -14px rgba(28,22,18,0.25);
+    --shadow-lg: 0 3px 0 rgba(28,22,18,0.12), 0 28px 56px -20px rgba(28,22,18,0.28);
+
+    --sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --script: 'Pacifico', cursive;
+    --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-weight:500;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    line-height:1.55;
+    position:relative;
+  }
+  /* Paper grain */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.4 0 0 0 0 0.24 0 0 0 0 0.1 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mix-blend-mode:multiply;opacity:.6;
+  }
+  body > *{position:relative;z-index:2}
+
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  img,svg{display:block;max-width:100%}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+  /* ── Pencil doodle primitives (single-stroke, hand-drawn feel) ── */
+  .doodle{position:absolute;pointer-events:none;z-index:0;color:var(--ink)}
+  .doodle svg{overflow:visible}
+
+  /* ── Nav ── */
+  .nav{
+    position:sticky;top:0;z-index:50;
+    padding:18px 0;transition:background .2s, padding .2s, border-color .2s;
+    border-bottom:1.5px solid transparent;
+  }
+  .nav.scrolled{
+    background:rgba(244,234,218,0.82);
+    backdrop-filter:saturate(180%) blur(16px);
+    -webkit-backdrop-filter:saturate(180%) blur(16px);
+    border-bottom-color:var(--border);
+    padding:12px 0;
+  }
+  .nav-inner{display:flex;align-items:center;justify-content:space-between}
+  .wordmark{
+    font-family:var(--script);
+    color:var(--orange);
+    font-size:34px;line-height:1;
+    letter-spacing:-0.01em;
+    display:inline-block;
+    transform:translateY(-2px);
+  }
+  .nav-links{display:flex;align-items:center;gap:28px;font-size:15px;color:var(--sub);font-weight:600}
+  .nav-links a{transition:color .15s}
+  .nav-links a:hover{color:var(--orange-deep)}
+
+  /* ── Hero ── */
+  .hero{padding:40px 0 96px;position:relative;overflow:visible}
+  .hero-grid{
+    display:grid;gap:48px;align-items:center;
+    grid-template-columns: 1.1fr 1fr;
+  }
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:7px 14px;border-radius:var(--radius-pill);
+    background:var(--card);color:var(--ink);
+    font-size:13px;font-weight:700;letter-spacing:.01em;
+    border:1.5px solid var(--ink);
+    box-shadow:2px 2px 0 var(--ink);
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--orange);box-shadow:0 0 0 3px rgba(242,106,40,0.22)}
+
+  h1.headline{
+    font-family:var(--sans);
+    font-size:clamp(52px, 8vw, 108px);
+    font-weight:800;
+    line-height:0.98;
+    letter-spacing:-0.045em;
+    margin:22px 0 22px;
+    text-wrap:balance;
+    color:var(--ink);
+  }
+  h1.headline em{
+    font-style:normal;
+    font-family:var(--script);
+    font-weight:400;
+    color:var(--orange);
+    letter-spacing:0;
+    font-size:0.92em;
+    line-height:1.1;
+    display:inline-block;
+  }
+  /* hand-drawn underline under the accent word */
+  .headline-underline{
+    position:relative;display:inline-block;
+    padding-bottom:0.08em;
+  }
+  .headline-underline::after{
+    content:"";position:absolute;left:-1%;right:-3%;bottom:-0.02em;height:0.14em;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' fill='none' stroke='%23F26A28' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M4 7 C 40 2, 80 10, 120 5 S 190 8, 196 6'/%3E%3C/svg%3E") center/100% 100% no-repeat;
+  }
+
+  .sub{
+    font-size:21px;color:var(--sub);max-width:540px;
+    text-wrap:pretty;line-height:1.5;font-weight:500;
+  }
+  .cta-row{margin-top:32px;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .btn{
+    display:inline-flex;align-items:center;gap:10px;
+    padding:16px 26px;border-radius:var(--radius-pill);
+    font-weight:700;font-size:16px;letter-spacing:-0.005em;
+    transition:transform .12s, background .15s, box-shadow .15s;
+    border:1.5px solid var(--ink);
+  }
+  .btn-primary{
+    background:var(--orange);color:#fff;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .btn-primary:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)}
+  .btn-primary:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:transparent;padding:16px 12px}
+  .btn-ghost:hover{color:var(--orange-deep)}
+  .btn .arrow{transition:transform .15s}
+  .btn:hover .arrow{transform:translateX(3px)}
+  .reassure{font-size:13.5px;color:var(--muted);font-family:var(--mono)}
+  .reassure b{color:var(--ink);font-weight:700}
+
+  /* ── Hero visual: phone mockup with live feed ── */
+  .hero-visual{
+    position:relative;min-height:600px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .hero-visual::before{
+    content:"";position:absolute;inset:-40px;
+    background:
+      radial-gradient(55% 55% at 28% 30%, rgba(242,106,40,.22), transparent 60%),
+      radial-gradient(45% 45% at 78% 70%, rgba(233,168,75,.22), transparent 60%);
+    filter:blur(8px);z-index:0;
+  }
+
+  .phone{
+    position:relative;z-index:1;
+    width:300px;height:600px;
+    background:#1C1612;
+    border-radius:44px;
+    padding:10px;
+    box-shadow:var(--shadow-lg);
+    transform:rotate(-3deg);
+  }
+  .phone::before{
+    content:"";position:absolute;top:14px;left:50%;transform:translateX(-50%);
+    width:90px;height:24px;background:#000;border-radius:12px;z-index:5;
+  }
+  .screen{
+    width:100%;height:100%;border-radius:34px;overflow:hidden;
+    background:var(--card);position:relative;
+    display:flex;flex-direction:column;
+  }
+  .sb{
+    height:44px;padding:14px 20px 0;
+    display:flex;justify-content:space-between;align-items:flex-start;
+    font-size:12px;font-weight:700;color:var(--ink);
+    font-family:var(--mono);
+  }
+  .sb-right{display:flex;gap:4px;align-items:center}
+  .sb-right svg{opacity:.85}
+
+  .feed{
+    flex:1;overflow:hidden;position:relative;
+    padding:6px 12px 0;
+  }
+  .feed-track{
+    display:flex;flex-direction:column;gap:10px;
+    animation:feedScroll 18s cubic-bezier(.45,.05,.55,.95) infinite;
+  }
+  @keyframes feedScroll{
+    0%, 18%   { transform:translateY(0) }
+    22%, 42%  { transform:translateY(calc(-1 * (100% / 4))) }
+    46%, 66%  { transform:translateY(calc(-2 * (100% / 4))) }
+    70%, 90%  { transform:translateY(calc(-3 * (100% / 4))) }
+    94%, 100% { transform:translateY(0) }
+  }
+
+  .feed-card{
+    background:var(--card-white);
+    border:1.5px solid var(--border);
+    border-radius:18px;
+    padding:14px;
+    display:flex;flex-direction:column;gap:10px;
+    box-shadow:0 1px 0 rgba(28,22,18,.06);
+    flex-shrink:0;
+    min-height:140px;
+  }
+  .fc-head{display:flex;align-items:center;justify-content:space-between}
+  .fc-tk{display:flex;align-items:center;gap:8px}
+  .fc-logo{
+    width:30px;height:30px;border-radius:8px;color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-weight:700;font-size:11px;
+  }
+  .fc-sym{font-weight:800;font-size:14px;letter-spacing:-0.01em}
+  .fc-co{font-size:10.5px;color:var(--muted);font-weight:600}
+  .fc-price{font-family:var(--mono);font-size:11.5px;font-weight:700;text-align:right}
+  .fc-price .c{font-size:10.5px;display:block;margin-top:1px}
+  .fc-price .c.up{color:var(--up)}
+  .fc-price .c.down{color:var(--red)}
+
+  .fc-score-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .fc-score{
+    font-family:var(--mono);font-weight:700;font-size:34px;letter-spacing:-0.03em;line-height:1;
+    color:var(--ink);
+  }
+  .fc-score small{font-size:13px;color:var(--muted);font-weight:500}
+
+  .fc-band{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:6px 10px;border-radius:999px;
+    font-weight:800;font-size:11px;letter-spacing:-0.01em;
+    border:1.5px solid var(--ink);
+    box-shadow:1.5px 1.5px 0 var(--ink);
+  }
+  .fc-band.fafo    {background:var(--orange);color:#fff}
+  .fc-band.watching{background:var(--honey);color:var(--ink)}
+  .fc-band.mid     {background:#EAE0CD;color:var(--ink)}
+  .fc-band.cooked  {background:#1C1612;color:#F9C9A0}
+
+  .fc-vibe{
+    font-size:11.5px;color:var(--sub);line-height:1.4;
+    background:var(--bg-soft);border-radius:10px;padding:8px 10px;
+    border:1px solid var(--border);
+  }
+
+  /* Right-rail swipe hints */
+  .swipe-hint{
+    position:absolute;right:10px;top:50%;transform:translateY(-50%);
+    display:flex;flex-direction:column;gap:10px;align-items:center;
+    color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.12em;z-index:3;
+    writing-mode:vertical-rl;text-transform:uppercase;
+  }
+
+  /* Floating mini cards outside phone */
+  .mini{
+    position:absolute;z-index:2;
+    background:var(--card-white);
+    border:1.5px solid var(--ink);
+    border-radius:14px;
+    padding:10px 14px;
+    display:flex;align-items:center;gap:10px;
+    box-shadow:3px 3px 0 var(--ink);
+    font-size:13.5px;font-weight:700;
+  }
+  .mini .logo-sm{
+    width:26px;height:26px;border-radius:7px;
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-family:var(--mono);font-weight:700;font-size:10.5px;
+  }
+  .mini.m1{top:8%;left:-8%;transform:rotate(-6deg);animation:float 6s ease-in-out infinite}
+  .mini.m2{bottom:12%;right:-10%;transform:rotate(4deg);animation:float 7s ease-in-out infinite .8s}
+  @keyframes float{
+    0%,100%{transform:translateY(0) rotate(var(--r,0deg))}
+    50%{transform:translateY(-8px) rotate(var(--r,0deg))}
+  }
+  .mini.m1{--r:-6deg}
+  .mini.m2{--r:4deg}
+
+  /* ── Ticker rail ── */
+  .rail{
+    border-top:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);
+    background:var(--card);overflow:hidden;padding:14px 0;
+  }
+  .rail-track{
+    display:flex;gap:40px;white-space:nowrap;
+    animation:slide 55s linear infinite;
+    font-family:var(--mono);font-size:14px;font-weight:500;color:var(--sub);
+  }
+  .rail-track:hover{animation-play-state:paused}
+  .rail-item{display:inline-flex;align-items:center;gap:8px}
+  .rail-item b{color:var(--ink);font-weight:700;letter-spacing:.02em}
+  .rail-item .pct.up{color:var(--up)}
+  .rail-item .pct.down{color:var(--red)}
+  .rail-item .mini-band{
+    font-size:11px;padding:2px 10px;border-radius:999px;font-weight:800;letter-spacing:.02em;
+    border:1.5px solid var(--ink);
+  }
+  .mini-band.fafo{background:var(--orange);color:#fff}
+  .mini-band.watching{background:var(--honey);color:var(--ink)}
+  .mini-band.mid{background:#EAE0CD;color:var(--ink)}
+  .mini-band.cooked{background:#1C1612;color:#F9C9A0}
+  @keyframes slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* ── Sections ── */
+  section{padding:120px 0;position:relative}
+  .section-eyebrow{
+    font-size:12px;letter-spacing:.22em;text-transform:uppercase;font-weight:800;color:var(--orange-deep);
+    display:inline-flex;align-items:center;gap:10px;
+  }
+  .section-eyebrow::before{
+    content:"";width:22px;height:2px;background:var(--orange);border-radius:2px;
+  }
+  h2.section-title{
+    font-size:clamp(40px, 5.2vw, 68px);
+    font-weight:800;letter-spacing:-0.035em;line-height:1.02;
+    margin:16px 0 18px;text-wrap:balance;max-width:18ch;
+  }
+  h2.section-title em{
+    font-style:normal;font-family:var(--script);font-weight:400;
+    color:var(--orange);font-size:0.95em;letter-spacing:0;
+  }
+  .section-lede{font-size:19px;color:var(--sub);max-width:58ch;line-height:1.55;text-wrap:pretty}
+
+  /* ── Three Things (What is Loopi) ── */
+  .features{
+    margin-top:56px;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:24px;
+  }
+  .feature{
+    background:var(--card-white);
+    border:1.5px solid var(--ink);
+    border-radius:var(--radius);
+    padding:28px;
+    transition:transform .2s, box-shadow .2s;
+    position:relative;
+    box-shadow:3px 3px 0 var(--ink);
+  }
+  .feature:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--ink)}
+  .feature-doodle{
+    width:72px;height:72px;margin-bottom:18px;
+    color:var(--ink);
+  }
+  .feature h3{font-size:22px;font-weight:800;letter-spacing:-0.02em;margin:0 0 8px;line-height:1.15}
+  .feature p{font-size:15.5px;color:var(--sub);margin:0;line-height:1.55}
+  .feature .kicker{
+    display:inline-block;margin-bottom:12px;
+    padding:4px 10px;border-radius:999px;
+    background:var(--orange-soft);color:var(--orange-deep);
+    font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  }
+
+  /* ── Score section ── */
+  .score-section{
+    background:var(--bg-soft);
+    border-top:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);
+  }
+  .scoreboard{
+    margin-top:56px;
+    display:grid;grid-template-columns:repeat(4,1fr);gap:20px;
+  }
+  .sb-card{
+    background:var(--card-white);border:1.5px solid var(--ink);border-radius:var(--radius);
+    padding:26px;transition:transform .25s, box-shadow .25s;
+    position:relative;overflow:hidden;cursor:default;
+    box-shadow:3px 3px 0 var(--ink);
+  }
+  .sb-card:hover{transform:translate(-3px,-3px);box-shadow:6px 6px 0 var(--ink)}
+  .sb-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+  .sb-emoji{font-size:40px;line-height:1}
+  .sb-range{font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:700}
+  .sb-band{font-size:30px;font-weight:800;letter-spacing:-0.03em;margin-bottom:6px;font-family:var(--sans);color:var(--ink)}
+  .sb-desc{font-size:14.5px;color:var(--sub);line-height:1.5;margin-bottom:18px;min-height:44px}
+  .sb-example{
+    background:var(--bg-soft);border:1.5px solid var(--border);border-radius:14px;padding:12px 14px;
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .sb-example-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .sb-example-sym{font-family:var(--mono);font-weight:800;font-size:13px}
+  .sb-example-score{font-family:var(--mono);font-weight:800;font-size:14px;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .sb-quote{font-size:13px;color:var(--sub);line-height:1.5;font-style:italic;text-wrap:pretty}
+
+  .sb-card::before{
+    content:"";position:absolute;left:0;right:0;top:0;height:5px;
+  }
+  .sb-card[data-band="fafo"]::before    {background:var(--orange)}
+  .sb-card[data-band="watching"]::before{background:var(--honey)}
+  .sb-card[data-band="mid"]::before     {background:var(--muted)}
+  .sb-card[data-band="cooked"]::before  {background:var(--ink)}
+
+  .inputs-row{
+    margin-top:48px;display:flex;gap:24px;flex-wrap:wrap;align-items:center;
+    color:var(--sub);font-size:15px;
+  }
+  .inputs-row b{color:var(--ink);font-weight:800}
+  .inputs-row .sep{color:var(--muted)}
+
+  /* ── Signals / social listening section ── */
+  .signals-section{padding:120px 0;position:relative;overflow:hidden}
+  .signals-grid{
+    margin-top:56px;display:grid;grid-template-columns:1.05fr 1fr;gap:64px;align-items:center;
+  }
+  .source-stack{position:relative;min-height:520px;display:flex;align-items:center;justify-content:center}
+  .source-card{
+    position:absolute;background:var(--card-white);
+    border:1.5px solid var(--ink);border-radius:18px;
+    padding:16px 18px;box-shadow:3px 3px 0 var(--ink);
+    width:320px;font-size:14px;
+  }
+  .source-card .src-head{
+    display:flex;align-items:center;gap:10px;margin-bottom:10px;
+    padding-bottom:10px;border-bottom:1px dashed var(--border);
+  }
+  .src-logo{
+    width:32px;height:32px;border-radius:8px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;
+    border:1.5px solid var(--ink);
+  }
+  .src-meta{display:flex;flex-direction:column;line-height:1.2}
+  .src-name{font-weight:800;font-size:14px;color:var(--ink)}
+  .src-handle{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:600}
+  .src-body{font-size:13.5px;color:var(--sub);line-height:1.5;text-wrap:pretty}
+  .src-body b.hl{background:var(--orange-soft);padding:1px 4px;border-radius:4px;color:var(--orange-deep);font-weight:700}
+  .src-foot{
+    display:flex;gap:12px;margin-top:10px;color:var(--muted);font-size:11px;font-family:var(--mono);font-weight:700;
+  }
+  .s1{top:6%;left:-4%;transform:rotate(-3deg)}
+  .s2{top:30%;right:-6%;transform:rotate(2.5deg);z-index:3}
+  .s3{bottom:20%;left:2%;transform:rotate(-1.5deg);z-index:2}
+  .s4{bottom:-2%;right:4%;transform:rotate(3.5deg)}
+
+  /* arrow connecting sources to the score */
+  .signals-arrow{
+    position:absolute;right:-80px;top:50%;transform:translateY(-50%);
+    color:var(--orange);pointer-events:none;
+  }
+
+  .signal-breakdown{
+    margin-top:32px;display:flex;flex-direction:column;gap:14px;
+  }
+  .sig-row{
+    display:flex;gap:16px;align-items:center;
+    padding:16px 20px;border-radius:16px;
+    background:var(--card-white);border:1.5px solid var(--ink);
+    box-shadow:2px 2px 0 var(--ink);
+  }
+  .sig-ico{
+    width:42px;height:42px;flex-shrink:0;border-radius:12px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--bg-soft);border:1.5px solid var(--ink);
+  }
+  .sig-txt{flex:1;display:flex;flex-direction:column;gap:2px}
+  .sig-txt b{font-size:15px;font-weight:800;letter-spacing:-0.015em}
+  .sig-txt span{font-size:13px;color:var(--sub);line-height:1.45}
+  .sig-tag{
+    font-family:var(--mono);font-size:11px;font-weight:800;color:var(--orange-deep);
+    background:var(--orange-soft);padding:4px 10px;border-radius:999px;
+    border:1px solid var(--orange-line);flex-shrink:0;
+  }
+
+  /* ── Feed section ── */
+  .feed-section{padding:120px 0;position:relative}
+  .feed-grid{
+    margin-top:64px;display:grid;grid-template-columns:1.1fr 1fr;gap:64px;align-items:center;
+  }
+  .feed-points{display:flex;flex-direction:column;gap:22px;margin-top:28px}
+  .feed-point{
+    display:flex;gap:14px;align-items:flex-start;
+    padding:18px 20px;border-radius:18px;
+    border:1.5px solid var(--ink);background:var(--card-white);
+    box-shadow:3px 3px 0 var(--ink);
+  }
+  .feed-point-num{
+    flex-shrink:0;width:36px;height:36px;border-radius:50%;
+    background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-weight:800;font-size:14px;
+    border:1.5px solid var(--ink);
+  }
+  .feed-point h4{margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.015em}
+  .feed-point p{margin:0;font-size:14.5px;color:var(--sub);line-height:1.5}
+  .feed-phone-wrap{
+    display:flex;justify-content:center;align-items:center;position:relative;min-height:620px;
+  }
+
+  /* ── Face ID / invest in seconds ── */
+  .faceid-section{background:var(--bg-soft);border-top:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);padding:120px 0}
+  .faceid-grid{display:grid;grid-template-columns:1fr 1.1fr;gap:64px;align-items:center}
+  .faceid-card{
+    background:var(--card-white);
+    border:1.5px solid var(--ink);border-radius:28px;
+    padding:48px;
+    box-shadow:4px 4px 0 var(--ink);
+    position:relative;
+  }
+  .faceid-badge{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:6px 12px;border-radius:999px;
+    background:var(--orange-soft);color:var(--orange-deep);
+    font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    border:1.5px solid var(--orange-line);margin-bottom:18px;
+  }
+  .faceid-row{display:flex;align-items:center;gap:18px;padding:18px 0;border-bottom:1.5px dashed var(--border)}
+  .faceid-row:last-child{border-bottom:none}
+  .faceid-icon{
+    width:48px;height:48px;border-radius:14px;flex-shrink:0;
+    background:var(--bg-soft);border:1.5px solid var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:2px 2px 0 var(--ink);
+  }
+  .faceid-text h4{margin:0 0 3px;font-size:17px;font-weight:800;letter-spacing:-0.015em}
+  .faceid-text p{margin:0;font-size:14px;color:var(--sub);line-height:1.5}
+  .faceid-time{
+    margin-left:auto;font-family:var(--mono);font-size:12px;font-weight:800;
+    color:var(--orange-deep);background:var(--orange-soft);
+    padding:4px 10px;border-radius:999px;border:1px solid var(--orange-line);
+  }
+
+  /* ── Built Right ── */
+  .trust{
+    margin-top:56px;display:grid;grid-template-columns:repeat(3,1fr);gap:40px;
+  }
+  .trust-col h3{font-size:20px;font-weight:800;letter-spacing:-0.02em;margin:0 0 12px;display:flex;align-items:center;gap:12px}
+  .trust-col h3 .trust-icon{
+    width:36px;height:36px;border-radius:10px;background:var(--card-white);
+    border:1.5px solid var(--ink);box-shadow:2px 2px 0 var(--ink);
+    display:flex;align-items:center;justify-content:center;color:var(--orange-deep);
+  }
+  .trust-col p{font-size:15.5px;color:var(--sub);margin:0;line-height:1.6}
+  .trust-col ul{margin:18px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+  .trust-col li{
+    font-family:var(--mono);font-size:13px;color:var(--sub);
+    display:flex;align-items:center;gap:10px;
+  }
+  .trust-col li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--orange);flex-shrink:0}
+
+  /* ── CTA ── */
+  .cta-section{
+    background:var(--orange);color:#fff;
+    border-radius:36px;margin:0 24px 120px;
+    padding:88px 48px;text-align:center;
+    position:relative;overflow:hidden;
+    border:1.5px solid var(--ink);
+    box-shadow:6px 6px 0 var(--ink);
+  }
+  .cta-section::after{
+    content:"";position:absolute;inset:0;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mix-blend-mode:overlay;opacity:.6;pointer-events:none;
+  }
+  .cta-section > *{position:relative;z-index:1}
+  .cta-section h2{
+    font-size:clamp(44px,5.5vw,78px);font-weight:800;letter-spacing:-0.035em;line-height:1.0;
+    margin:0 0 16px;text-wrap:balance;
+  }
+  .cta-section h2 em{font-style:normal;font-family:var(--script);font-weight:400;color:#FBF3E3;letter-spacing:0}
+  .cta-section p{font-size:20px;opacity:.94;margin:0 auto 36px;max-width:52ch;text-wrap:pretty;font-weight:500}
+  .cta-section .btn-primary{
+    background:var(--card);color:var(--orange-deep);
+    box-shadow:3px 3px 0 var(--ink);
+  }
+  .cta-section .btn-primary:hover{background:#fff;box-shadow:4px 4px 0 var(--ink)}
+
+  /* ── Footer ── */
+  footer{padding:56px 0 48px;border-top:1.5px solid var(--ink);background:var(--card)}
+  .foot-top{display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between;margin-bottom:32px}
+  .foot-links{display:flex;gap:28px;font-size:14.5px;color:var(--sub);flex-wrap:wrap;font-weight:600}
+  .foot-links a:hover{color:var(--orange-deep)}
+  .foot-meta{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-family:var(--mono)}
+  .foot-meta .sep{opacity:.5}
+  .disclaimer{
+    margin-top:28px;padding-top:24px;border-top:1px solid var(--border);
+    font-size:12px;color:var(--muted);line-height:1.6;max-width:78ch;
+  }
+
+  /* ── Tweak panel ── */
+  .tweak-panel{
+    position:fixed;right:20px;bottom:20px;z-index:100;
+    background:var(--card-white);border:1.5px solid var(--ink);border-radius:18px;
+    padding:16px;box-shadow:4px 4px 0 var(--ink);width:240px;
+    font-size:13px;display:none;
+  }
+  .tweak-panel.show{display:block}
+  .tweak-panel h4{margin:0 0 12px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:800}
+  .tweak-row{margin-bottom:12px}
+  .tweak-row label{display:block;font-weight:700;margin-bottom:6px;font-size:12px}
+  .tweak-row select{
+    width:100%;padding:8px 10px;border:1.5px solid var(--ink);border-radius:10px;
+    font-family:inherit;font-size:13px;background:var(--bg);
+  }
+  .tweak-pills{display:flex;gap:6px;flex-wrap:wrap}
+  .tweak-pill{
+    padding:6px 10px;border-radius:999px;border:1.5px solid var(--ink);
+    font-size:12px;font-weight:700;cursor:pointer;background:var(--card);
+  }
+  .tweak-pill.active{background:var(--orange);color:#fff}
+
+  /* ── Responsive ── */
+  @media (max-width: 1100px){
+    .hero-grid{gap:32px}
+    .phone{width:270px;height:540px}
+  }
+  @media (max-width: 960px){
+    .hero-grid, .feed-grid, .faceid-grid{grid-template-columns:1fr;gap:40px}
+    .hero-visual, .feed-phone-wrap{min-height:auto;margin-top:12px}
+    .features{grid-template-columns:1fr;gap:16px}
+    .scoreboard{grid-template-columns:repeat(2,1fr)}
+    .trust{grid-template-columns:1fr;gap:32px}
+    .nav-links{gap:18px;font-size:14px}
+    section{padding:80px 0}
+    .hero{padding:24px 0 64px}
+    .cta-section{margin:0 16px 80px;padding:60px 28px;border-radius:28px}
+    .faceid-card{padding:32px}
+  }
+  @media (max-width: 560px){
+    .scoreboard{grid-template-columns:1fr}
+    h1.headline{font-size:50px}
+    .mini{display:none}
+    .phone{transform:none}
+    .foot-top{flex-direction:column;align-items:flex-start}
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <div class="wrap nav-inner">
+    <a href="#top" aria-label="Loopi home" style="display:flex;align-items:center">
+      <span class="wordmark">Loopi</span>
+    </a>
+    <div class="nav-links">
+      <a href="mailto:arturo@loopi.company">Contact</a>
+      <a href="privacy.html">Privacy</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <!-- Pencil doodles -->
+  <div class="doodle" style="top:6%;right:42%">
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M8 22 C8 14, 20 8, 28 14 C36 20, 28 32, 20 28 C14 25, 14 18, 20 16" />
+    </svg>
+  </div>
+  <div class="doodle" style="top:22%;left:46%;color:var(--orange)">
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M15 4v8M15 18v8M4 15h8M18 15h8"/>
+    </svg>
+  </div>
+
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow"><span class="dot"></span> Pre-launch · Seed '26</span>
+      <h1 class="headline" id="headline">
+        Know the vibe. <em class="headline-underline">Buy the dip.</em>
+      </h1>
+      <p class="sub">
+        Loopi is investing for people who live in their feeds. Every stock gets a plain-english vibe check — no 10-K energy — and you invest in seconds with your face. That's it. No broker account to open.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="mailto:arturo@loopi.company?subject=Early%20access%20to%20Loopi">
+          Get early access
+          <span class="arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="btn btn-ghost" href="#score">See the Loopi Score →</a>
+      </div>
+      <p class="reassure" style="margin-top:20px">NO CARD REQUIRED · MADE IN <b>NYC</b> · 2,400+ ON THE LIST</p>
+    </div>
+
+    <!-- Phone with scrolling feed -->
+    <div class="hero-visual" aria-hidden="true">
+      <div class="mini m1">
+        <span class="logo-sm" style="background:#E31837">G</span>
+        <span>GME</span>
+        <span style="color:var(--up);font-family:var(--mono);font-weight:700">+18.1%</span>
+      </div>
+      <div class="mini m2">
+        <span class="logo-sm" style="background:#F26A28">C</span>
+        <span>COIN</span>
+        <span style="color:var(--up);font-family:var(--mono);font-weight:700">+1.9%</span>
+      </div>
+
+      <div class="phone">
+        <div class="screen">
+          <div class="sb">
+            <span>9:41</span>
+            <div class="sb-right">
+              <svg width="14" height="10" viewBox="0 0 18 12" fill="currentColor"><path d="M1 11h2V5H1v6zm4 0h2V3H5v8zm4 0h2V1H9v10zm4 0h2V7h-2v4z"/></svg>
+              <svg width="14" height="10" viewBox="0 0 16 12" fill="currentColor"><path d="M8 2C4 2 1 4 1 4l2 2c.8-.7 2.8-2 5-2s4.2 1.3 5 2l2-2s-3-2-7-2zM4 6l2 2c.5-.5 1.2-1 2-1s1.5.5 2 1l2-2c-.8-.8-2.2-2-4-2S4.8 5.2 4 6z"/></svg>
+              <svg width="22" height="11" viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1"><rect x=".5" y=".5" width="20" height="11" rx="2.5"/><rect x="2" y="2" width="16" height="8" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="5" rx=".5" fill="currentColor"/></svg>
+            </div>
+          </div>
+
+          <div style="padding:8px 16px 4px;display:flex;align-items:center;justify-content:space-between">
+            <span class="wordmark" style="font-size:20px">Loopi</span>
+            <div style="display:flex;gap:8px;color:var(--muted)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            </div>
+          </div>
+
+          <div class="feed">
+            <div class="swipe-hint">⇡ swipe up ⇡</div>
+            <div class="feed-track" id="feedTrack">
+              <!-- Card 1 -->
+              <article class="feed-card">
+                <div class="fc-head">
+                  <div class="fc-tk">
+                    <div class="fc-logo" style="background:linear-gradient(135deg,#76B900,#4A7500)">NV</div>
+                    <div>
+                      <div class="fc-sym">NVDA</div>
+                      <div class="fc-co">NVIDIA Corp.</div>
+                    </div>
+                  </div>
+                  <div class="fc-price">$891.20<span class="c up">+4.23%</span></div>
+                </div>
+                <div class="fc-score-row">
+                  <div class="fc-score">92<small>/100</small></div>
+                  <span class="fc-band fafo">🔥 fafo</span>
+                </div>
+                <div class="fc-vibe">Blackwell's still sold out through 2026. The crowd just decided today was the day.</div>
+              </article>
+
+              <!-- Card 2 -->
+              <article class="feed-card">
+                <div class="fc-head">
+                  <div class="fc-tk">
+                    <div class="fc-logo" style="background:linear-gradient(135deg,#E31837,#8B0000)">GM</div>
+                    <div>
+                      <div class="fc-sym">GME</div>
+                      <div class="fc-co">GameStop</div>
+                    </div>
+                  </div>
+                  <div class="fc-price">$24.80<span class="c up">+18.1%</span></div>
+                </div>
+                <div class="fc-score-row">
+                  <div class="fc-score">97<small>/100</small></div>
+                  <span class="fc-band fafo">🔥 fafo</span>
+                </div>
+                <div class="fc-vibe">Roaring Kitty posted a single emoji. Markets function beautifully.</div>
+              </article>
+
+              <!-- Card 3 -->
+              <article class="feed-card">
+                <div class="fc-head">
+                  <div class="fc-tk">
+                    <div class="fc-logo" style="background:linear-gradient(135deg,#F40009,#B00006)">KO</div>
+                    <div>
+                      <div class="fc-sym">KO</div>
+                      <div class="fc-co">Coca-Cola</div>
+                    </div>
+                  </div>
+                  <div class="fc-price">$62.40<span class="c down">-0.12%</span></div>
+                </div>
+                <div class="fc-score-row">
+                  <div class="fc-score">52<small>/100</small></div>
+                  <span class="fc-band mid">😐 mid</span>
+                </div>
+                <div class="fc-vibe">Coca-Cola up 0.3%. Coca-Cola down 0.3%. Coca-Cola up 0.3%.</div>
+              </article>
+
+              <!-- Card 4 -->
+              <article class="feed-card">
+                <div class="fc-head">
+                  <div class="fc-tk">
+                    <div class="fc-logo" style="background:linear-gradient(135deg,#3B7A3A,#1F4220)">BY</div>
+                    <div>
+                      <div class="fc-sym">BYND</div>
+                      <div class="fc-co">Beyond Meat</div>
+                    </div>
+                  </div>
+                  <div class="fc-price">$6.12<span class="c down">-5.4%</span></div>
+                </div>
+                <div class="fc-score-row">
+                  <div class="fc-score">18<small>/100</small></div>
+                  <span class="fc-band cooked">💀 cooked</span>
+                </div>
+                <div class="fc-vibe">Beyond Meat announcing another pivot is how we know it's Tuesday.</div>
+              </article>
+
+              <!-- Repeat of 1 so loop looks seamless when reset -->
+              <article class="feed-card">
+                <div class="fc-head">
+                  <div class="fc-tk">
+                    <div class="fc-logo" style="background:linear-gradient(135deg,#76B900,#4A7500)">NV</div>
+                    <div>
+                      <div class="fc-sym">NVDA</div>
+                      <div class="fc-co">NVIDIA Corp.</div>
+                    </div>
+                  </div>
+                  <div class="fc-price">$891.20<span class="c up">+4.23%</span></div>
+                </div>
+                <div class="fc-score-row">
+                  <div class="fc-score">92<small>/100</small></div>
+                  <span class="fc-band fafo">🔥 fafo</span>
+                </div>
+                <div class="fc-vibe">Blackwell's still sold out through 2026.</div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="rail" aria-hidden="true">
+  <div class="rail-track" id="railTrack"></div>
+</div>
+
+<!-- ── Three Things ── -->
+<section id="what">
+  <div class="wrap">
+    <span class="section-eyebrow">What Loopi does</span>
+    <h2 class="section-title">Three things. <em>Done right.</em></h2>
+    <p class="section-lede">
+      No 400-page prospectus. No crypto-bro energy. No fake gurus. Just a product built for people who got into investing from a group chat.
+    </p>
+
+    <div class="features">
+      <!-- Feature 1: the vibe check — pencil doodle of a speech bubble w/ squiggle -->
+      <div class="feature">
+        <svg class="feature-doodle" viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 20 C10 14, 14 10, 22 10 L52 10 C60 10, 64 14, 64 22 L64 36 C64 44, 60 48, 52 48 L32 48 L22 58 L22 48 C14 48, 10 44, 10 36 Z"/>
+          <path d="M20 24 C24 22, 28 26, 32 24 S40 22, 44 26 S52 22, 54 24" stroke="#F26A28"/>
+          <path d="M20 32 C24 30, 30 34, 38 32" stroke="#F26A28"/>
+        </svg>
+        <span class="kicker">The vibe check</span>
+        <h3>Plain-english reads on every stock.</h3>
+        <p>Every ticker gets a 0–100 Loopi Score and a one-line take on what's actually happening right now. You read it in two seconds.</p>
+      </div>
+
+      <!-- Feature 2: Face ID / invest in seconds — pencil face outline -->
+      <div class="feature">
+        <svg class="feature-doodle" viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 18 V12 H18"/>
+          <path d="M54 12 H60 V18"/>
+          <path d="M60 54 V60 H54"/>
+          <path d="M18 60 H12 V54"/>
+          <circle cx="28" cy="32" r="2" fill="currentColor"/>
+          <circle cx="44" cy="32" r="2" fill="currentColor"/>
+          <path d="M30 44 C33 47, 39 47, 42 44" stroke="#F26A28"/>
+          <path d="M36 30 V40" stroke="#F26A28"/>
+        </svg>
+        <span class="kicker">Invest with your face</span>
+        <h3>Look at your phone. You own the stock.</h3>
+        <p>No brokerage application. No minimum. No waiting period. Link your bank once, then Face ID every time. Fractional shares from $1.</p>
+      </div>
+
+      <!-- Feature 3: Free to use — pencil scribble of a coin/note -->
+      <div class="feature">
+        <svg class="feature-doodle" viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="10" y="18" width="52" height="34" rx="4"/>
+          <circle cx="36" cy="35" r="9"/>
+          <path d="M33 32 C35 30, 38 30, 39 33 C40 35, 33 36, 34 38 C34 40, 38 40, 39 38" stroke="#F26A28"/>
+          <path d="M18 22 V22.1 M54 48 V48.1"/>
+        </svg>
+        <span class="kicker">Free to use</span>
+        <h3>Free to use. Flat fee only when you invest.</h3>
+        <p>Sign up, browse, get your vibe checks — all free. We only take a small flat fee when you actually fund an investment. No payment for order flow, no spread games, no “premium” tier.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Feed Section (TikTok-style) ── -->
+<section class="feed-section" id="feed">
+  <div class="wrap">
+    <div class="feed-grid">
+      <div>
+        <span class="section-eyebrow">The feed</span>
+        <h2 class="section-title">Scroll stocks like you <em>scroll anything else.</em></h2>
+        <p class="section-lede">
+          One ticker per card. Swipe up for the next. Tap once to invest. The Loopi feed ranks what's actually moving today, what your friends are watching, and what you've already got your eye on.
+        </p>
+
+        <div class="feed-points">
+          <div class="feed-point">
+            <div class="feed-point-num">1</div>
+            <div>
+              <h4>Ranked, not random.</h4>
+              <p>Our ranker mixes Loopi Score, your watchlist, and fresh catalysts. You never waste a scroll.</p>
+            </div>
+          </div>
+          <div class="feed-point">
+            <div class="feed-point-num">2</div>
+            <div>
+              <h4>Read it in two seconds.</h4>
+              <p>Score, band, one-line vibe check. If you want the data, the card expands. If you don't, you swipe.</p>
+            </div>
+          </div>
+          <div class="feed-point">
+            <div class="feed-point-num">3</div>
+            <div>
+              <h4>Tap once to invest.</h4>
+              <p>Face ID confirms. Your order fills in seconds. We don't push you through a 14-screen broker intake.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feed-phone-wrap">
+        <div class="doodle" style="top:12%;right:6%;color:var(--orange)">
+          <svg width="60" height="70" viewBox="0 0 60 70" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M50 8 C40 16, 32 24, 26 36 C22 44, 20 52, 18 60"/>
+            <path d="M10 52 L18 60 L24 50"/>
+          </svg>
+        </div>
+
+        <div class="phone" style="transform:rotate(2deg)">
+          <div class="screen">
+            <div class="sb">
+              <span>9:41</span>
+              <div class="sb-right">
+                <svg width="14" height="10" viewBox="0 0 18 12" fill="currentColor"><path d="M1 11h2V5H1v6zm4 0h2V3H5v8zm4 0h2V1H9v10zm4 0h2V7h-2v4z"/></svg>
+                <svg width="22" height="11" viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1"><rect x=".5" y=".5" width="20" height="11" rx="2.5"/><rect x="2" y="2" width="16" height="8" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="5" rx=".5" fill="currentColor"/></svg>
+              </div>
+            </div>
+            <div style="padding:8px 16px 4px;display:flex;align-items:center;justify-content:space-between">
+              <span class="wordmark" style="font-size:20px">Loopi</span>
+              <div style="display:flex;gap:8px;color:var(--muted)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              </div>
+            </div>
+            <div class="feed">
+              <div class="swipe-hint">⇡ swipe up ⇡</div>
+              <div class="feed-track" style="animation-duration:20s">
+                <article class="feed-card">
+                  <div class="fc-head">
+                    <div class="fc-tk">
+                      <div class="fc-logo" style="background:linear-gradient(135deg,#0052FF,#002F99)">CO</div>
+                      <div><div class="fc-sym">COIN</div><div class="fc-co">Coinbase</div></div>
+                    </div>
+                    <div class="fc-price">$242.10<span class="c up">+1.9%</span></div>
+                  </div>
+                  <div class="fc-score-row">
+                    <div class="fc-score">74<small>/100</small></div>
+                    <span class="fc-band watching">👀 watching</span>
+                  </div>
+                  <div class="fc-vibe">Crypto's quiet but the chart's doing that thing where it's quiet before it isn't.</div>
+                </article>
+                <article class="feed-card">
+                  <div class="fc-head">
+                    <div class="fc-tk">
+                      <div class="fc-logo" style="background:linear-gradient(135deg,#FA7268,#C43F36)">TS</div>
+                      <div><div class="fc-sym">TSLA</div><div class="fc-co">Tesla</div></div>
+                    </div>
+                    <div class="fc-price">$246.80<span class="c up">+4.8%</span></div>
+                  </div>
+                  <div class="fc-score-row">
+                    <div class="fc-score">88<small>/100</small></div>
+                    <span class="fc-band fafo">🔥 fafo</span>
+                  </div>
+                  <div class="fc-vibe">Elon tweeted twice. Stock up 5%. Nothing else to report.</div>
+                </article>
+                <article class="feed-card">
+                  <div class="fc-head">
+                    <div class="fc-tk">
+                      <div class="fc-logo" style="background:linear-gradient(135deg,#1877F2,#0B4D99)">ME</div>
+                      <div><div class="fc-sym">META</div><div class="fc-co">Meta Platforms</div></div>
+                    </div>
+                    <div class="fc-price">$512.40<span class="c up">+1.1%</span></div>
+                  </div>
+                  <div class="fc-score-row">
+                    <div class="fc-score">69<small>/100</small></div>
+                    <span class="fc-band watching">👀 watching</span>
+                  </div>
+                  <div class="fc-vibe">Ad revenue up. Zuck's haircut remains the real risk factor.</div>
+                </article>
+                <article class="feed-card">
+                  <div class="fc-head">
+                    <div class="fc-tk">
+                      <div class="fc-logo" style="background:linear-gradient(135deg,#333,#000)">F</div>
+                      <div><div class="fc-sym">F</div><div class="fc-co">Ford Motor Co.</div></div>
+                    </div>
+                    <div class="fc-price">$11.40<span class="c down">-1.2%</span></div>
+                  </div>
+                  <div class="fc-score-row">
+                    <div class="fc-score">34<small>/100</small></div>
+                    <span class="fc-band cooked">💀 cooked</span>
+                  </div>
+                  <div class="fc-vibe">Ford is fine. "Fine" is not a thesis.</div>
+                </article>
+                <article class="feed-card">
+                  <div class="fc-head">
+                    <div class="fc-tk">
+                      <div class="fc-logo" style="background:linear-gradient(135deg,#0052FF,#002F99)">CO</div>
+                      <div><div class="fc-sym">COIN</div><div class="fc-co">Coinbase</div></div>
+                    </div>
+                    <div class="fc-price">$242.10<span class="c up">+1.9%</span></div>
+                  </div>
+                  <div class="fc-score-row">
+                    <div class="fc-score">74<small>/100</small></div>
+                    <span class="fc-band watching">👀 watching</span>
+                  </div>
+                  <div class="fc-vibe">Loops back around.</div>
+                </article>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Face ID / seconds section ── -->
+<section class="faceid-section" id="faceid">
+  <div class="wrap">
+    <div class="faceid-grid">
+      <div class="faceid-card">
+        <span class="faceid-badge">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 5 V3 M19 3V5 M5 19V21 M19 21V19"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/><path d="M10 16 C11 17, 13 17, 14 16"/></svg>
+          Face ID flow
+        </span>
+
+        <div class="faceid-row">
+          <div class="faceid-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+          </div>
+          <div class="faceid-text">
+            <h4>Link your bank. Once.</h4>
+            <p>Plaid-backed, instant. Most banks work.</p>
+          </div>
+          <div class="faceid-time">~30s</div>
+        </div>
+
+        <div class="faceid-row">
+          <div class="faceid-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="11" r="7"/><path d="M9 10h.01M15 10h.01M9 14c1 1.2 5 1.2 6 0"/></svg>
+          </div>
+          <div class="faceid-text">
+            <h4>Face ID to confirm.</h4>
+            <p>No 2FA codes. No "please confirm your identity via phone".</p>
+          </div>
+          <div class="faceid-time">~1s</div>
+        </div>
+
+        <div class="faceid-row">
+          <div class="faceid-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 L3 14 h9 l-1 8 10-12 h-9 l1-8z"/></svg>
+          </div>
+          <div class="faceid-text">
+            <h4>Order fills.</h4>
+            <p>Fractional shares from $1. Settles on T+1.</p>
+          </div>
+          <div class="faceid-time">~2s</div>
+        </div>
+      </div>
+
+      <div>
+        <span class="section-eyebrow">Invest with your face</span>
+        <h2 class="section-title">No broker account. <em>Just your face.</em></h2>
+        <p class="section-lede">
+          Every other investing app makes you fill out a brokerage application like it's 2006. We don't. Loopi's integration handles KYC behind the scenes — you sign up in under a minute and transact with Face ID from there on.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="mailto:arturo@loopi.company?subject=Early%20access%20to%20Loopi">
+            Skip the paperwork
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Score section ── -->
+<section id="score" class="score-section">
+  <div class="wrap">
+    <span class="section-eyebrow">The Loopi Score</span>
+    <h2 class="section-title">Four bands. <em>One read on the room.</em></h2>
+    <p class="section-lede">
+      We run every ticker through three signals — price momentum, social buzz, and how familiar the name actually is — and hand you a number plus a verdict. Hover a card for a real example.
+    </p>
+
+    <div class="scoreboard">
+      <article class="sb-card" data-band="fafo">
+        <div class="sb-top">
+          <span class="sb-emoji">🔥</span>
+          <span class="sb-range">85 — 100</span>
+        </div>
+        <div class="sb-band">fafo</div>
+        <p class="sb-desc">High momentum, high buzz. Something is happening and everyone knows it.</p>
+        <div class="sb-example">
+          <div class="sb-example-row"><span class="sb-example-sym">NVDA</span><span class="sb-example-score">92</span></div>
+          <div class="sb-quote">"Up 4.2% on nothing in particular — the crowd just decided today was the day."</div>
+        </div>
+      </article>
+
+      <article class="sb-card" data-band="watching">
+        <div class="sb-top">
+          <span class="sb-emoji">👀</span>
+          <span class="sb-range">65 — 84</span>
+        </div>
+        <div class="sb-band">watching</div>
+        <p class="sb-desc">Signals are building. Not chaos yet, but the room is leaning in.</p>
+        <div class="sb-example">
+          <div class="sb-example-row"><span class="sb-example-sym">COIN</span><span class="sb-example-score">74</span></div>
+          <div class="sb-quote">"Crypto's quiet but the chart's doing that thing where it's quiet before it isn't."</div>
+        </div>
+      </article>
+
+      <article class="sb-card" data-band="mid">
+        <div class="sb-top">
+          <span class="sb-emoji">😐</span>
+          <span class="sb-range">40 — 64</span>
+        </div>
+        <div class="sb-band">mid</div>
+        <p class="sb-desc">Nothing to write home about. This stock is fine, and that's the most damning thing you could say.</p>
+        <div class="sb-example">
+          <div class="sb-example-row"><span class="sb-example-sym">KO</span><span class="sb-example-score">52</span></div>
+          <div class="sb-quote">"Coca-Cola up 0.3%. Coca-Cola down 0.3%. Coca-Cola up 0.3%."</div>
+        </div>
+      </article>
+
+      <article class="sb-card" data-band="cooked">
+        <div class="sb-top">
+          <span class="sb-emoji">💀</span>
+          <span class="sb-range">0 — 39</span>
+        </div>
+        <div class="sb-band">cooked</div>
+        <p class="sb-desc">Bad vibes only. The chart has feelings and they're not good.</p>
+        <div class="sb-example">
+          <div class="sb-example-row"><span class="sb-example-sym">BYND</span><span class="sb-example-score">18</span></div>
+          <div class="sb-quote">"Beyond Meat announcing another pivot is how we know it's Tuesday."</div>
+        </div>
+      </article>
+    </div>
+
+    <div class="inputs-row">
+      <span>Built from three signals:</span>
+      <b>Momentum</b><span class="sep">·</span>
+      <b>Buzz</b><span class="sep">·</span>
+      <b>Familiarity</b>
+      <span class="sep" style="margin-left:auto"></span>
+      <span style="color:var(--muted);font-family:var(--mono);font-size:13px">refreshed every 15 min</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── Signals / listen section ── -->
+<section class="signals-section" id="signals">
+  <div class="wrap">
+    <span class="section-eyebrow">How we know</span>
+    <h2 class="section-title">We <em>actually listen.</em></h2>
+    <p class="section-lede">
+      Loopi reads what the internet is saying about every ticker — Reddit threads, YouTube comment sections, financial X, news headlines, earnings call transcripts — and turns it into a plain-english vibe check. The crowd is already talking. We just bring you the receipts.
+    </p>
+
+    <div class="signals-grid">
+      <div class="source-stack" aria-hidden="true">
+        <div class="source-card s1">
+          <div class="src-head">
+            <div class="src-logo" style="background:#FF4500">r/</div>
+            <div class="src-meta">
+              <span class="src-name">r/wallstreetbets</span>
+              <span class="src-handle">u/diamondhands_ · 2h</span>
+            </div>
+          </div>
+          <div class="src-body">"NVDA earnings next week and the whole sub is <b class="hl">locked in</b>. Nobody's selling calls this time."</div>
+          <div class="src-foot"><span>▲ 8.2k</span><span>💬 1.1k</span></div>
+        </div>
+
+        <div class="source-card s2">
+          <div class="src-head">
+            <div class="src-logo" style="background:#FF0000">▶</div>
+            <div class="src-meta">
+              <span class="src-name">YouTube — earnings recap</span>
+              <span class="src-handle">Coinbase Q1 · 14k comments</span>
+            </div>
+          </div>
+          <div class="src-body">"comments split — half think Coinbase is <b class="hl">early-cycle</b>, half calling it a chop zone. net: watching."</div>
+          <div class="src-foot"><span>◆ watching · 74</span></div>
+        </div>
+
+        <div class="source-card s3">
+          <div class="src-head">
+            <div class="src-logo" style="background:#000">𝕏</div>
+            <div class="src-meta">
+              <span class="src-name">Finance X</span>
+              <span class="src-handle">47 posts/min on $GME</span>
+            </div>
+          </div>
+          <div class="src-body">"Roaring Kitty posted a single emoji and volume went <b class="hl">vertical</b>. It's Tuesday."</div>
+          <div class="src-foot"><span>◆ fafo · 97</span></div>
+        </div>
+
+        <div class="source-card s4">
+          <div class="src-head">
+            <div class="src-logo" style="background:#1A1A1A">N</div>
+            <div class="src-meta">
+              <span class="src-name">News wire</span>
+              <span class="src-handle">Reuters · 9:02 AM ET</span>
+            </div>
+          </div>
+          <div class="src-body">"BYND announces <b class="hl">fourth restructuring</b> in 18 months. Shares off 5.4% pre-market."</div>
+          <div class="src-foot"><span>◆ cooked · 18</span></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="signal-breakdown">
+          <div class="sig-row">
+            <div class="sig-ico">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg>
+            </div>
+            <div class="sig-txt">
+              <b>Reddit &amp; forums</b>
+              <span>wallstreetbets, stocks, investing, ticker-specific subs. We count posts, track sentiment, and flag outliers.</span>
+            </div>
+            <span class="sig-tag">Live</span>
+          </div>
+
+          <div class="sig-row">
+            <div class="sig-ico">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M10 9l5 3-5 3z" fill="var(--ink)"/></svg>
+            </div>
+            <div class="sig-txt">
+              <b>YouTube comment sections</b>
+              <span>Earnings recaps, creator takes, and the threads underneath. Where retail actually digests news.</span>
+            </div>
+            <span class="sig-tag">Live</span>
+          </div>
+
+          <div class="sig-row">
+            <div class="sig-ico">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5 L3 5 L10 13 V19 L14 21 V13 Z"/></svg>
+            </div>
+            <div class="sig-txt">
+              <b>Finance X &amp; creator feeds</b>
+              <span>Fintwit, TikTok finance creators, newsletter buzz. Ranked by reach × recency.</span>
+            </div>
+            <span class="sig-tag">Live</span>
+          </div>
+
+          <div class="sig-row">
+            <div class="sig-ico">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+            </div>
+            <div class="sig-txt">
+              <b>News &amp; transcripts</b>
+              <span>Reuters, AP, earnings call transcripts, SEC filings. The primary sources, boiled down.</span>
+            </div>
+            <span class="sig-tag">15m</span>
+          </div>
+        </div>
+
+        <p style="margin-top:24px;font-size:15px;color:var(--muted);font-family:var(--mono);line-height:1.5">
+          <b style="color:var(--ink)">Know what people are saying. Then act.</b><br>Not the other way around.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Built Right ── -->
+<section id="built">
+  <div class="wrap">
+    <span class="section-eyebrow">Built right</span>
+    <h2 class="section-title">Playful brand. <em>Serious plumbing.</em></h2>
+    <p class="section-lede">
+      Loopi is a Delaware C-Corp building on regulated rails. Here's the calm, factual version for the grown-ups in the room.
+    </p>
+
+    <div class="trust">
+      <div class="trust-col">
+        <h3>
+          <span class="trust-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </span>
+          Regulated
+        </h3>
+        <p>We don't hold your money ourselves. We work with a US broker-dealer partner and follow the same rules as the grown-ups.</p>
+        <ul>
+          <li>Delaware C-Corp</li>
+          <li>Broker-dealer integration</li>
+          <li>KYC / AML on every account</li>
+        </ul>
+      </div>
+
+      <div class="trust-col">
+        <h3>
+          <span class="trust-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          </span>
+          Secure
+        </h3>
+        <p>Your data is encrypted, scoped, and never resold. We don't run ad trackers. We don't sell your info. Full stop.</p>
+        <ul>
+          <li>AES-256 at rest</li>
+          <li>TLS 1.2+ in transit</li>
+          <li>Face ID / biometric auth</li>
+        </ul>
+      </div>
+
+      <div class="trust-col">
+        <h3>
+          <span class="trust-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
+          </span>
+          Transparent
+        </h3>
+        <p>Free to use. Flat fee only when you fund an investment. No payment for order flow, no spread markup, no surprise line items on your statement.</p>
+        <ul>
+          <li>Free to sign up &amp; browse</li>
+          <li>Flat fee only when you invest</li>
+          <li>No payment for order flow</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section style="padding:0">
+  <div class="cta-section">
+    <h2>Be <em>early.</em></h2>
+    <p>Loopi opens in limited waves. Drop us a line and we'll put you near the front of the next one.</p>
+    <a class="btn btn-primary" href="mailto:arturo@loopi.company?subject=Early%20access%20to%20Loopi">
+      Get early access
+      <span class="arrow" aria-hidden="true">→</span>
+    </a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a href="#top" aria-label="Loopi home"><span class="wordmark" style="font-size:30px">Loopi</span></a>
+      <div class="foot-links">
+        <a href="mailto:arturo@loopi.company">arturo@loopi.company</a>
+        <a href="privacy.html">Privacy Policy</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      <span>© 2026 Loopi, Inc.</span>
+      <span class="sep">·</span>
+      <span>Delaware C-Corp</span>
+      <span class="sep">·</span>
+      <span>Made in NYC</span>
+    </div>
+    <p class="disclaimer">
+      Loopi is not a registered investment adviser. Investing involves risk, including the possible loss of principal. The Loopi Score is for informational purposes only and does not constitute investment advice, a recommendation, or a solicitation to buy or sell any security. Past performance is not indicative of future results.
+    </p>
+  </div>
+</footer>
+
+<script>
+// Nav
+(function(){
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 12);
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+})();
+
+// Ticker rail
+(function(){
+  const rail = document.getElementById('railTrack');
+  const data = [
+    {sym:'NVDA', pct:'+4.2%', up:true,  score:92, band:'fafo'},
+    {sym:'AAPL', pct:'+0.8%', up:true,  score:71, band:'watching'},
+    {sym:'TSLA', pct:'+4.8%', up:true,  score:88, band:'fafo'},
+    {sym:'SPY',  pct:'+0.2%', up:true,  score:58, band:'mid'},
+    {sym:'GME',  pct:'+18.1%',up:true,  score:97, band:'fafo'},
+    {sym:'COIN', pct:'+1.9%', up:true,  score:74, band:'watching'},
+    {sym:'BYND', pct:'-5.4%', up:false, score:18, band:'cooked'},
+    {sym:'META', pct:'+1.1%', up:true,  score:69, band:'watching'},
+    {sym:'AMZN', pct:'+0.4%', up:true,  score:62, band:'mid'},
+    {sym:'PLTR', pct:'+3.8%', up:true,  score:81, band:'watching'},
+    {sym:'F',    pct:'-1.2%', up:false, score:34, band:'cooked'},
+    {sym:'KO',   pct:'-0.1%', up:false, score:52, band:'mid'},
+  ];
+  const html = data.map(d => `
+    <span class="rail-item">
+      <b>${d.sym}</b>
+      <span class="pct ${d.up?'up':'down'}">${d.pct}</span>
+      <span class="mini-band ${d.band}">${d.score} · ${d.band}</span>
+    </span>
+  `).join('');
+  rail.innerHTML = html + html;
+})();
+
+// Tweaks
+(function(){
+  const panel = document.createElement('div');
+  panel.className = 'tweak-panel';
+  panel.innerHTML = `
+    <h4>Tweaks</h4>
+    <div class="tweak-row">
+      <label>CTA accent</label>
+      <div class="tweak-pills" id="tw-accent">
+        <div class="tweak-pill" data-v="orange">Orange</div>
+        <div class="tweak-pill" data-v="honey">Honey</div>
+      </div>
+    </div>
+    <div class="tweak-row">
+      <label>Headline</label>
+      <select id="tw-headline">
+        <option value="Know the vibe. Buy the dip.">Know the vibe. Buy the dip.</option>
+        <option value="Stocks, but make it legible.">Stocks, but make it legible.</option>
+        <option value="Invest like you scroll.">Invest like you scroll.</option>
+        <option value="Your portfolio just called. It's vibing.">Your portfolio just called. It's vibing.</option>
+      </select>
+    </div>
+  `;
+  document.body.appendChild(panel);
+
+  const applyAccent = (v) => {
+    const map = {
+      orange: {main:'#F26A28', deep:'#C2410C'},
+      honey:  {main:'#E9A84B', deep:'#92400E'},
+    };
+    const c = map[v] || map.orange;
+    document.documentElement.style.setProperty('--orange', c.main);
+    document.documentElement.style.setProperty('--orange-deep', c.deep);
+    panel.querySelectorAll('#tw-accent .tweak-pill').forEach(p => {
+      p.classList.toggle('active', p.dataset.v === v);
+    });
+  };
+
+  const applyHeadline = (t) => {
+    const h = document.getElementById('headline');
+    // the second sentence is the script accent
+    const parts = t.split('. ');
+    if (parts.length >= 2){
+      const first = parts[0] + '.';
+      const rest = parts.slice(1).join('. ');
+      h.innerHTML = `${first} <em class="headline-underline">${rest}</em>`;
+    } else {
+      h.textContent = t;
+    }
+  };
+
+  const T = window.__TWEAKS__ || {};
+  applyAccent(T.accent || 'orange');
+  document.getElementById('tw-headline').value = T.headline || 'Know the vibe. Buy the dip.';
+  applyHeadline(T.headline || 'Know the vibe. Buy the dip.');
+
+  panel.addEventListener('click', (e) => {
+    const p = e.target.closest('#tw-accent .tweak-pill');
+    if (!p) return;
+    applyAccent(p.dataset.v);
+    post({accent:p.dataset.v});
+  });
+  document.getElementById('tw-headline').addEventListener('change', (e) => {
+    applyHeadline(e.target.value);
+    post({headline:e.target.value});
+  });
+
+  function post(edits){
+    try { window.parent.postMessage({type:'__edit_mode_set_keys', edits}, '*'); } catch {}
+  }
+
+  window.addEventListener('message', (ev) => {
+    const d = ev.data || {};
+    if (d.type === '__activate_edit_mode') panel.classList.add('show');
+    if (d.type === '__deactivate_edit_mode') panel.classList.remove('show');
+  });
+  try { window.parent.postMessage({type:'__edit_mode_available'}, '*'); } catch {}
+})();
+</script>
+</body>
+</html>
