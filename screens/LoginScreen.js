@@ -1,13 +1,21 @@
-// v3
-import React, { useState } from 'react';
+// v4 — Google Sign-In via expo-auth-session (works in Expo Go + dev + production builds)
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
 import { useAuth } from '../context/AuthContext';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
+
+// Required so the in-app browser redirect closes cleanly after OAuth.
+WebBrowser.maybeCompleteAuthSession();
+
+const GOOGLE_IOS_CLIENT_ID = '951562367501-reja207jkir1hivac3j5divi6jepae9r.apps.googleusercontent.com';
+const GOOGLE_WEB_CLIENT_ID = '951562367501-g8s43mcsqtk0ns3lfa2kf1dn6brtljo7.apps.googleusercontent.com';
 
 const ERROR_MESSAGES = {
   'auth/invalid-email':            'That email address is not valid.',
@@ -21,7 +29,7 @@ const ERROR_MESSAGES = {
 };
 
 export default function LoginScreen() {
-  const { signInWithEmail, registerWithEmail, resetPassword, signInWithGoogle } = useAuth();
+  const { signInWithEmail, registerWithEmail, resetPassword, signInWithGoogle, signInWithGoogleCredential } = useAuth();
 
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [email, setEmail] = useState('');
@@ -31,18 +39,52 @@ export default function LoginScreen() {
   const [error, setError] = useState(null);
   const [resetSent, setResetSent] = useState(false);
 
+  // Native Google OAuth request (no-op on web — Firebase redirect is used there).
+  const [, googleResponse, promptGoogle] = Google.useIdTokenAuthRequest({
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+  });
+
+  // When the native OAuth flow returns with an id_token, complete sign-in with Firebase.
+  useEffect(() => {
+    if (!googleResponse) return;
+    if (googleResponse.type === 'success') {
+      const idToken = googleResponse.params?.id_token ?? googleResponse.authentication?.idToken;
+      if (!idToken) {
+        setError('Google sign-in did not return an ID token. Try again.');
+        setGoogleLoading(false);
+        return;
+      }
+      signInWithGoogleCredential(idToken)
+        .catch((err) => {
+          console.log('[Google Sign-In] Firebase credential error:', err?.code, err?.message);
+          setError(ERROR_MESSAGES[err?.code] ?? err?.message ?? 'Google sign-in failed. Try again.');
+        })
+        .finally(() => setGoogleLoading(false));
+    } else if (googleResponse.type === 'error') {
+      console.log('[Google Sign-In] auth error:', googleResponse.error);
+      setError(googleResponse.error?.message ?? 'Google sign-in failed. Try again.');
+      setGoogleLoading(false);
+    } else {
+      // 'cancel' | 'dismiss' | 'locked' — treat as silent cancel
+      setGoogleLoading(false);
+    }
+  }, [googleResponse]);
+
   const handleGoogleSignIn = async () => {
     setError(null);
     setGoogleLoading(true);
     try {
-      await signInWithGoogle();
-      // AuthContext.user updates → RootNavigator renders correct screen automatically
+      if (Platform.OS === 'web') {
+        await signInWithGoogle();
+        // Web: page navigates to Google; onAuthStateChanged fires on return.
+        return;
+      }
+      await promptGoogle();
+      // Result is handled by the useEffect above.
     } catch (err) {
-      console.log('[Google Sign-In] error code:', err.code);
-      console.log('[Google Sign-In] error message:', err.message);
-      console.log('[Google Sign-In] full error:', JSON.stringify(err));
-      setError(ERROR_MESSAGES[err.code] ?? err.message ?? 'Google sign-in failed. Try again.');
-    } finally {
+      console.log('[Google Sign-In] error:', err?.code, err?.message);
+      setError(ERROR_MESSAGES[err?.code] ?? err?.message ?? 'Google sign-in failed. Try again.');
       setGoogleLoading(false);
     }
   };

@@ -19,7 +19,14 @@
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSFaceIDUsageDescription": "Loopi uses Face ID to confirm your investments securely."
+        "NSFaceIDUsageDescription": "Loopi uses Face ID to confirm your investments securely.",
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.951562367501-reja207jkir1hivac3j5divi6jepae9r"
+            ]
+          }
+        ]
       }
     },
     "android": {
@@ -46,12 +53,6 @@
         "expo-local-authentication",
         {
           "faceIDPermission": "Loopi uses Face ID to confirm your investments securely."
-        }
-      ],
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.951562367501-reja207jkir1hivac3j5divi6jepae9r"
         }
       ]
     ],

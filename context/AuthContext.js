@@ -14,19 +14,6 @@ import {
   GoogleAuthProvider,
   signOut,
 } from 'firebase/auth';
-// GoogleSignin is native-only — require() conditionally to avoid crashing on web
-if (Platform.OS !== 'web') {
-  try {
-    const { GoogleSignin } = require('@react-native-google-signin/google-signin');
-    GoogleSignin.configure({
-      webClientId: '951562367501-g8s43mcsqtk0ns3lfa2kf1dn6brtljo7.apps.googleusercontent.com',
-      iosClientId: '951562367501-reja207jkir1hivac3j5divi6jepae9r.apps.googleusercontent.com',
-      offlineAccess: false,
-    });
-  } catch (e) {
-    console.warn('[Auth] GoogleSignin configure failed:', e.message);
-  }
-}
 
 // ── localStorage helpers (web only) ──────────────────────────────────────────
 const ls = {
@@ -133,31 +120,22 @@ export function AuthProvider({ children }) {
     setUser(auth.currentUser ? Object.assign(Object.create(Object.getPrototypeOf(auth.currentUser)), auth.currentUser) : null);
     return auth.currentUser;
   };
+  // Web: Firebase redirect flow (onAuthStateChanged fires when user returns).
+  // Native: LoginScreen drives the OAuth request via expo-auth-session and
+  // hands the resulting idToken to signInWithGoogleCredential below.
   const signInWithGoogle = async () => {
-    if (Platform.OS === 'web') {
-      const provider = new GoogleAuthProvider();
-      await signInWithRedirect(auth, provider);
-      return; // page navigates to Google — onAuthStateChanged fires when it returns
+    if (Platform.OS !== 'web') {
+      throw new Error('signInWithGoogle is web-only; native should call signInWithGoogleCredential(idToken)');
     }
-    const { GoogleSignin, statusCodes } = require('@react-native-google-signin/google-signin');
-    try {
-      await GoogleSignin.hasPlayServices();
-      // v13+ returns { type, data }; v12 returns { idToken } directly
-      const signInResult = await GoogleSignin.signIn();
-      console.log('[Google Sign-In] signInResult:', JSON.stringify(signInResult));
-      if (signInResult.type === 'cancelled') return null;
-      const idToken = signInResult.data?.idToken ?? signInResult.idToken;
-      console.log('[Google Sign-In] idToken present:', !!idToken);
-      if (!idToken) throw new Error('No idToken returned (type=' + (signInResult.type ?? 'unknown') + ')');
-      const credential = GoogleAuthProvider.credential(idToken);
-      const result = await signInWithCredential(auth, credential);
-      return result.user;
-    } catch (err) {
-      // User dismissed the Google picker — treat as silent cancel
-      if (err.code === statusCodes.SIGN_IN_CANCELLED) return null;
-      // Normalize Google SDK errors (numeric code, no message) to a readable string
-      throw new Error(err.message || 'Google Sign-In error (code: ' + (err.code ?? JSON.stringify(err)) + ')');
-    }
+    const provider = new GoogleAuthProvider();
+    await signInWithRedirect(auth, provider);
+  };
+
+  const signInWithGoogleCredential = async (idToken, accessToken) => {
+    if (!idToken) throw new Error('Missing Google idToken');
+    const credential = GoogleAuthProvider.credential(idToken, accessToken);
+    const result = await signInWithCredential(auth, credential);
+    return result.user;
   };
   // actionCodeSettings tells Firebase where to redirect after the user resets
   // their password — without it, Firebase sends them to a generic Google page.
@@ -179,7 +157,7 @@ export function AuthProvider({ children }) {
       user, authLoading,
       bankConnected,  setBankConnected,
       onboardingDone, setOnboardingDone,
-      signInWithEmail, registerWithEmail, signInWithGoogle, resetPassword, signOutUser,
+      signInWithEmail, registerWithEmail, signInWithGoogle, signInWithGoogleCredential, resetPassword, signOutUser,
       reloadUser,
     }}>
       {children}
