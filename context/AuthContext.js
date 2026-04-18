@@ -9,7 +9,8 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification,
   signInWithCredential,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   signOut,
 } from 'firebase/auth';
@@ -54,6 +55,13 @@ export function AuthProvider({ children }) {
   const setOnboardingDone  = persist('onboardingDone',  KEYS.onboarding,  setOnboardingDoneState);
 
   useEffect(() => {
+    // Complete Google redirect sign-in if we just came back from Google OAuth
+    if (Platform.OS === 'web') {
+      getRedirectResult(auth).catch(err =>
+        console.warn('[Auth] getRedirectResult error:', err.code, err.message)
+      );
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       console.log('[Auth] Auth state changed:', firebaseUser?.email || 'no user');
       setUser(firebaseUser);
@@ -128,8 +136,8 @@ export function AuthProvider({ children }) {
   const signInWithGoogle = async () => {
     if (Platform.OS === 'web') {
       const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      return result.user;
+      await signInWithRedirect(auth, provider);
+      return; // page navigates to Google — onAuthStateChanged fires when it returns
     }
     const { GoogleSignin, statusCodes } = require('@react-native-google-signin/google-signin');
     await GoogleSignin.hasPlayServices();
