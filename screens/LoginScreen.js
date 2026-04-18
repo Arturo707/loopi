@@ -209,6 +209,8 @@ export default function LoginScreen() {
             <Text style={s.termsLink}>Terms of Use</Text>
             {' '}and{' '}
             <Text style={s.termsLink}>Privacy Policy</Text>.
+            {'\n'}Not financial advice. Loopi is not a registered broker-dealer or investment adviser.
+            All content is for informational purposes only.
           </Text>
 
         </SafeAreaView>
