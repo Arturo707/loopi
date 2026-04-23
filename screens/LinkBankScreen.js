@@ -7,6 +7,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { db } from '../config/firebase';
+import useBiometricAuth from '../hooks/useBiometricAuth';
 
 // Safe require — native SDK is unavailable on web; catch prevents bundler crash
 let plaidCreate = null;
@@ -28,6 +29,7 @@ const API_BASE = 'https://loopi-teal.vercel.app';
 export default function LinkBankScreen({ navigation }) {
   const { user }                          = useAuth();
   const { alpacaAccountId, setAchRelationshipId } = useApp();
+  const { authenticate }                  = useBiometricAuth();
 
   const [linkToken,   setLinkToken]   = useState(null);
   const [loading,     setLoading]     = useState(true);
@@ -116,6 +118,11 @@ export default function LinkBankScreen({ navigation }) {
   // ── 3a. Native: use create/open SDK API ───────────────────────────────────
 
   const openNativePlaid = async () => {
+    const biometric = await authenticate();
+    if (!biometric.success) {
+      setError(biometric.error || 'Authentication required to link your bank account.');
+      return;
+    }
     console.log('[LinkBank] openNativePlaid called, token:', linkToken?.slice(0, 20));
     try {
       console.log('[LinkBank] calling create...');
@@ -139,7 +146,12 @@ export default function LinkBankScreen({ navigation }) {
 
   // ── 3b. Web: open Plaid hosted link in browser ────────────────────────────
 
-  const openWebPlaid = () => {
+  const openWebPlaid = async () => {
+    const biometric = await authenticate();
+    if (!biometric.success) {
+      setError(biometric.error || 'Authentication required to link your bank account.');
+      return;
+    }
     if (!linkToken) return;
     Linking.openURL(
       `https://cdn.plaid.com/link/v2/stable/link.html?token=${linkToken}`
