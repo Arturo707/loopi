@@ -673,6 +673,8 @@ export default function DiscoverScreen() {
           </View>
         )}
 
+      <Text style={s.disclaimer}>Not investment advice. For informational purposes only.</Text>
+
       </SafeAreaView>
 
       <ChatModal visible={!!chatStock} stock={chatStock} tip={chatStock ? tips[chatStock.symbol] : null} onClose={() => setChatStock(null)} />
@@ -872,5 +874,6 @@ const s = StyleSheet.create({
     shadowColor: C.orange, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
   },
   retryTxt: { fontSize: 15, fontFamily: F.bold, color: '#FFF' },
+  disclaimer: { fontSize: 10, fontFamily: F.regular, color: C.muted, textAlign: 'center', paddingHorizontal: 20, paddingBottom: 4 },
 });
 

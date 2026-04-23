@@ -870,6 +870,8 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
           </TouchableOpacity>
         </View>
 
+        <Text style={s.disclaimer}>Not investment advice. For informational purposes only.</Text>
+
       </SafeAreaView>
     </Modal>
   );
@@ -1003,4 +1005,5 @@ const s = StyleSheet.create({
   confirmTxt:   { fontSize: 16, fontFamily: F.semibold, color: '#FFF' },
   cancelBtn:    { alignItems: 'center', paddingVertical: 10 },
   cancelTxt:    { fontSize: 14, fontFamily: F.medium, color: C.muted },
+  disclaimer:   { fontSize: 10, fontFamily: F.regular, color: C.muted, textAlign: 'center', paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4 },
 });

@@ -6,6 +6,7 @@
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/site", "destination": "/site/index.html" },
     { "source": "/privacy", "destination": "/site/privacy.html" },
+    { "source": "/privacy.html", "destination": "/site/privacy.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "crons": [

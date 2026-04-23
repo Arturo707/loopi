@@ -41,7 +41,7 @@ export default async function handler(req, res) {
         method: 'POST',
         headers: {
           'Authorization': 'Basic ' + Buffer.from(
-            `${process.env.ALPACA_API_KEY}:${process.env.ALPACA_SECRET_KEY}`
+            `${process.env.ALPACA_BROKER_KEY}:${process.env.ALPACA_BROKER_SECRET}`
           ).toString('base64'),
           'Content-Type': 'application/json',
         },
