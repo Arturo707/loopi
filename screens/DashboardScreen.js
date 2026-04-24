@@ -142,7 +142,7 @@ export default function DashboardScreen({ navigation }) {
           {/* Balance card */}
           <View style={s.balanceCard}>
             <LinearGradient
-              colors={['#FFF7ED', '#FFFBF6']}
+              colors={['#F4EADA', '#FBF3E3']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={s.balanceGradient}
@@ -214,7 +214,7 @@ export default function DashboardScreen({ navigation }) {
                       <Text style={s.miniTag}>{getEmojiTag(stock)}</Text>
                       <Text style={s.miniTicker}>{stock.symbol}</Text>
                       <Text style={s.miniPrice}>{fmtPrice(stock.price)}</Text>
-                      <Text style={[s.miniChange, { color: up ? C.green : C.red }]}>
+                      <Text style={[s.miniChange, { color: up ? C.changePos : C.changeNeg }]}>
                         {fmtChange(stock.changesPercentage)}
                       </Text>
                     </TouchableOpacity>
@@ -263,9 +263,12 @@ export default function DashboardScreen({ navigation }) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const cardShadow = {
-  shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
+const inkShadow = {
+  shadowColor: '#1C1612',
+  shadowOffset: { width: 2, height: 2 },
+  shadowOpacity: 1,
+  shadowRadius: 0,
+  elevation: 4,
 };
 
 const s = StyleSheet.create({
@@ -279,15 +282,14 @@ const s = StyleSheet.create({
   avatar: {
     width: 44, height: 44, borderRadius: 14,
     backgroundColor: C.orange, alignItems: 'center', justifyContent: 'center',
-    shadowColor: C.orange, shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
+    ...inkShadow,
   },
   avatarText: { fontSize: 18, color: '#FFF', fontFamily: F.bold },
 
   balanceCard: {
-    marginHorizontal: 24, marginBottom: 16, borderRadius: 24,
-    overflow: 'hidden', borderWidth: 1, borderColor: C.orangeBorder,
-    ...cardShadow,
+    marginHorizontal: 24, marginBottom: 16, borderRadius: 20,
+    overflow: 'hidden', borderWidth: 2, borderColor: C.ink,
+    ...inkShadow,
   },
   balanceGradient: { padding: 24 },
   balanceTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
@@ -304,7 +306,7 @@ const s = StyleSheet.create({
   insightCard: {
     marginHorizontal: 24, marginBottom: 16,
     backgroundColor: C.card, borderRadius: 20, padding: 18,
-    borderWidth: 1, borderColor: C.border, ...cardShadow,
+    borderWidth: 2, borderColor: C.ink, ...inkShadow,
   },
   insightHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   insightDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.orange },
@@ -320,9 +322,9 @@ const s = StyleSheet.create({
 
   hScroll: { paddingLeft: 24 },
   miniCard: {
-    backgroundColor: C.card, borderRadius: 18, padding: 16,
-    marginRight: 12, width: 130, borderWidth: 1, borderColor: C.border,
-    ...cardShadow,
+    backgroundColor: C.card, borderRadius: 16, padding: 16,
+    marginRight: 12, width: 130, borderWidth: 2, borderColor: C.ink,
+    ...inkShadow,
   },
   miniTag:    { fontSize: 18, marginBottom: 6 },
   miniTicker: { fontSize: 18, color: C.text, fontFamily: F.xbold, marginBottom: 4 },
@@ -336,7 +338,7 @@ const s = StyleSheet.create({
 
   riskCard: {
     marginHorizontal: 24, backgroundColor: C.card,
-    borderRadius: 20, padding: 8, borderWidth: 1, borderColor: C.border, ...cardShadow,
+    borderRadius: 20, padding: 8, borderWidth: 2, borderColor: C.ink, ...inkShadow,
   },
   riskRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 14 },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2 },
@@ -356,9 +358,8 @@ const pulse = StyleSheet.create({
   card: {
     marginHorizontal: 24,
     backgroundColor: C.card, borderRadius: 20,
-    borderWidth: 1, borderColor: C.border, padding: 18,
-    shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
+    borderWidth: 2, borderColor: C.ink, padding: 18,
+    ...inkShadow,
   },
   labelRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   label:     { fontSize: 10, fontFamily: F.semibold, color: C.orange, letterSpacing: 1.5 },

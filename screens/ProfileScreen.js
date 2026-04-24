@@ -104,6 +104,14 @@ export default function ProfileScreen() {
   );
 }
 
+const inkShadow = {
+  shadowColor: '#1C1612',
+  shadowOffset: { width: 2, height: 2 },
+  shadowOpacity: 1,
+  shadowRadius: 0,
+  elevation: 4,
+};
+
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   safe: { flex: 1, paddingHorizontal: 24 },
@@ -114,18 +122,16 @@ const s = StyleSheet.create({
   },
 
   profileCard: {
-    backgroundColor: C.card, borderRadius: 24, padding: 28,
-    alignItems: 'center', borderWidth: 1, borderColor: C.border,
-    shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
+    backgroundColor: C.card, borderRadius: 20, padding: 28,
+    alignItems: 'center', borderWidth: 2, borderColor: C.ink,
+    ...inkShadow,
     marginBottom: 24,
   },
   avatar: {
-    width: 72, height: 72, borderRadius: 22,
+    width: 72, height: 72, borderRadius: 20,
     backgroundColor: C.orange, alignItems: 'center', justifyContent: 'center',
     marginBottom: 16,
-    shadowColor: C.orange, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 12, elevation: 5,
+    borderWidth: 2, borderColor: C.ink,
   },
   avatarText: { fontSize: 30, color: '#FFF', fontFamily: F.xbold },
   name: { fontSize: 20, fontFamily: F.bold, color: C.text, marginBottom: 6 },
@@ -135,21 +141,21 @@ const s = StyleSheet.create({
 
   signOutBtn: {
     backgroundColor: C.card, borderRadius: 16, paddingVertical: 16,
-    alignItems: 'center', borderWidth: 1, borderColor: C.border,
+    alignItems: 'center', borderWidth: 2, borderColor: C.ink, ...inkShadow,
   },
   signOutTxt: { fontSize: 15, fontFamily: F.semibold, color: C.text },
 
   legalBtn: {
     backgroundColor: C.card, borderRadius: 16, paddingVertical: 16,
-    alignItems: 'center', borderWidth: 1, borderColor: C.border,
+    alignItems: 'center', borderWidth: 2, borderColor: C.ink, ...inkShadow,
   },
   legalTxt: { fontSize: 15, fontFamily: F.semibold, color: C.muted },
 
   deleteBtn: {
     backgroundColor: C.card, borderRadius: 16, paddingVertical: 16,
-    alignItems: 'center', borderWidth: 1, borderColor: '#FFD5D5',
+    alignItems: 'center', borderWidth: 2, borderColor: '#B91C1C', ...inkShadow,
   },
-  deleteTxt: { fontSize: 15, fontFamily: F.semibold, color: C.red },
+  deleteTxt: { fontSize: 15, fontFamily: F.semibold, color: '#B91C1C' },
 
   // Disclaimer modal
   modalSafe: { flex: 1, backgroundColor: C.bg },
