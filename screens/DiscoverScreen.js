@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet,
   ActivityIndicator, KeyboardAvoidingView, Platform,
-  useWindowDimensions, ScrollView, Animated, Modal, Share,
+  ScrollView, Animated, Modal, Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
@@ -110,7 +110,7 @@ function getCaption(stock, scoreData) {
 
 // ─── Skeleton card ────────────────────────────────────────────────────────────
 
-function SkeletonCard({ height }) {
+function SkeletonCard() {
   const anim = useRef(new Animated.Value(0.35)).current;
   useEffect(() => {
     Animated.loop(
@@ -121,11 +121,22 @@ function SkeletonCard({ height }) {
     ).start();
   }, []);
   return (
-    <Animated.View style={[sk.card, { height, opacity: anim }]}>
-      <View style={sk.tickerBar} />
-      <View style={sk.nameBar} />
-      <View style={sk.scoreBar} />
-      <View style={sk.pillBar} />
+    <Animated.View style={[sk.card, { opacity: anim }]}>
+      <View style={sk.headerRow}>
+        <View style={sk.iconBar} />
+        <View style={sk.titleCol}>
+          <View style={sk.tickerBar} />
+          <View style={sk.nameBar} />
+        </View>
+        <View style={sk.priceCol}>
+          <View style={sk.priceBar} />
+          <View style={sk.changeBar} />
+        </View>
+      </View>
+      <View style={sk.scoreRow}>
+        <View style={sk.scoreBar} />
+        <View style={sk.pillBar} />
+      </View>
       <View style={sk.tipBox} />
       <View style={sk.btnRow}>
         <View style={sk.btn} />
@@ -315,82 +326,96 @@ const ShareCard = React.forwardRef(function ShareCard({ stock, scoreData, tip },
   );
 });
 
+// ─── Icon colour — deterministic from ticker ──────────────────────────────────
+
+const ICON_PALETTE = ['#E74C3C','#E67E22','#27AE60','#2980B9','#8E44AD','#16A085','#D35400','#C0392B','#2471A3','#1E8449'];
+function getIconColor(symbol) {
+  let h = 0;
+  for (let i = 0; i < symbol.length; i++) h = ((h << 5) - h) + symbol.charCodeAt(i) | 0;
+  return ICON_PALETTE[Math.abs(h) % ICON_PALETTE.length];
+}
+
 // ─── Stock Card ───────────────────────────────────────────────────────────────
 
-function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir, loopiScore, onShare }) {
-  const up        = stock.changesPercentage >= 0;
-  const scoreData = loopiScore && loopiScore !== 'loading' ? loopiScore : null;
-  const band      = scoreData?.band;
+function StockCard({ stock, tip, tipLoading, onSaberMas, onInvertir, loopiScore, onShare }) {
+  const up         = stock.changesPercentage >= 0;
+  const scoreData  = loopiScore && loopiScore !== 'loading' ? loopiScore : null;
+  const band       = scoreData?.band;
   const scoreColor = band ? (BAND_COLORS[band] ?? C.muted) : C.muted;
   const bandEmoji  = band ? (BAND_EMOJIS[band] ?? '') : '';
   const vibeText   = scoreData?.vibeCheck || tip?.text || '';
+  const iconColor  = getIconColor(stock.symbol);
+  const iconLetters = stock.symbol.slice(0, 2);
 
   return (
-    <View style={{ height }}>
-      <View style={card.container}>
+    <View style={card.container}>
 
-        {/* Share button — top right */}
+      {/* Header row: icon + ticker/company LEFT, price/change RIGHT */}
+      <View style={card.headerRow}>
+        <View style={card.headerLeft}>
+          <View style={[card.icon, { backgroundColor: iconColor }]}>
+            <Text style={card.iconTxt}>{iconLetters}</Text>
+          </View>
+          <View style={card.headerMeta}>
+            <Text style={card.ticker}>{stock.symbol}</Text>
+            <Text style={card.company} numberOfLines={1}>{stock.name}</Text>
+          </View>
+        </View>
+        <View style={card.headerRight}>
+          <Text style={card.price}>{fmtPrice(stock.price)}</Text>
+          <Text style={[card.changePct, { color: up ? C.changePos : C.changeNeg }]}>
+            {up ? '+' : ''}{fmtChange(stock.changesPercentage)}
+          </Text>
+        </View>
+        {/* Share button */}
         <TouchableOpacity style={card.shareBtn} onPress={onShare} activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={card.shareBtnTxt}>📤</Text>
         </TouchableOpacity>
+      </View>
 
-        {/* Ticker + company */}
-        <View style={card.top}>
-          <Text style={card.ticker}>{stock.symbol}</Text>
-          <Text style={card.name} numberOfLines={1}>{stock.name}</Text>
-        </View>
-
-        {/* Loopi Score — hero number */}
-        <View style={card.scoreSection}>
+      {/* Score row: "XX /100" LEFT, band pill RIGHT */}
+      <View style={card.scoreRow}>
+        <View style={card.scoreLeft}>
           {loopiScore === 'loading' ? (
             <View style={card.scoreSkeleton} />
           ) : scoreData ? (
-            <>
+            <View style={card.scoreNumRow}>
               <Text style={[card.scoreNum, { color: scoreColor }]}>{scoreData.score}</Text>
-              <View style={[card.bandPill, { backgroundColor: scoreColor }]}>
-                <Text style={card.bandPillTxt}>{bandEmoji} {band}</Text>
-              </View>
-            </>
+              <Text style={card.scoreOf}> /100</Text>
+            </View>
           ) : (
             <View style={card.scorePlaceholder} />
           )}
         </View>
+        {scoreData && (
+          <View style={[card.bandPill, { backgroundColor: scoreColor }]}>
+            <Text style={card.bandPillTxt}>{bandEmoji} {band}</Text>
+          </View>
+        )}
+      </View>
 
-        {/* Vibe check */}
+      {/* Vibe check box */}
+      {(vibeText || tipLoading) ? (
         <View style={card.vibeBox}>
           {tipLoading ? (
             <TipSkeleton />
-          ) : vibeText ? (
-            <Text style={card.vibeText} numberOfLines={2}>{vibeText}</Text>
-          ) : null}
+          ) : (
+            <Text style={card.vibeText}>{vibeText}</Text>
+          )}
         </View>
+      ) : null}
 
-        {/* Price row */}
-        <View style={card.priceRow}>
-          <View style={card.typeBadge}>
-            <Text style={card.typeBadgeTxt}>{stock.type === 'etf' ? 'ETF' : 'STOCK'}</Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={card.price}>{fmtPrice(stock.price)}</Text>
-            <Text style={[card.changePct, { color: up ? C.changePos : C.changeNeg }]}>
-              {up ? '▲' : '▼'} {fmtChange(stock.changesPercentage)}
-            </Text>
-          </View>
-        </View>
-
-        {/* Action buttons */}
-        <View style={card.buttons}>
-          <TouchableOpacity style={card.btnSecondary} onPress={onSaberMas} activeOpacity={0.8}>
-            <Text style={card.btnSecondaryTxt}>💬 Learn more</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={card.btnPrimary} onPress={onInvertir} activeOpacity={0.8}>
-            <Text style={card.btnPrimaryTxt}>⚡ Invest</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={card.swipeHint}>↕ swipe for more</Text>
+      {/* Action buttons — compact, below vibe */}
+      <View style={card.buttons}>
+        <TouchableOpacity style={card.btnSecondary} onPress={onSaberMas} activeOpacity={0.8}>
+          <Text style={card.btnSecondaryTxt}>💬 Learn more</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={card.btnPrimary} onPress={onInvertir} activeOpacity={0.8}>
+          <Text style={card.btnPrimaryTxt}>⚡ Invest</Text>
+        </TouchableOpacity>
       </View>
+
     </View>
   );
 }
@@ -399,7 +424,6 @@ function StockCard({ stock, height, tip, tipLoading, onSaberMas, onInvertir, loo
 
 export default function DiscoverScreen() {
   const { balance, investedAmount, addToPortfolio, riskProfile, age, incomeRange, experience } = useApp();
-  const { height: windowHeight } = useWindowDimensions();
 
   // ── Live feed state ──
   const [allStocks,     setAllStocks]     = useState([]);
@@ -642,9 +666,7 @@ export default function DiscoverScreen() {
     return () => { cancelled = true; clearTimeout(timeout); };
   }, [shareTarget]);
 
-  // ── Card height ──
   const feed = allStocks;
-  const [cardHeight, setCardHeight] = useState(windowHeight - 160);
 
   // ── Search ──
   const [query, setQuery] = useState('');
@@ -746,8 +768,8 @@ export default function DiscoverScreen() {
             ListEmptyComponent={<Text style={s.emptyTxt}>No results for "{query}"</Text>}
           />
         ) : feedStatus === 'loading' ? (
-          <View style={{ flex: 1 }} onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}>
-            {[0, 1, 2].map((i) => <SkeletonCard key={i} height={cardHeight} />)}
+          <View style={{ flex: 1 }}>
+            {[0, 1, 2].map((i) => <SkeletonCard key={i} />)}
           </View>
         ) : feedStatus === 'error' ? (
           <View style={s.errorContainer}>
@@ -759,20 +781,16 @@ export default function DiscoverScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={{ flex: 1 }} onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}>
-            {cardHeight > 0 && feed.length > 0 && (
+          <View style={{ flex: 1 }}>
+            {feed.length > 0 ? (
               <FlatList
                 data={feed}
                 keyExtractor={(item) => item.symbol}
-                pagingEnabled
                 showsVerticalScrollIndicator={false}
-                decelerationRate="fast"
-                snapToInterval={cardHeight}
-                snapToAlignment="start"
+                contentContainerStyle={s.feedList}
                 extraData={{ tips, loopiScores }}
-                getItemLayout={(_, index) => ({ length: cardHeight, offset: cardHeight * index, index })}
                 onEndReached={() => { if (!loadingMore) fetchMore(); }}
-                onEndReachedThreshold={0.3}
+                onEndReachedThreshold={0.4}
                 onViewableItemsChanged={onViewableItemsChanged}
                 viewabilityConfig={viewabilityConfig.current}
                 ListFooterComponent={loadingMore ? (
@@ -784,7 +802,6 @@ export default function DiscoverScreen() {
                 renderItem={({ item }) => (
                   <StockCard
                     stock={item}
-                    height={cardHeight}
                     tip={tips[item.symbol]}
                     tipLoading={rankingStatus === 'ranking' && !tips[item.symbol]}
                     onSaberMas={() => setChatStock(item)}
@@ -794,14 +811,13 @@ export default function DiscoverScreen() {
                   />
                 )}
               />
-            )}
-            {cardHeight > 0 && feed.length === 0 && feedStatus === 'ready' && (
+            ) : feedStatus === 'ready' ? (
               <View style={s.errorContainer}>
                 <Text style={s.errorEmoji}>📭</Text>
                 <Text style={s.errorTitle}>No results for your profile</Text>
                 <Text style={s.errorSub}>Change your risk profile to see more.</Text>
               </View>
-            )}
+            ) : null}
           </View>
         )}
 
@@ -833,88 +849,105 @@ const inkShadow = {
 
 const sk = StyleSheet.create({
   card: {
-    marginHorizontal: 16, marginTop: 12, borderRadius: 20,
-    backgroundColor: C.card, padding: 28,
-    justifyContent: 'space-between',
-    borderWidth: 2, borderColor: C.ink, ...inkShadow,
+    marginHorizontal: 16, marginBottom: 12, borderRadius: 18,
+    backgroundColor: C.card, padding: 16, gap: 10,
+    borderWidth: 1.5, borderColor: C.border,
   },
-  tickerBar: { height: 20, width: 100, backgroundColor: C.border, borderRadius: 6, marginBottom: 8 },
-  nameBar:   { height: 13, width: 140, backgroundColor: C.border, borderRadius: 5, marginBottom: 24 },
-  scoreBar:  { height: 56, width: 80,  backgroundColor: C.border, borderRadius: 10, alignSelf: 'center', marginBottom: 12 },
-  pillBar:   { height: 28, width: 90,  backgroundColor: C.border, borderRadius: 20, alignSelf: 'center', marginBottom: 24 },
-  tipBox:    { height: 40, backgroundColor: C.border, borderRadius: 12, marginBottom: 24 },
-  btnRow:    { flexDirection: 'row', gap: 12 },
-  btn:       { flex: 1, height: 50, backgroundColor: C.border, borderRadius: 16 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconBar:   { width: 38, height: 38, borderRadius: 10, backgroundColor: C.border },
+  titleCol:  { flex: 1, gap: 5 },
+  tickerBar: { height: 14, width: 60,  backgroundColor: C.border, borderRadius: 5 },
+  nameBar:   { height: 11, width: 110, backgroundColor: C.border, borderRadius: 4 },
+  priceCol:  { alignItems: 'flex-end', gap: 5 },
+  priceBar:  { height: 14, width: 50,  backgroundColor: C.border, borderRadius: 5 },
+  changeBar: { height: 11, width: 36,  backgroundColor: C.border, borderRadius: 4 },
+  scoreRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  scoreBar:  { height: 44, width: 100, backgroundColor: C.border, borderRadius: 10 },
+  pillBar:   { height: 30, width: 80,  backgroundColor: C.border, borderRadius: 20 },
+  tipBox:    { height: 52, backgroundColor: C.border, borderRadius: 12 },
+  btnRow:    { flexDirection: 'row', gap: 8 },
+  btn:       { flex: 1, height: 38, backgroundColor: C.border, borderRadius: 12 },
 });
 
 const card = StyleSheet.create({
+  // Card container — clean cream with subtle border
   container: {
-    flex: 1,
-    marginHorizontal: 16, marginVertical: 8,
+    marginHorizontal: 16, marginBottom: 12,
     backgroundColor: C.card,
-    borderRadius: 20, borderWidth: 2, borderColor: C.ink,
-    ...inkShadow,
-    paddingHorizontal: 24, paddingTop: 24, paddingBottom: 20,
-    justifyContent: 'space-between',
+    borderRadius: 18, borderWidth: 1.5, borderColor: C.border,
+    shadowColor: '#1C1612', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
+    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 14,
+    gap: 10,
   },
 
-  // Share button — top right corner
+  // Header row
+  headerRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerLeft:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerMeta:  { flex: 1 },
+  headerRight: { alignItems: 'flex-end' },
+
+  // Company icon square
+  icon: {
+    width: 38, height: 38, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  iconTxt: { fontSize: 13, fontFamily: F.bold, color: '#FFF', letterSpacing: 0.5 },
+
+  // Ticker + company name
+  ticker:  { fontSize: 15, fontFamily: F.bold,    color: C.text },
+  company: { fontSize: 12, fontFamily: F.regular, color: C.muted, marginTop: 1 },
+
+  // Price + change
+  price:     { fontSize: 14, fontFamily: F.bold, color: C.text },
+  changePct: { fontSize: 12, fontFamily: F.semibold, marginTop: 2 },
+
+  // Share button (small, top-right of header)
   shareBtn: {
-    position: 'absolute', top: 16, right: 16,
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border,
-    alignItems: 'center', justifyContent: 'center', zIndex: 10,
+    width: 30, height: 30, borderRadius: 8,
+    backgroundColor: C.bg, borderWidth: 1, borderColor: C.border,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  shareBtnTxt: { fontSize: 16 },
+  shareBtnTxt: { fontSize: 13 },
 
-  // Ticker + company
-  top: { paddingRight: 44 }, // leave space for share button
-  ticker:   { fontSize: 16, fontFamily: F.bold, color: C.text, letterSpacing: 0.5 },
-  name:     { fontSize: 13, fontFamily: F.regular, color: C.muted, marginTop: 2 },
+  // Score row: "XX /100" left, band pill right
+  scoreRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  scoreLeft:   { flexDirection: 'row', alignItems: 'baseline' },
+  scoreNumRow: { flexDirection: 'row', alignItems: 'baseline' },
+  scoreNum:    { fontSize: 44, fontFamily: F.xbold, letterSpacing: -2, lineHeight: 48 },
+  scoreOf:     { fontSize: 15, fontFamily: F.medium, color: C.muted },
+  scoreSkeleton: { width: 90, height: 44, backgroundColor: C.border, borderRadius: 10 },
+  scorePlaceholder: { width: 90, height: 44 },
 
-  // Score hero
-  scoreSection: { alignItems: 'center', justifyContent: 'center', flex: 1 },
-  scoreNum:     { fontSize: 72, fontFamily: F.xbold, letterSpacing: -3, lineHeight: 80 },
-  scoreSkeleton: { width: 80, height: 70, backgroundColor: C.border, borderRadius: 12 },
-  scorePlaceholder: { width: 80, height: 70 },
+  // Band pill — filled, white text
   bandPill: {
-    marginTop: 8, borderRadius: 24, paddingVertical: 6, paddingHorizontal: 16,
+    borderRadius: 30, paddingVertical: 6, paddingHorizontal: 14,
     flexDirection: 'row', alignItems: 'center',
   },
-  bandPillTxt: { fontSize: 14, fontFamily: F.bold, color: '#FFF', letterSpacing: 0.3 },
+  bandPillTxt: { fontSize: 13, fontFamily: F.bold, color: '#FFF' },
 
-  // Vibe check
-  vibeBox: { minHeight: 38, justifyContent: 'center' },
+  // Vibe check box — tinted, italic
+  vibeBox: {
+    backgroundColor: C.bg, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 10,
+  },
   vibeText: {
-    fontSize: 14, fontFamily: F.regular, color: '#5C4A3A',
-    fontStyle: 'italic', lineHeight: 20, textAlign: 'center',
+    fontSize: 13, fontFamily: F.regular, color: C.sub,
+    fontStyle: 'italic', lineHeight: 19,
   },
 
-  // Price row
-  priceRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  },
-  typeBadge: {
-    backgroundColor: C.border, borderRadius: 6, paddingVertical: 3, paddingHorizontal: 8,
-    alignSelf: 'flex-start',
-  },
-  typeBadgeTxt: { fontSize: 11, fontFamily: F.semibold, color: C.muted, letterSpacing: 0.5 },
-  price:     { fontSize: 20, fontFamily: F.bold, color: C.text, letterSpacing: -0.5 },
-  changePct: { fontSize: 14, fontFamily: F.bold, textAlign: 'right', marginTop: 2 },
-
-  // Buttons
-  swipeHint: { fontSize: 11, fontFamily: F.regular, color: C.muted, textAlign: 'center', marginTop: 4 },
-  buttons:   { flexDirection: 'row', gap: 12 },
+  // Action buttons — compact row
+  buttons:   { flexDirection: 'row', gap: 8, marginTop: 2 },
   btnSecondary: {
-    flex: 1, paddingVertical: 14, borderRadius: 14, borderWidth: 2,
-    borderColor: C.orange, alignItems: 'center', backgroundColor: 'transparent',
+    flex: 1, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5,
+    borderColor: C.orange, alignItems: 'center',
   },
-  btnSecondaryTxt: { fontSize: 14, fontFamily: F.bold, color: C.orange },
+  btnSecondaryTxt: { fontSize: 13, fontFamily: F.semibold, color: C.orange },
   btnPrimary: {
-    flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: C.orange, alignItems: 'center',
-    ...inkShadow,
+    flex: 1, paddingVertical: 10, borderRadius: 12,
+    backgroundColor: C.orange, alignItems: 'center',
   },
-  btnPrimaryTxt: { fontSize: 14, fontFamily: F.bold, color: '#FFF' },
+  btnPrimaryTxt: { fontSize: 13, fontFamily: F.semibold, color: '#FFF' },
 });
 
 // Share card (off-screen, 360×360 logical px → 1080×1080 @3x)
@@ -1057,6 +1090,7 @@ const s = StyleSheet.create({
   separator:      { height: 1, backgroundColor: C.border },
   emptyTxt:       { textAlign: 'center', marginTop: 48, fontSize: 14, fontFamily: F.regular, color: C.muted, paddingHorizontal: 32 },
 
+  feedList: { paddingTop: 8, paddingBottom: 24 },
   loadingMoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 20 },
   loadingMoreTxt: { fontSize: 13, fontFamily: F.regular, color: C.muted },
 
