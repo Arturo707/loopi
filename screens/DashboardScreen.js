@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { useWatchlist } from '../context/WatchlistContext';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 import { authFetch } from '../utils/authFetch';
@@ -94,6 +96,7 @@ function MarketPulseCard({ vibe, loading }) {
 export default function DashboardScreen({ navigation }) {
   const { balance, bankAccount, investedAmount, riskProfile, setRiskProfile, firstName, alpacaPortfolioValue, alpacaPositions } = useApp();
   const { user } = useAuth();
+  const { unreadCount } = useWatchlist();
 
   const freeBalance = balance - investedAmount;
   const displayName = firstName || 'there';
@@ -133,9 +136,20 @@ export default function DashboardScreen({ navigation }) {
           <View>
             <Text style={s.greeting}>{greeting}, {displayName} ☀️</Text>
           </View>
-          <TouchableOpacity style={s.avatar} onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
-            <Text style={s.avatarText}>{(user?.displayName?.[0] || 'L').toUpperCase()}</Text>
-          </TouchableOpacity>
+          <View style={s.headerRight}>
+            <TouchableOpacity
+              style={s.bellBtn}
+              onPress={() => navigation.navigate('Notifications')}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="notifications-outline" size={22} color={C.text} />
+              {unreadCount > 0 && <View style={s.bellDot} />}
+            </TouchableOpacity>
+            <TouchableOpacity style={s.avatar} onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
+              <Text style={s.avatarText}>{(user?.displayName?.[0] || 'L').toUpperCase()}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -278,7 +292,19 @@ const s = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
     paddingHorizontal: 24, paddingTop: 20, paddingBottom: 16,
   },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   greeting: { fontSize: 20, color: C.text, fontFamily: F.xbold, letterSpacing: -0.5 },
+  bellBtn: {
+    width: 42, height: 42, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FFF',
+    borderWidth: 1.5, borderColor: C.border,
+  },
+  bellDot: {
+    position: 'absolute', top: 8, right: 9,
+    width: 9, height: 9, borderRadius: 4.5,
+    backgroundColor: C.orange, borderWidth: 1.5, borderColor: '#FFF',
+  },
   avatar: {
     width: 44, height: 44, borderRadius: 14,
     backgroundColor: C.orange, alignItems: 'center', justifyContent: 'center',

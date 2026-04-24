@@ -1,5 +1,5 @@
 import "./global.css";
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NavigationContainer } from '@react-navigation/native';
@@ -17,8 +17,10 @@ import { Pacifico_400Regular } from '@expo-google-fonts/pacifico';
 import { StatusBar } from 'expo-status-bar';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { WatchlistProvider } from './context/WatchlistContext';
 import { C } from './constants/colors';
 import { F } from './constants/fonts';
+import { registerForPushNotifications, attachNotificationListeners } from './utils/pushNotifications';
 
 import SplashScreen from './screens/SplashScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -30,6 +32,8 @@ import ChatScreen from './screens/ChatScreen';
 import PortfolioScreen from './screens/PortfolioScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import LinkBankScreen from './screens/LinkBankScreen';
+import WatchlistScreen from './screens/WatchlistScreen';
+import NotificationsScreen from './screens/NotificationsScreen';
 
 const Stack = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
@@ -48,8 +52,29 @@ function MainStack() {
         component={LinkBankScreen}
         options={{ presentation: 'modal' }}
       />
+      <AppStack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
     </AppStack.Navigator>
   );
+}
+
+// Kicks off permission request + push-tap deep-linking whenever a user is authed.
+function PushBootstrap({ navigationRef }) {
+  const { user } = useAuth();
+  useEffect(() => {
+    if (!user) return;
+    registerForPushNotifications();
+    return attachNotificationListeners((data) => {
+      if (!data || !navigationRef.current) return;
+      try {
+        navigationRef.current.navigate('Main', { screen: 'Tabs', params: { screen: 'Discover' } });
+      } catch { /* ignore */ }
+    });
+  }, [user]);
+  return null;
 }
 
 function MainTabs() {
@@ -93,6 +118,20 @@ function MainTabs() {
         options={{
           tabBarLabel: 'Discover',
           tabBarIcon: ({ focused }) => <TabIcon emoji="✦" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Saved"
+        component={WatchlistScreen}
+        options={{
+          tabBarLabel: 'Saved',
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={focused ? 'bookmark' : 'bookmark-outline'}
+              size={22}
+              color={color}
+            />
+          ),
         }}
       />
       <Tab.Screen
@@ -172,16 +211,20 @@ export default function App() {
     PlusJakartaSans_800ExtraBold,
     Pacifico_400Regular,
   });
+  const navigationRef = useRef(null);
 
   if (!fontsLoaded) return null;
 
   return (
     <AuthProvider>
       <AppProvider>
-        <NavigationContainer>
-          <StatusBar style="dark" />
-          <RootNavigator />
-        </NavigationContainer>
+        <WatchlistProvider>
+          <NavigationContainer ref={navigationRef}>
+            <StatusBar style="dark" />
+            <PushBootstrap navigationRef={navigationRef} />
+            <RootNavigator />
+          </NavigationContainer>
+        </WatchlistProvider>
       </AppProvider>
     </AuthProvider>
   );

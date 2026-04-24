@@ -54,6 +54,13 @@
         {
           "faceIDPermission": "Loopi uses Face ID to verify your identity before linking your bank account"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#F26A28",
+          "defaultChannel": "loopi-alerts"
+        }
       ]
     ],
     "extra": {

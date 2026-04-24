@@ -22,5 +22,32 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
+
+    // Watchlists: one doc per user, doc ID = uid
+    match /watchlists/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Push tokens: one doc per user. Only the owner can read/write their own token.
+    // (The cron runs with Firebase Admin SDK, which bypasses these rules.)
+    match /push_tokens/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Notifications: /notifications/{userId}/items/{notifId}. Owner can read + mark read.
+    // The cron (Admin SDK) writes new notification docs server-side.
+    match /notifications/{userId}/items/{notifId} {
+      allow read, update: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Loopi Scores: read-only for clients; cron writes via Admin SDK.
+    match /scores/{ticker} {
+      allow read: if request.auth != null;
+    }
+
+    // Score history: read-only audit log for clients.
+    match /score_history/{docId} {
+      allow read: if request.auth != null;
+    }
   }
 }

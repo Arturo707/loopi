@@ -5,7 +5,9 @@ import {
   ScrollView, Animated, Modal, Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
+import { useWatchlist } from '../context/WatchlistContext';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 import InvestScreen from './InvestScreen';
@@ -467,9 +469,38 @@ function AnimatedScore({ value, color }) {
   return <Text style={[card.scoreNum, { color }]}>{display}</Text>;
 }
 
+// ─── Bookmark button — scale-pop animation on toggle ─────────────────────────
+
+function BookmarkButton({ saved, onPress }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.timing(scale, { toValue: 1.4, duration: 140, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, friction: 4, tension: 140, useNativeDriver: true }),
+    ]).start();
+    onPress?.();
+  };
+  return (
+    <TouchableOpacity
+      style={card.bookmarkBtn}
+      onPress={handlePress}
+      activeOpacity={0.7}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+    >
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <Ionicons
+          name={saved ? 'bookmark' : 'bookmark-outline'}
+          size={18}
+          color={saved ? C.orange : C.muted}
+        />
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
 // ─── Stock Card ───────────────────────────────────────────────────────────────
 
-function StockCard({ stock, tip, tipLoading, onSaberMas, onInvertir, loopiScore, onShare }) {
+function StockCard({ stock, tip, tipLoading, onSaberMas, onInvertir, loopiScore, onShare, saved, onToggleSave }) {
   const up           = stock.changesPercentage >= 0;
   const scoreData    = loopiScore && loopiScore !== 'loading' ? loopiScore : null;
   const band         = scoreData?.band;
@@ -482,9 +513,10 @@ function StockCard({ stock, tip, tipLoading, onSaberMas, onInvertir, loopiScore,
   return (
     <View style={card.container}>
 
-      {/* Header row */}
+      {/* Header row — bookmark at the far left (top-left of card content) */}
       <View style={card.headerRow}>
         <View style={card.headerLeft}>
+          <BookmarkButton saved={saved} onPress={onToggleSave} />
           <CompanyLogo symbol={stock.symbol} />
           <View style={card.headerMeta}>
             <Text style={card.ticker}>{stock.symbol}</Text>
@@ -566,6 +598,7 @@ function StockCard({ stock, tip, tipLoading, onSaberMas, onInvertir, loopiScore,
 
 export default function DiscoverScreen() {
   const { balance, investedAmount, addToPortfolio, riskProfile, age, incomeRange, experience } = useApp();
+  const { isSaved, toggleTicker } = useWatchlist();
 
   // ── Live feed state ──
   const [allStocks,     setAllStocks]     = useState([]);
@@ -1003,6 +1036,8 @@ export default function DiscoverScreen() {
                     onInvertir={() => setInvestStock(item)}
                     loopiScore={loopiScores[item.symbol]}
                     onShare={() => handleShare(item)}
+                    saved={isSaved(item.symbol)}
+                    onToggleSave={() => toggleTicker(item, loopiScores[item.symbol])}
                   />
                 )}
               />
@@ -1075,6 +1110,16 @@ const card = StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 14, paddingBottom: 14,
     gap: 10,
   },
+
+  // Bookmark — leading item in the header row (card's top-left corner)
+  bookmarkBtn: {
+    width: 28, height: 28, borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0, marginRight: 2,
+  },
+
+  // Highlight border when the stock has changed band since adding
+  containerAlerted: { borderLeftWidth: 3, borderLeftColor: C.orange },
 
   // Header row
   headerRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
