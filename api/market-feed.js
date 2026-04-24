@@ -46,7 +46,7 @@ async function batchReadScores(symbols) {
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
 const toArray = (x) => (Array.isArray(x) ? x : []);
