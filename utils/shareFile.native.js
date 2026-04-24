@@ -1,11 +1,17 @@
-// Native: expo-sharing
-import * as Sharing from 'expo-sharing';
+// Native: React Native built-in Share — handles file sharing on iOS via `url`
+import { Share, Platform } from 'react-native';
 
 export async function shareFile(uri, caption) {
-  const available = await Sharing.isAvailableAsync();
-  if (available) {
-    await Sharing.shareAsync(uri, { mimeType: 'image/png', UTI: 'public.png', dialogTitle: caption });
+  try {
+    if (Platform.OS === 'ios' && uri) {
+      // iOS supports file URIs in Share.share via `url`
+      await Share.share({ url: uri, message: caption });
+    } else {
+      // Android: no file support in RN Share, fall back to text
+      await Share.share({ message: caption });
+    }
     return true;
+  } catch {
+    return false;
   }
-  return false;
 }
