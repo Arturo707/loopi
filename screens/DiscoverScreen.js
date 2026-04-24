@@ -54,6 +54,49 @@ const BAND_EMOJIS = {
   fafo: '🔥', watching: '👀', mid: '😐', cooked: '💀',
 };
 
+// Client-side familiarity — mirror of server FAMILIARITY table. Used as a
+// last-resort so cards never render an empty score even when /api/market-feed
+// is unreachable and we fall through to FALLBACK_STOCKS.
+const CLIENT_FAMILIARITY = {
+  AAPL: 95, TSLA: 90, NVDA: 90, AMZN: 88, META: 85, GOOGL: 85, GOOG: 85, MSFT: 85,
+  GME: 85, NFLX: 80, AMD: 80, COIN: 75, PLTR: 70, SPY: 70, RIVN: 65,
+  SOFI: 60, QQQ: 65, IBIT: 60, GLD: 55, JPM: 55, V: 55, WMT: 55,
+};
+
+function getBandClient(score) {
+  if (score >= 85) return 'fafo';
+  if (score >= 65) return 'watching';
+  if (score >= 40) return 'mid';
+  return 'cooked';
+}
+
+function computeClientSyntheticScore(stock) {
+  const pct = Number(stock.changesPercentage ?? 0);
+  const priceScore = Math.round(Math.min(Math.max((pct + 10) / 20 * 100, 0), 100));
+  const familiarity = CLIENT_FAMILIARITY[stock.symbol] ?? 40;
+  const score = Math.round(priceScore * 0.6 + familiarity * 0.4);
+  const band = getBandClient(score);
+  const absPct = Math.abs(pct);
+  const fmtPct = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
+  const vibeByBand = {
+    fafo:     `${stock.symbol} is ripping — ${fmtPct} today. Momentum is real.`,
+    watching: `${stock.symbol} moving ${fmtPct} with real interest behind it. Worth a look.`,
+    mid:      absPct < 1
+      ? `${stock.symbol} is basically flat at ${fmtPct}. Quiet day for it.`
+      : `${stock.symbol} is ${fmtPct} today. Nothing dramatic — just another session.`,
+    cooked:   `${stock.symbol} down ${absPct.toFixed(1)}% today. Bag holders, hang in there.`,
+  };
+  return {
+    ticker: stock.symbol,
+    score,
+    band,
+    momentum: priceScore,
+    familiarity,
+    vibeCheck: vibeByBand[band],
+    synthetic: true,
+  };
+}
+
 // ─── Anthropic chat (in-app) ──────────────────────────────────────────────────
 
 const ANTHROPIC_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
@@ -441,7 +484,7 @@ function StockCard({ stock, tip, tipLoading, onSaberMas, onInvertir, loopiScore,
         <View style={card.headerRight}>
           <Text style={card.price}>{fmtPrice(stock.price)}</Text>
           <Text style={[card.changePct, { color: up ? C.changePos : C.changeNeg }]}>
-            {up ? '+' : ''}{fmtChange(stock.changesPercentage)}
+            {fmtChange(stock.changesPercentage)}
           </Text>
         </View>
         <TouchableOpacity style={card.shareBtn} onPress={onShare} activeOpacity={0.7}
@@ -641,6 +684,22 @@ export default function DiscoverScreen() {
     items.slice(0, 6).forEach((s) => fetchLoopiScore(s.symbol));
   }, [fetchLoopiScore]);
 
+  // Bulletproof: compute and seed client-side synthetic scores for every item.
+  // Guarantees each card has a score + band + vibeCheck even if the API
+  // returned no scores or we fell through to FALLBACK_STOCKS.
+  const seedClientSynthetic = useCallback((items) => {
+    const patch = {};
+    items.forEach((s) => {
+      if (loopiScoresRef.current[s.symbol] !== undefined) return;
+      const synth = computeClientSyntheticScore(s);
+      loopiScoresRef.current[s.symbol] = synth;
+      patch[s.symbol] = synth;
+    });
+    if (Object.keys(patch).length > 0) {
+      setLoopiScores((prev) => ({ ...prev, ...patch }));
+    }
+  }, []);
+
   const fetchFeed = useCallback(async () => {
     try {
       const res  = await authFetch(FEED_API);
@@ -653,7 +712,8 @@ export default function DiscoverScreen() {
       setAllStocks(items);
       setLastUpdated(new Date());
       setFeedStatus('ready');
-      seedScores(data.scores);
+      seedClientSynthetic(items);  // bulletproof baseline
+      seedScores(data.scores);     // upgrade to server synthetic/full
       preloadTopScores(items);
       rankItems(items);
     } catch (err) {
@@ -668,6 +728,7 @@ export default function DiscoverScreen() {
           setAllStocks(cached.items);
           setLastUpdated(new Date());
           setFeedStatus('ready');
+          seedClientSynthetic(cached.items);
           preloadTopScores(cached.items);
           rankItems(cached.items);
           return;
@@ -683,9 +744,10 @@ export default function DiscoverScreen() {
       setAllStocks(FALLBACK_STOCKS);
       setLastUpdated(new Date());
       setFeedStatus('ready');
+      seedClientSynthetic(FALLBACK_STOCKS);
       preloadTopScores(FALLBACK_STOCKS);
     }
-  }, [rankItems, seedScores, loadFirestoreCache, preloadTopScores]);
+  }, [rankItems, seedScores, loadFirestoreCache, preloadTopScores, seedClientSynthetic]);
 
   useEffect(() => {
     fetchFeed();
