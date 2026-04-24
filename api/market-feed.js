@@ -1,9 +1,12 @@
-// v9 - FMP feed + Loopi Scores attached from Firestore cache
+// v10 - FMP feed + synthetic scores for every symbol (instant) + full vibes from cache
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { requireAuth } from '../lib/requireAuth.js';
+import { computeSyntheticScore } from '../lib/loopi-score-core.js';
 
-const SCORE_TTL_MS = 15 * 60 * 1000;
+// Serve cached full scores for up to 24h — matches loopi-score.js serve TTL.
+// Synthetic scores are computed from live FMP data and always fresh.
+const SCORE_TTL_MS = 24 * 60 * 60 * 1000;
 
 let db = null;
 try {
@@ -101,6 +104,7 @@ export default async function handler(req, res) {
     // then gainers → losers → actives for market-driven content
     const seen  = new Set();
     const items = [];
+    const syntheticScores = {};
 
     for (const item of [...mustHaveArr, ...gainersArr, ...losersArr, ...activesArr]) {
       if (!item.symbol || seen.has(item.symbol)) continue;
@@ -119,14 +123,22 @@ export default async function handler(req, res) {
         type:              isEtf ? 'etf' : 'stock',
       });
 
+      // Compute synthetic score from the raw FMP item (which has volume/avgVolume).
+      // This guarantees every card has a real score + band on first paint —
+      // no waiting for per-stock /loopi-score fetches to resolve.
+      syntheticScores[item.symbol] = computeSyntheticScore(item);
+
       if (items.length >= 80) break;
     }
 
     console.log('[market-feed] after quality filter:', items.length, 'stocks:', items.map(s => s.symbol).join(','));
     console.log(`[market-feed] marketOpen=${marketOpen} total=${items.length}`);
 
-    const scores = (await batchReadScores(items.map((s) => s.symbol))) ?? {};
-    console.log(`[market-feed] scores attached: ${Object.keys(scores).length}`);
+    // Merge cached full scores (with Claude-generated vibeCheck) over synthetic ones.
+    // Full scores win when fresh; otherwise synthetic keeps the UI populated.
+    const cachedScores = (await batchReadScores(items.map((s) => s.symbol))) ?? {};
+    const scores = { ...syntheticScores, ...cachedScores };
+    console.log(`[market-feed] synthetic: ${Object.keys(syntheticScores).length}, cached full: ${Object.keys(cachedScores).length}`);
     return res.status(200).json({ items, marketOpen, scores });
 
   } catch (err) {

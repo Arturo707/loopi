@@ -181,7 +181,8 @@ async function computeAndCacheScores(symbols, fmpKey, anthropicKey) {
     await Promise.all(
       toCompute.slice(i, i + BATCH).map(async (ticker) => {
         try {
-          const result = await computeScore(ticker, fmpKey, anthropicKey);
+          // Cron has long timeout budget → allow web search on fafo tickers + longer Claude timeout
+          const result = await computeScore(ticker, fmpKey, anthropicKey, { allowWebSearch: true, timeoutMs: 20000 });
           await db.collection('scores').doc(ticker).set({ ...result, cachedAt: new Date().toISOString() });
           console.log(`[refresh-feed] Score cached: ${ticker} ${result.score} (${result.band})`);
         } catch (err) {

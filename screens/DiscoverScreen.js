@@ -360,6 +360,60 @@ function CompanyLogo({ symbol }) {
   );
 }
 
+// ─── Live data pulse — green dot when market open, grey when closed ──────────
+
+function LivePulse({ open }) {
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!open) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.35, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1,    duration: 900, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [open]);
+
+  const color = open ? '#10B981' : C.muted;
+  return (
+    <View style={live.row}>
+      <Animated.View style={[live.dot, { backgroundColor: color, opacity: open ? pulse : 0.5 }]} />
+      <Text style={[live.txt, { color }]}>{open ? 'LIVE' : 'CLOSED'}</Text>
+    </View>
+  );
+}
+
+// ─── Animated score — counts up to target on first reveal ────────────────────
+
+function AnimatedScore({ value, color }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  const lastValue = useRef(null);
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    if (typeof value !== 'number') return;
+    const prev = lastValue.current;
+    if (prev === value) return;
+    // First reveal → count up from 0. Subsequent upgrade (synthetic → full) → tween from prev.
+    const from = prev == null ? 0 : prev;
+    lastValue.current = value;
+    anim.setValue(0);
+    const listener = anim.addListener(({ value: t }) => {
+      setDisplay(Math.round(from + (value - from) * t));
+    });
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: prev == null ? 600 : 400,
+      useNativeDriver: false,
+    }).start();
+    return () => { anim.removeListener(listener); };
+  }, [value]);
+
+  return <Text style={[card.scoreNum, { color }]}>{display}</Text>;
+}
+
 // ─── Stock Card ───────────────────────────────────────────────────────────────
 
 function StockCard({ stock, tip, tipLoading, onSaberMas, onInvertir, loopiScore, onShare }) {
@@ -401,7 +455,7 @@ function StockCard({ stock, tip, tipLoading, onSaberMas, onInvertir, loopiScore,
         <View style={card.scoreLeft}>
           {scoreData ? (
             <View style={card.scoreNumRow}>
-              <Text style={[card.scoreNum, { color: scoreColor }]}>{scoreData.score}</Text>
+              <AnimatedScore value={scoreData.score} color={scoreColor} />
               <Text style={card.scoreOf}> /100</Text>
             </View>
           ) : scoreLoading ? (
@@ -483,7 +537,13 @@ export default function DiscoverScreen() {
     const patch = {};
     Object.entries(incoming).forEach(([sym, val]) => {
       if (!val || typeof val !== 'object') return;
-      if (loopiScoresRef.current[sym] === undefined) {
+      const existing = loopiScoresRef.current[sym];
+      // Seed if nothing exists, OR upgrade synthetic → full (AI-generated).
+      const isUpgrade = existing
+        && typeof existing === 'object'
+        && existing.synthetic
+        && !val.synthetic;
+      if (existing === undefined || existing === 'loading' || isUpgrade) {
         loopiScoresRef.current[sym] = val;
         patch[sym] = val;
       }
@@ -492,18 +552,28 @@ export default function DiscoverScreen() {
   }, []);
 
   const fetchLoopiScore = useCallback(async (symbol) => {
-    if (loopiScoresRef.current[symbol] !== undefined) return;
-    loopiScoresRef.current[symbol] = 'loading';
-    setLoopiScores((prev) => ({ ...prev, [symbol]: 'loading' }));
+    const existing = loopiScoresRef.current[symbol];
+    // Skip only if we already have a full (non-synthetic) score, or a fetch is in flight.
+    // Synthetic scores should be upgraded to full AI-generated ones.
+    if (existing === 'loading') return;
+    if (existing && typeof existing === 'object' && !existing.synthetic) return;
+
+    // Keep the synthetic score visible while we fetch — don't blank the UI.
+    if (!existing) {
+      loopiScoresRef.current[symbol] = 'loading';
+      setLoopiScores((prev) => ({ ...prev, [symbol]: 'loading' }));
+    }
     try {
       const res  = await authFetch(`${SCORE_API}?ticker=${symbol}`);
       const data = await res.json();
-      const result = res.ok ? data : null;
+      const result = res.ok ? data : (existing && existing !== 'loading' ? existing : null);
       loopiScoresRef.current[symbol] = result;
       setLoopiScores((prev) => ({ ...prev, [symbol]: result }));
     } catch {
-      loopiScoresRef.current[symbol] = null;
-      setLoopiScores((prev) => ({ ...prev, [symbol]: null }));
+      // Fall back to whatever we had (synthetic) rather than blanking
+      const fallback = existing && existing !== 'loading' ? existing : null;
+      loopiScoresRef.current[symbol] = fallback;
+      setLoopiScores((prev) => ({ ...prev, [symbol]: fallback }));
     }
   }, []);
 
@@ -755,7 +825,7 @@ export default function DiscoverScreen() {
             )}
           </View>
           {feedStatus === 'ready' && !isSearching && (
-            <Text style={s.timestamp}>{fmtElapsed(elapsed)}</Text>
+            <LivePulse open={marketOpen && !showingCache} />
           )}
         </View>
 
@@ -1155,4 +1225,10 @@ const s = StyleSheet.create({
   },
   retryTxt: { fontSize: 15, fontFamily: F.bold, color: '#FFF' },
   disclaimer: { fontSize: 10, fontFamily: F.regular, color: C.muted, textAlign: 'center', paddingHorizontal: 20, paddingBottom: 4 },
+});
+
+const live = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  txt: { fontSize: 10, fontFamily: F.bold, letterSpacing: 1.2 },
 });

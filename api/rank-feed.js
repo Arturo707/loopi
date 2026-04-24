@@ -30,8 +30,8 @@ const GEN_Z_SYMBOLS = new Set([
   'COIN', 'BRK-B', 'XLE', 'IWM', 'TLT',
 ]);
 
-const CACHE_TTL_MS  = 30 * 60 * 1000; // 30 minutes
-const SCORE_TTL_MS  = 15 * 60 * 1000; // must match loopi-score-core
+const CACHE_TTL_MS  = 30 * 60 * 1000;         // ranked feed: 30 min
+const SCORE_TTL_MS  = 24 * 60 * 60 * 1000;    // serve cached full scores up to 24h
 
 async function batchReadScores(symbols, db) {
   if (!db || !symbols.length) return {};
