@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet,
-  ActivityIndicator, KeyboardAvoidingView, Platform,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Image,
   ScrollView, Animated, Modal, Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -335,27 +335,50 @@ function getIconColor(symbol) {
   return ICON_PALETTE[Math.abs(h) % ICON_PALETTE.length];
 }
 
+// ─── Company Logo — real logo with letter fallback ────────────────────────────
+
+function CompanyLogo({ symbol }) {
+  const [failed, setFailed] = useState(false);
+  const color   = getIconColor(symbol);
+  const letters = symbol.slice(0, 2);
+  const url     = `https://financialmodelingprep.com/image-stock/${symbol}.png`;
+
+  if (failed) {
+    return (
+      <View style={[card.icon, { backgroundColor: color }]}>
+        <Text style={card.iconTxt}>{letters}</Text>
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri: url }}
+      style={card.logoImg}
+      resizeMode="contain"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 // ─── Stock Card ───────────────────────────────────────────────────────────────
 
 function StockCard({ stock, tip, tipLoading, onSaberMas, onInvertir, loopiScore, onShare }) {
-  const up         = stock.changesPercentage >= 0;
-  const scoreData  = loopiScore && loopiScore !== 'loading' ? loopiScore : null;
-  const band       = scoreData?.band;
-  const scoreColor = band ? (BAND_COLORS[band] ?? C.muted) : C.muted;
-  const bandEmoji  = band ? (BAND_EMOJIS[band] ?? '') : '';
-  const vibeText   = scoreData?.vibeCheck || tip?.text || '';
-  const iconColor  = getIconColor(stock.symbol);
-  const iconLetters = stock.symbol.slice(0, 2);
+  const up           = stock.changesPercentage >= 0;
+  const scoreData    = loopiScore && loopiScore !== 'loading' ? loopiScore : null;
+  const band         = scoreData?.band;
+  const scoreColor   = band ? (BAND_COLORS[band] ?? C.muted) : C.muted;
+  const bandEmoji    = band ? (BAND_EMOJIS[band] ?? '') : '';
+  const vibeText     = scoreData?.vibeCheck || tip?.text || '';
+  const scoreLoading = loopiScore === 'loading' || loopiScore === undefined;
+  const showVibeLoading = (scoreLoading || tipLoading) && !vibeText;
 
   return (
     <View style={card.container}>
 
-      {/* Header row: icon + ticker/company LEFT, price/change RIGHT */}
+      {/* Header row */}
       <View style={card.headerRow}>
         <View style={card.headerLeft}>
-          <View style={[card.icon, { backgroundColor: iconColor }]}>
-            <Text style={card.iconTxt}>{iconLetters}</Text>
-          </View>
+          <CompanyLogo symbol={stock.symbol} />
           <View style={card.headerMeta}>
             <Text style={card.ticker}>{stock.symbol}</Text>
             <Text style={card.company} numberOfLines={1}>{stock.name}</Text>
@@ -367,46 +390,58 @@ function StockCard({ stock, tip, tipLoading, onSaberMas, onInvertir, loopiScore,
             {up ? '+' : ''}{fmtChange(stock.changesPercentage)}
           </Text>
         </View>
-        {/* Share button */}
         <TouchableOpacity style={card.shareBtn} onPress={onShare} activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={card.shareBtnTxt}>📤</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Score row: "XX /100" LEFT, band pill RIGHT */}
+      {/* Score row — always shows something */}
       <View style={card.scoreRow}>
         <View style={card.scoreLeft}>
-          {loopiScore === 'loading' ? (
-            <View style={card.scoreSkeleton} />
-          ) : scoreData ? (
+          {scoreData ? (
             <View style={card.scoreNumRow}>
               <Text style={[card.scoreNum, { color: scoreColor }]}>{scoreData.score}</Text>
               <Text style={card.scoreOf}> /100</Text>
             </View>
+          ) : scoreLoading ? (
+            <View style={card.scoreNumRow}>
+              <Text style={[card.scoreNum, { color: C.border }]}>··</Text>
+              <Text style={card.scoreOf}> /100</Text>
+            </View>
           ) : (
-            <View style={card.scorePlaceholder} />
+            <View style={card.scoreNumRow}>
+              <Text style={[card.scoreNum, { color: C.muted }]}>—</Text>
+              <Text style={card.scoreOf}> /100</Text>
+            </View>
           )}
         </View>
-        {scoreData && (
+        {scoreData ? (
           <View style={[card.bandPill, { backgroundColor: scoreColor }]}>
             <Text style={card.bandPillTxt}>{bandEmoji} {band}</Text>
+          </View>
+        ) : (
+          <View style={[card.bandPill, card.bandPillLoading]}>
+            <ActivityIndicator size="small" color={C.muted} />
+            <Text style={card.bandPillLoadingTxt}>vibes…</Text>
           </View>
         )}
       </View>
 
-      {/* Vibe check box */}
-      {(vibeText || tipLoading) ? (
-        <View style={card.vibeBox}>
-          {tipLoading ? (
-            <TipSkeleton />
-          ) : (
-            <Text style={card.vibeText}>{vibeText}</Text>
-          )}
-        </View>
-      ) : null}
+      {/* Vibe check — always visible */}
+      <View style={card.vibeBox}>
+        {vibeText ? (
+          <Text style={card.vibeText}>{vibeText}</Text>
+        ) : showVibeLoading ? (
+          <TipSkeleton />
+        ) : (
+          <Text style={[card.vibeText, { color: C.muted }]}>
+            Tap "Learn more" for the loopi take on {stock.symbol}.
+          </Text>
+        )}
+      </View>
 
-      {/* Action buttons — compact, below vibe */}
+      {/* Action buttons */}
       <View style={card.buttons}>
         <TouchableOpacity style={card.btnSecondary} onPress={onSaberMas} activeOpacity={0.8}>
           <Text style={card.btnSecondaryTxt}>💬 Learn more</Text>
@@ -887,12 +922,17 @@ const card = StyleSheet.create({
   headerMeta:  { flex: 1 },
   headerRight: { alignItems: 'flex-end' },
 
-  // Company icon square
+  // Company icon square (fallback when logo image fails)
   icon: {
     width: 38, height: 38, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   iconTxt: { fontSize: 13, fontFamily: F.bold, color: '#FFF', letterSpacing: 0.5 },
+  // Real logo image
+  logoImg: {
+    width: 38, height: 38, borderRadius: 10,
+    backgroundColor: '#FFFFFF', flexShrink: 0,
+  },
 
   // Ticker + company name
   ticker:  { fontSize: 15, fontFamily: F.bold,    color: C.text },
@@ -922,9 +962,13 @@ const card = StyleSheet.create({
   // Band pill — filled, white text
   bandPill: {
     borderRadius: 30, paddingVertical: 6, paddingHorizontal: 14,
-    flexDirection: 'row', alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
   },
   bandPillTxt: { fontSize: 13, fontFamily: F.bold, color: '#FFF' },
+  bandPillLoading: {
+    backgroundColor: C.bg, borderWidth: 1, borderColor: C.border,
+  },
+  bandPillLoadingTxt: { fontSize: 12, fontFamily: F.medium, color: C.muted },
 
   // Vibe check box — tinted, italic
   vibeBox: {
@@ -1031,7 +1075,7 @@ const cm = StyleSheet.create({
 });
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
 
   // Off-screen share card
   offscreen: {
@@ -1044,8 +1088,8 @@ const s = StyleSheet.create({
   },
   searchWrapper: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border,
-    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10,
+    backgroundColor: '#F3F3F3', borderWidth: 0,
+    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10,
   },
   searchIcon:  { fontSize: 14, marginRight: 8 },
   searchInput: { flex: 1, fontSize: 15, fontFamily: F.regular, color: C.text },
