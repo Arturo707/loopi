@@ -18,7 +18,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log('[create-link-token] req.body:', JSON.stringify(req.body));
     const { userId, user_id } = req.body;
     const clientUserId = userId || user_id;
 

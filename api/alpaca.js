@@ -12,7 +12,7 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-const ALPACA_BASE = 'https://broker-api.sandbox.alpaca.markets';
+const ALPACA_BASE = process.env.ALPACA_BASE_URL || 'https://broker-api.sandbox.alpaca.markets';
 
 const alpacaHeaders = () => ({
   'Authorization': 'Basic ' + Buffer.from(
@@ -238,7 +238,6 @@ async function trade(body) {
     return { status: 400, body: { error: 'side must be buy or sell' } };
   }
 
-  console.log('[alpaca] achRelationshipId received:', achRelationshipId, '| type:', typeof achRelationshipId);
 
   const hasAch = achRelationshipId != null && achRelationshipId !== '';
 
@@ -270,7 +269,6 @@ async function trade(body) {
     ),
   };
 
-  console.log('[alpaca] trade request body:', JSON.stringify(orderBody, null, 2));
 
   let response, data;
   try {
@@ -280,8 +278,6 @@ async function trade(body) {
       body: JSON.stringify(orderBody),
     });
     const rawText = await response.text();
-    console.log('[alpaca] trade response status:', response.status, response.statusText);
-    console.log('[alpaca] trade raw response:', rawText);
     data = rawText ? JSON.parse(rawText) : {};
   } catch (fetchErr) {
     console.error('[alpaca] trade fetch error:', fetchErr.message);

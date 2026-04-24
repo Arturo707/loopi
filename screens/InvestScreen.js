@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Modal,
-  ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
+  ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -745,11 +745,17 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
                   </TouchableOpacity>
                 ))}
                 <View style={s.links}>
-                  <Text style={s.link}>Customer Agreement</Text>
+                  <TouchableOpacity onPress={() => Linking.openURL('https://files.alpaca.markets/disclosures/customer_agreement.pdf')}>
+                    <Text style={s.link}>Customer Agreement</Text>
+                  </TouchableOpacity>
                   <Text style={s.linkSep}>·</Text>
-                  <Text style={s.link}>Margin Agreement</Text>
+                  <TouchableOpacity onPress={() => Linking.openURL('https://files.alpaca.markets/disclosures/margin_agreement.pdf')}>
+                    <Text style={s.link}>Margin Agreement</Text>
+                  </TouchableOpacity>
                   <Text style={s.linkSep}>·</Text>
-                  <Text style={s.link}>Account Agreement</Text>
+                  <TouchableOpacity onPress={() => Linking.openURL('https://files.alpaca.markets/disclosures/account_agreement.pdf')}>
+                    <Text style={s.link}>Account Agreement</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             )}

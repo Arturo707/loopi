@@ -35,8 +35,9 @@ export default async function handler(req, res) {
     const processor_token = processorResponse.data.processor_token;
 
     // Send processor token to Alpaca to create ACH relationship
+    const alpacaBase = process.env.ALPACA_BASE_URL || 'https://broker-api.sandbox.alpaca.markets';
     const alpacaRes = await fetch(
-      `https://broker-api.sandbox.alpaca.markets/v1/accounts/${alpaca_account_id}/ach_relationships`,
+      `${alpacaBase}/v1/accounts/${alpaca_account_id}/ach_relationships`,
       {
         method: 'POST',
         headers: {
