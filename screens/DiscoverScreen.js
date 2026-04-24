@@ -14,6 +14,7 @@ import { ViewShot, captureCard } from '../utils/viewShot';
 import { shareFile } from '../utils/shareFile';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { isUsMarketOpen } from '../lib/market-hours';
 
 // ─── API endpoints ────────────────────────────────────────────────────────────
 
@@ -405,10 +406,12 @@ function CompanyLogo({ symbol }) {
 
 // ─── Live data pulse — green dot when market open, grey when closed ──────────
 
-function LivePulse({ open }) {
+// status: 'live' (green pulse) | 'delayed' (amber pulse) | 'closed' (grey)
+function LivePulse({ status }) {
   const pulse = useRef(new Animated.Value(1)).current;
+  const animated = status === 'live' || status === 'delayed';
   useEffect(() => {
-    if (!open) return;
+    if (!animated) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, { toValue: 0.35, duration: 900, useNativeDriver: true }),
@@ -417,13 +420,20 @@ function LivePulse({ open }) {
     );
     loop.start();
     return () => loop.stop();
-  }, [open]);
+  }, [animated]);
 
-  const color = open ? '#10B981' : C.muted;
+  const color =
+    status === 'live'    ? '#10B981' :
+    status === 'delayed' ? '#E9A84B' :
+                           C.muted;
+  const label =
+    status === 'live'    ? 'LIVE'    :
+    status === 'delayed' ? 'DELAYED' :
+                           'CLOSED';
   return (
     <View style={live.row}>
-      <Animated.View style={[live.dot, { backgroundColor: color, opacity: open ? pulse : 0.5 }]} />
-      <Text style={[live.txt, { color }]}>{open ? 'LIVE' : 'CLOSED'}</Text>
+      <Animated.View style={[live.dot, { backgroundColor: color, opacity: animated ? pulse : 0.5 }]} />
+      <Text style={[live.txt, { color }]}>{label}</Text>
     </View>
   );
 }
@@ -887,19 +897,30 @@ export default function DiscoverScreen() {
             )}
           </View>
           {feedStatus === 'ready' && !isSearching && (
-            <LivePulse open={marketOpen && !showingCache} />
+            <LivePulse
+              status={
+                !isUsMarketOpen()         ? 'closed'  :
+                showingCache              ? 'delayed' :
+                                            'live'
+              }
+            />
           )}
         </View>
 
-        {/* Closed-market banner */}
-        {feedStatus === 'ready' && !marketOpen && !showingCache && (
+        {/* Closed-market banner — only when the clock says closed */}
+        {feedStatus === 'ready' && !isUsMarketOpen() && !showingCache && (
           <View style={s.closedBanner}>
             <Text style={s.closedBannerTxt}>🔒 Market closed — showing closing prices</Text>
           </View>
         )}
 
-        {/* Cache fallback banner */}
-        {feedStatus === 'ready' && showingCache && (
+        {/* Stale-data banner — when market is open but we're on fallback data */}
+        {feedStatus === 'ready' && showingCache && isUsMarketOpen() && (
+          <View style={s.cacheBanner}>
+            <Text style={s.cacheBannerTxt}>⏳ Live feed reconnecting — showing recent snapshot</Text>
+          </View>
+        )}
+        {feedStatus === 'ready' && showingCache && !isUsMarketOpen() && (
           <View style={s.cacheBanner}>
             <Text style={s.cacheBannerTxt}>📦 Showing last session's data — refresh when market opens</Text>
           </View>
@@ -1077,9 +1098,9 @@ const card = StyleSheet.create({
   ticker:  { fontSize: 15, fontFamily: F.bold,    color: C.text },
   company: { fontSize: 12, fontFamily: F.regular, color: C.muted, marginTop: 1 },
 
-  // Price + change
-  price:     { fontSize: 14, fontFamily: F.bold, color: C.text },
-  changePct: { fontSize: 12, fontFamily: F.semibold, marginTop: 2 },
+  // Price + change — price is the visual anchor on the right, larger weight
+  price:     { fontSize: 19, fontFamily: F.xbold, color: C.text, letterSpacing: -0.3 },
+  changePct: { fontSize: 13, fontFamily: F.bold, marginTop: 3 },
 
   // Share button (small, top-right of header)
   shareBtn: {

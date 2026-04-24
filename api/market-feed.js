@@ -1,8 +1,9 @@
-// v10 - FMP feed + synthetic scores for every symbol (instant) + full vibes from cache
+// v11 - FMP feed + synthetic scores + real today's news headlines as vibes
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { requireAuth } from '../lib/requireAuth.js';
 import { computeSyntheticScore } from '../lib/loopi-score-core.js';
+import { isUsMarketOpen } from '../lib/market-hours.js';
 
 // Serve cached full scores for up to 24h — matches loopi-score.js serve TTL.
 // Synthetic scores are computed from live FMP data and always fresh.
@@ -24,6 +25,48 @@ try {
   }
 } catch (err) {
   console.warn('[market-feed] Firebase init failed — scores will be omitted:', err.message);
+}
+
+// Fetch today's top news headline per symbol from FMP in one batched call.
+// Returns { SYMBOL: { title, site, url, publishedDate } } — most recent first.
+async function fetchNewsForSymbols(symbols, fmpKey) {
+  if (!symbols.length || !fmpKey) return {};
+  try {
+    const batch = symbols.slice(0, 40);
+    const url = `https://financialmodelingprep.com/api/v3/stock_news?tickers=${batch.join(',')}&limit=${batch.length * 2}&apikey=${fmpKey}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+    let res;
+    try {
+      res = await fetch(url, { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!res.ok) {
+      console.warn('[market-feed] news fetch non-ok:', res.status);
+      return {};
+    }
+    const articles = await res.json();
+    if (!Array.isArray(articles)) return {};
+    const grouped = {};
+    // Articles come sorted newest-first; first hit per symbol wins.
+    for (const a of articles) {
+      const sym = (a?.symbol || '').toUpperCase();
+      if (!sym || !a?.title) continue;
+      if (grouped[sym]) continue;
+      grouped[sym] = {
+        title: String(a.title).trim(),
+        site: a.site || null,
+        url:  a.url  || null,
+        publishedDate: a.publishedDate || null,
+      };
+    }
+    console.log(`[market-feed] news fetched: ${Object.keys(grouped).length}/${batch.length}`);
+    return grouped;
+  } catch (err) {
+    console.warn('[market-feed] news fetch failed:', err.message);
+    return {};
+  }
 }
 
 async function batchReadScores(symbols) {
@@ -98,7 +141,9 @@ export default async function handler(req, res) {
     const losersArr   = toArray(losersRaw);
     const activesArr  = toArray(activesRaw);
     const mustHaveArr = mustHaveRaws.flatMap(toArray).filter((x) => x && x.symbol);
-    const marketOpen  = gainersArr.length > 0 || losersArr.length > 0;
+    // Authoritative market status: US equity wall-clock in ET. The FMP data
+    // shape is unreliable (returns closing-day gainers even after hours).
+    const marketOpen  = isUsMarketOpen();
 
     // Combine all sources: must-haves first so they're never bumped by the cap,
     // then gainers → losers → actives for market-driven content
@@ -134,11 +179,34 @@ export default async function handler(req, res) {
     console.log('[market-feed] after quality filter:', items.length, 'stocks:', items.map(s => s.symbol).join(','));
     console.log(`[market-feed] marketOpen=${marketOpen} total=${items.length}`);
 
-    // Merge cached full scores (with Claude-generated vibeCheck) over synthetic ones.
-    // Full scores win when fresh; otherwise synthetic keeps the UI populated.
-    const cachedScores = (await batchReadScores(items.map((s) => s.symbol))) ?? {};
-    const scores = { ...syntheticScores, ...cachedScores };
-    console.log(`[market-feed] synthetic: ${Object.keys(syntheticScores).length}, cached full: ${Object.keys(cachedScores).length}`);
+    // Fetch today's news headlines + Firestore-cached full scores in parallel.
+    // News drives real insights in the vibeCheck; cached full scores bring
+    // AI-polished loopi-voice copy when available.
+    const symbols = items.map((s) => s.symbol);
+    const [news, cachedScores] = await Promise.all([
+      fetchNewsForSymbols(symbols, key),
+      batchReadScores(symbols),
+    ]);
+
+    // Build scores: synthetic baseline → overlay cached full → overlay news headline.
+    // News always wins for vibeCheck because it's real and today-specific.
+    const scores = {};
+    for (const sym of symbols) {
+      const base   = syntheticScores[sym];
+      const cached = cachedScores[sym];
+      const merged = { ...base, ...(cached || {}) };
+      if (news[sym]) {
+        merged.vibeCheck      = news[sym].title;
+        merged.newsTitle      = news[sym].title;
+        merged.newsSite       = news[sym].site;
+        merged.newsUrl        = news[sym].url;
+        merged.newsDate       = news[sym].publishedDate;
+        merged.synthetic      = false;
+      }
+      scores[sym] = merged;
+    }
+
+    console.log(`[market-feed] synthetic: ${Object.keys(syntheticScores).length}, cached full: ${Object.keys(cachedScores).length}, news: ${Object.keys(news).length}`);
     return res.status(200).json({ items, marketOpen, scores });
 
   } catch (err) {
