@@ -567,6 +567,10 @@ export default function DiscoverScreen() {
     return { items, cacheAge };
   }, []);
 
+  const preloadTopScores = useCallback((items) => {
+    items.slice(0, 6).forEach((s) => fetchLoopiScore(s.symbol));
+  }, [fetchLoopiScore]);
+
   const fetchFeed = useCallback(async () => {
     try {
       const res  = await authFetch(FEED_API);
@@ -580,6 +584,7 @@ export default function DiscoverScreen() {
       setLastUpdated(new Date());
       setFeedStatus('ready');
       seedScores(data.scores);
+      preloadTopScores(items);
       rankItems(items);
     } catch (err) {
       console.error('[Feed] API failed:', err.message, '— trying Firestore cache');
@@ -593,6 +598,7 @@ export default function DiscoverScreen() {
           setAllStocks(cached.items);
           setLastUpdated(new Date());
           setFeedStatus('ready');
+          preloadTopScores(cached.items);
           rankItems(cached.items);
           return;
         }
@@ -607,8 +613,9 @@ export default function DiscoverScreen() {
       setAllStocks(FALLBACK_STOCKS);
       setLastUpdated(new Date());
       setFeedStatus('ready');
+      preloadTopScores(FALLBACK_STOCKS);
     }
-  }, [rankItems, seedScores, loadFirestoreCache]);
+  }, [rankItems, seedScores, loadFirestoreCache, preloadTopScores]);
 
   useEffect(() => {
     fetchFeed();

@@ -272,7 +272,7 @@ const inkShadow = {
 };
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
 
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
@@ -288,7 +288,7 @@ const s = StyleSheet.create({
 
   balanceCard: {
     marginHorizontal: 24, marginBottom: 16, borderRadius: 20,
-    overflow: 'hidden', borderWidth: 2, borderColor: C.ink,
+    overflow: 'hidden', borderWidth: 1.5, borderColor: C.border,
     ...inkShadow,
   },
   balanceGradient: { padding: 24 },
@@ -306,7 +306,7 @@ const s = StyleSheet.create({
   insightCard: {
     marginHorizontal: 24, marginBottom: 16,
     backgroundColor: C.card, borderRadius: 20, padding: 18,
-    borderWidth: 2, borderColor: C.ink, ...inkShadow,
+    borderWidth: 1.5, borderColor: C.border, ...inkShadow,
   },
   insightHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   insightDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.orange },
@@ -323,7 +323,7 @@ const s = StyleSheet.create({
   hScroll: { paddingLeft: 24 },
   miniCard: {
     backgroundColor: C.card, borderRadius: 16, padding: 16,
-    marginRight: 12, width: 130, borderWidth: 2, borderColor: C.ink,
+    marginRight: 12, width: 130, borderWidth: 1.5, borderColor: C.border,
     ...inkShadow,
   },
   miniTag:    { fontSize: 18, marginBottom: 6 },
@@ -338,7 +338,7 @@ const s = StyleSheet.create({
 
   riskCard: {
     marginHorizontal: 24, backgroundColor: C.card,
-    borderRadius: 20, padding: 8, borderWidth: 2, borderColor: C.ink, ...inkShadow,
+    borderRadius: 20, padding: 8, borderWidth: 1.5, borderColor: C.border, ...inkShadow,
   },
   riskRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 14 },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2 },
@@ -358,7 +358,7 @@ const pulse = StyleSheet.create({
   card: {
     marginHorizontal: 24,
     backgroundColor: C.card, borderRadius: 20,
-    borderWidth: 2, borderColor: C.ink, padding: 18,
+    borderWidth: 1.5, borderColor: C.border, padding: 18,
     ...inkShadow,
   },
   labelRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
