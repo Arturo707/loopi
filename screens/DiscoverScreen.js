@@ -10,8 +10,8 @@ import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 import InvestScreen from './InvestScreen';
 import { authFetch } from '../utils/authFetch';
-import ViewShot from 'react-native-view-shot';
-import * as Sharing from 'expo-sharing';
+import { ViewShot, captureCard } from '../utils/viewShot';
+import { shareFile } from '../utils/shareFile';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
@@ -627,16 +627,11 @@ export default function DiscoverScreen() {
     const timeout = setTimeout(async () => {
       if (cancelled) return;
       try {
-        const uri       = await shareCardRef.current.capture();
-        const caption   = getCaption(shareTarget.stock, shareTarget.scoreData);
-        const available = await Sharing.isAvailableAsync();
-        if (available) {
-          await Sharing.shareAsync(uri, { mimeType: 'image/png', UTI: 'public.png', dialogTitle: caption });
-        } else {
-          await Share.share({ message: caption });
-        }
+        const caption = getCaption(shareTarget.stock, shareTarget.scoreData);
+        const uri     = await captureCard(shareCardRef);
+        const shared  = uri ? await shareFile(uri, caption) : false;
+        if (!shared) await Share.share({ message: caption });
       } catch {
-        // Fallback: text-only share
         try {
           await Share.share({ message: getCaption(shareTarget.stock, shareTarget.scoreData) });
         } catch { /* silent */ }
