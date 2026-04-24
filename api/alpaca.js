@@ -11,6 +11,7 @@
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { requireAuth } from '../lib/requireAuth.js';
 
 const ALPACA_BASE = process.env.ALPACA_BASE_URL || 'https://broker-api.sandbox.alpaca.markets';
 
@@ -82,6 +83,7 @@ async function createAccount(body, req) {
     isAffiliatedWithFinra, isControlPerson, isPoliticallyExposed, immediateFamilyExposed,
     agreementSignedAt, ipAddress,
     citizenshipStatus, visaType, visaExpiration, countryOfBirth,
+    trustedContact,
   } = body;
 
   const required = { firstName, lastName, email, dateOfBirth, taxId, taxIdType, streetAddress, city, country };
@@ -143,6 +145,7 @@ async function createAccount(body, req) {
       { agreement: 'account_agreement',  signed_at: signedAt, ip_address: userIp },
       { agreement: 'customer_agreement', signed_at: signedAt, ip_address: userIp },
     ],
+    ...(trustedContact && { trusted_contact: trustedContact }),
   };
 
   const response = await fetch(`${ALPACA_BASE}/v1/accounts`, {
@@ -343,6 +346,9 @@ const ACTIONS = { 'create-account': createAccount, 'link-bank': linkBank, portfo
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
 
   const { action, ...rest } = req.body;
   if (!action || !ACTIONS[action]) {

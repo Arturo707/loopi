@@ -10,6 +10,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../config/firebase';
+import { authFetch } from '../utils/authFetch';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 
@@ -18,7 +19,7 @@ const API_BASE =
   (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
 
 const INVEST_AMOUNTS = [25, 50, 100, 200, 500];
-const TOTAL_KYC_STEPS = 6;
+const TOTAL_KYC_STEPS = 7;
 
 const WEALTH_BUILDING_ETFS = ['QQQ','SPY','VTI','VOO','IVV','VGT','SCHD','VYM','DIA','IWM','EFA','AGG','BND','GLD','VNQ'];
 
@@ -178,6 +179,12 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
   const [agree1, setAgree1] = useState(false);
   const [agree2, setAgree2] = useState(false);
 
+  // Step 6 — Trusted contact (all optional, required to display per FINRA Rule 4512)
+  const [tcFirstName, setTcFirstName] = useState('');
+  const [tcLastName,  setTcLastName]  = useState('');
+  const [tcEmail,     setTcEmail]     = useState('');
+  const [tcPhone,     setTcPhone]     = useState('');
+
   // Step 2 — State picker
   const [statePickerOpen, setStatePickerOpen] = useState(false);
 
@@ -199,6 +206,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
     setEmployment(null); setIncome(null); setNetWorth(null);
     setIsPep(false); setIsAffiliated(false); setIsShareholder(false); setIsFamilyExp(false);
     setAgree1(false); setAgree2(false);
+    setTcFirstName(''); setTcLastName(''); setTcEmail(''); setTcPhone('');
     setCustomAmount(''); setRecurring(false); setRecurringFreq(null);
   };
 
@@ -287,7 +295,8 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
       case 3: return !!employment && !!income && !!netWorth;
       case 4: return true; // disclosures always valid (defaulted to No)
       case 5: return agree1 && agree2;
-      case 6: return !!achRelationshipId && amount > 0;
+      case 6: return true; // trusted contact — all fields optional
+      case 7: return !!achRelationshipId && amount > 0;
       default: return false;
     }
   };
@@ -317,7 +326,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
       return;
     }
 
-    // Step 6 submit: create account → link bank → place trade
+    // Step 7 submit: create account → link bank → place trade
     setLoading(true);
     try {
       const kycData = {
@@ -342,6 +351,12 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
         isAffiliatedWithExchange: isAffiliated,
         isShareholderOfPublicCompany: isShareholder,
         riskProfile,
+        trustedContact: (tcFirstName || tcLastName || tcEmail || tcPhone) ? {
+          given_name:    tcFirstName.trim() || undefined,
+          family_name:   tcLastName.trim()  || undefined,
+          email_address: tcEmail.trim()     || undefined,
+          phone_number:  tcPhone.trim()     || undefined,
+        } : undefined,
       };
 
       // 1. Create Alpaca brokerage account
@@ -353,9 +368,8 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
       const newAccountId = accountData.alpacaAccountId;
 
       // 2. Place trade (bank already linked via Plaid — achRelationshipId set in context)
-      const tradeRes = await fetch(`${API_BASE}/api/alpaca`, {
+      const tradeRes = await authFetch(`${API_BASE}/api/alpaca`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'trade',
           accountId: newAccountId,
@@ -395,9 +409,8 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
         });
         if (!result.success) { setLoading(false); return; }
       }
-      const res = await fetch(`${API_BASE}/api/alpaca`, {
+      const res = await authFetch(`${API_BASE}/api/alpaca`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'trade',
           accountId: alpacaAccountId,
@@ -760,8 +773,40 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
               </View>
             )}
 
-            {/* ── Step 6: Bank + Amount ── */}
+            {/* ── Step 6: Trusted Contact (FINRA Rule 4512 — all fields optional) ── */}
             {step === 6 && (
+              <View style={s.fields}>
+                <Text style={s.disclosureTxt}>
+                  FINRA requires us to ask for a trusted contact person. This is someone we can
+                  reach if we're unable to contact you or have concerns about your account.
+                  All fields are optional — tap Continue to skip.
+                </Text>
+                <View>
+                  <Text style={s.label}>First name</Text>
+                  <TextInput style={s.input} value={tcFirstName} onChangeText={setTcFirstName}
+                    placeholder="Optional" placeholderTextColor={C.muted} autoCapitalize="words" />
+                </View>
+                <View>
+                  <Text style={s.label}>Last name</Text>
+                  <TextInput style={s.input} value={tcLastName} onChangeText={setTcLastName}
+                    placeholder="Optional" placeholderTextColor={C.muted} autoCapitalize="words" />
+                </View>
+                <View>
+                  <Text style={s.label}>Email</Text>
+                  <TextInput style={s.input} value={tcEmail} onChangeText={setTcEmail}
+                    placeholder="Optional" placeholderTextColor={C.muted}
+                    keyboardType="email-address" autoCapitalize="none" />
+                </View>
+                <View>
+                  <Text style={s.label}>Phone</Text>
+                  <TextInput style={s.input} value={tcPhone} onChangeText={setTcPhone}
+                    placeholder="Optional" placeholderTextColor={C.muted} keyboardType="phone-pad" />
+                </View>
+              </View>
+            )}
+
+            {/* ── Step 7: Bank + Amount ── */}
+            {step === 7 && (
               <View style={s.fields}>
 
                 {/* Plaid connect */}
@@ -870,7 +915,7 @@ export default function InvestScreen({ visible, stock, onClose, onSuccess }) {
             {loading
               ? <ActivityIndicator color="#FFF" />
               : <Text style={s.nextBtnTxt}>
-                  {step === TOTAL_KYC_STEPS ? `⚡ Invest $${amount} in ${stock.symbol}` : 'Continue →'}
+                  {step === TOTAL_KYC_STEPS ? `⚡ Invest $${amount} in ${stock?.symbol}` : step === 6 ? 'Continue (or skip →)' : 'Continue →'}
                 </Text>
             }
           </TouchableOpacity>

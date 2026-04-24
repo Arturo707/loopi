@@ -5,6 +5,7 @@
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { requireAuth } from '../lib/requireAuth.js';
 
 let db = null;
 try {
@@ -68,8 +69,10 @@ const getWindowInfo = () => {
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
+  const authUser = await requireAuth(req, res);
+  if (!authUser) return;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  console.log('[market-vibe] ANTHROPIC_API_KEY present:', !!apiKey, '— prefix:', apiKey ? apiKey.slice(0, 8) : 'MISSING');
 
   const { date, window: timeWindow, cacheKey } = getWindowInfo();
   const userMessage = USER_MESSAGES[timeWindow];

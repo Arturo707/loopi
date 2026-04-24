@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
+import { authFetch } from '../utils/authFetch';
 
 const API_BASE =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -35,9 +36,8 @@ export function AppProvider({ children }) {
 
   const fetchAlpacaPortfolio = async (accountId) => {
     try {
-      const res = await fetch(`${API_BASE}/api/alpaca`, {
+      const res = await authFetch(`${API_BASE}/api/alpaca`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'portfolio', accountId }),
       });
       const data = await res.json();
@@ -121,9 +121,8 @@ export function AppProvider({ children }) {
   const createAlpacaAccount = async (profileData) => {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error('Not authenticated');
-    const response = await fetch(`${API_BASE}/api/alpaca`, {
+    const response = await authFetch(`${API_BASE}/api/alpaca`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'create-account', ...profileData }),
     });
     const data = await response.json();

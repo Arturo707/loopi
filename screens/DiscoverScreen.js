@@ -10,6 +10,7 @@ import { useApp } from '../context/AppContext';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
 import InvestScreen from './InvestScreen';
+import { authFetch } from '../utils/authFetch';
 
 // ─── API endpoints ────────────────────────────────────────────────────────────
 
@@ -366,7 +367,7 @@ export default function DiscoverScreen() {
     loopiScoresRef.current[symbol] = 'loading';
     setLoopiScores((prev) => ({ ...prev, [symbol]: 'loading' }));
     try {
-      const res  = await fetch(`${SCORE_API}?ticker=${symbol}`);
+      const res  = await authFetch(`${SCORE_API}?ticker=${symbol}`);
       const data = await res.json();
       const result = res.ok ? data : null;
       loopiScoresRef.current[symbol] = result;
@@ -388,9 +389,8 @@ export default function DiscoverScreen() {
   const rankItems = useCallback(async (items) => {
     setRankingStatus('ranking');
     try {
-      const rankRes = await fetch(RANK_API, {
+      const rankRes = await authFetch(RANK_API, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ items, riskProfile, age, incomeRange, experience }),
       });
       if (!rankRes.ok) { setRankingStatus('done'); return; }
@@ -423,7 +423,7 @@ export default function DiscoverScreen() {
 
   const fetchFeed = useCallback(async () => {
     try {
-      const res  = await fetch(FEED_API);
+      const res  = await authFetch(FEED_API);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       const items = data.items ?? data;
@@ -455,7 +455,7 @@ export default function DiscoverScreen() {
   const fetchMore = useCallback(async () => {
     setLoadingMore(true);
     try {
-      const res  = await fetch(FEED_API);
+      const res  = await authFetch(FEED_API);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
@@ -464,9 +464,8 @@ export default function DiscoverScreen() {
       const freshItems = allItems.filter((s) => !seenSymbols.current.has(s.symbol));
       if (freshItems.length === 0) return;
 
-      const rankRes = await fetch(RANK_API, {
+      const rankRes = await authFetch(RANK_API, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ items: freshItems, riskProfile, age, incomeRange, experience }),
       });
       if (!rankRes.ok) return;

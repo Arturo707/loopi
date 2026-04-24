@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
+import { authFetch } from '../utils/authFetch';
 
 const API_BASE =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -107,14 +108,14 @@ export default function DashboardScreen({ navigation }) {
   const [feedLoaded,    setFeedLoaded]    = useState(false);
   useEffect(() => {
     // Market Pulse
-    fetch(`${API_BASE}/api/market-vibe`)
+    authFetch(`${API_BASE}/api/market-vibe`)
       .then((r) => r.json())
       .then((data) => { if (data.vibe) setMarketVibe(data.vibe); })
       .catch(() => {})
       .finally(() => setVibeLoading(false));
 
     // For You Today — live top 5
-    fetch(`${API_BASE}/api/market-feed`)
+    authFetch(`${API_BASE}/api/market-feed`)
       .then((r) => r.json())
       .then((data) => {
         const items = data.items ?? data;

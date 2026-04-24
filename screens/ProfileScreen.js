@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { C } from '../constants/colors';
@@ -75,6 +75,27 @@ export default function ProfileScreen() {
           </View>
           <ScrollView style={s.modalScroll} contentContainerStyle={s.modalContent}>
             <Text style={s.modalBody}>{DISCLAIMER}</Text>
+
+            <Text style={s.modalSectionTitle}>Alpaca Brokerage Disclosures</Text>
+            <Text style={s.modalNote}>
+              Securities services are provided by Alpaca Securities LLC, member FINRA/SIPC.
+              Please review the following documents before investing:
+            </Text>
+            {[
+              { label: 'Use and Risk Disclosure',              url: 'https://files.alpaca.markets/disclosures/library/UseAndRiskDisclosure.pdf' },
+              { label: 'Privacy Notice',                       url: 'https://files.alpaca.markets/disclosures/library/PrivacyNotice.pdf' },
+              { label: 'Payment for Order Flow (PFOF)',        url: 'https://files.alpaca.markets/disclosures/library/PFOF.pdf' },
+              { label: 'Margin Disclosure Statement',          url: 'https://files.alpaca.markets/disclosures/library/MarginDisclosureStatement.pdf' },
+              { label: 'Extended Hours Trading Risk',          url: 'https://files.alpaca.markets/disclosures/library/ExtendedHoursDisclosure.pdf' },
+              { label: 'Business Continuity Plan Summary',     url: 'https://files.alpaca.markets/disclosures/library/BCP.pdf' },
+              { label: 'Form CRS (Customer Relationship Summary)', url: 'https://files.alpaca.markets/disclosures/library/FormCRS.pdf' },
+              { label: 'Customer Agreement',                   url: 'https://files.alpaca.markets/disclosures/customer_agreement.pdf' },
+              { label: 'Account Agreement',                    url: 'https://files.alpaca.markets/disclosures/account_agreement.pdf' },
+            ].map(({ label, url }) => (
+              <TouchableOpacity key={label} style={s.disclosureLink} onPress={() => Linking.openURL(url)} activeOpacity={0.7}>
+                <Text style={s.disclosureLinkTxt}>{label} ↗</Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
         </SafeAreaView>
       </Modal>
@@ -145,5 +166,19 @@ const s = StyleSheet.create({
   modalBody: {
     fontSize: 14, fontFamily: F.regular, color: C.sub,
     lineHeight: 22, letterSpacing: 0.1,
+  },
+  modalSectionTitle: {
+    fontSize: 15, fontFamily: F.bold, color: C.text,
+    marginTop: 28, marginBottom: 8,
+  },
+  modalNote: {
+    fontSize: 13, fontFamily: F.regular, color: C.muted,
+    lineHeight: 20, marginBottom: 12,
+  },
+  disclosureLink: {
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.border,
+  },
+  disclosureLinkTxt: {
+    fontSize: 14, fontFamily: F.medium, color: C.orange,
   },
 });

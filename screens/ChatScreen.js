@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { C } from '../constants/colors';
 import { F } from '../constants/fonts';
+import { authFetch } from '../utils/authFetch';
 
 const API_BASE =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -39,8 +40,8 @@ export default function ChatScreen() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API_BASE}/api/market-vibe`).then((r) => r.json()).catch(() => ({})),
-      fetch(`${API_BASE}/api/market-feed`).then((r) => r.json()).catch(() => ({})),
+      authFetch(`${API_BASE}/api/market-vibe`).then((r) => r.json()).catch(() => ({})),
+      authFetch(`${API_BASE}/api/market-feed`).then((r) => r.json()).catch(() => ({})),
     ]).then(([vibeData, feedData]) => {
       if (vibeData.vibe) setMarketVibe(vibeData.vibe);
       const items = feedData.items ?? (Array.isArray(feedData) ? feedData : []);
@@ -113,9 +114,8 @@ export default function ChatScreen() {
         .filter((m) => m.id !== STARTER_ID)
         .map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
 
-      const res = await fetch(`${API_BASE}/api/chat`, {
+      const res = await authFetch(`${API_BASE}/api/chat`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ messages: history, systemPrompt: buildSystem() }),
       });
       const data = await res.json();

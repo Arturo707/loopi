@@ -1,4 +1,5 @@
 import { Configuration, PlaidApi, PlaidEnvironments, Products, CountryCode } from 'plaid';
+import { requireAuth } from '../../lib/requireAuth.js';
 
 const config = new Configuration({
   basePath: PlaidEnvironments[process.env.PLAID_ENV],
@@ -16,6 +17,9 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  const authUser = await requireAuth(req, res);
+  if (!authUser) return;
 
   try {
     const { userId, user_id } = req.body;

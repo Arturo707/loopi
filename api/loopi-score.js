@@ -6,6 +6,7 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { computeScore } from '../lib/loopi-score-core.js';
+import { requireAuth } from '../lib/requireAuth.js';
 
 // Serve cached scores for up to 24h — the cron job refreshes every 30min,
 // so this generous TTL avoids live Claude calls between cron runs.
@@ -33,6 +34,9 @@ try {
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  const authUser = await requireAuth(req, res);
+  if (!authUser) return;
 
   const ticker = (req.query.ticker || '').toUpperCase().trim();
   if (!ticker) return res.status(400).json({ error: 'ticker query param required' });

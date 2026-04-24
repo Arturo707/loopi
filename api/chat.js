@@ -5,8 +5,13 @@
 // POST ?mode=generate-tip { symbol, name, price, changePct, age?, incomeRange?, experience? }
 //                                              → { indicator, tip }
 
+import { requireAuth } from '../lib/requireAuth.js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const authUser = await requireAuth(req, res);
+  if (!authUser) return;
 
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });

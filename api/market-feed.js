@@ -1,6 +1,7 @@
 // v9 - FMP feed + Loopi Scores attached from Firestore cache
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { requireAuth } from '../lib/requireAuth.js';
 
 const SCORE_TTL_MS = 15 * 60 * 1000;
 
@@ -68,6 +69,9 @@ export default async function handler(req, res) {
   Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  const authUser = await requireAuth(req, res);
+  if (!authUser) return;
 
   const key = process.env.FMP_API_KEY;
   if (!key) return res.status(500).json({ error: 'FMP_API_KEY not configured' });

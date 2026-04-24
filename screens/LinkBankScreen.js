@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { db } from '../config/firebase';
 import useBiometricAuth from '../hooks/useBiometricAuth';
+import { authFetch } from '../utils/authFetch';
 
 // Safe require — native SDK is unavailable on web; catch prevents bundler crash
 let plaidCreate = null;
@@ -61,9 +62,8 @@ export default function LinkBankScreen({ navigation }) {
     console.log('[LinkBank] create-link-token request:', JSON.stringify(requestBody));
 
     try {
-      const res = await fetch(`${API_BASE}/api/plaid/create-link-token`, {
+      const res = await authFetch(`${API_BASE}/api/plaid/create-link-token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
       });
       const data = await res.json();
@@ -84,9 +84,8 @@ export default function LinkBankScreen({ navigation }) {
     setExchanging(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/plaid/exchange-token`, {
+      const res = await authFetch(`${API_BASE}/api/plaid/exchange-token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           public_token:       publicToken,
           account_id:         accountId,
